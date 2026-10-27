@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowDownToLine, ArrowUpFromLine, Boxes, Check, ChevronDown, ClipboardCheck, Layers3, Plus, Search, Scissors, X } from 'lucide-react';
 
 const seedMaterials = [
@@ -9,11 +9,18 @@ const seedMaterials = [
   { id: 'MAT-005', name: 'Travertin — otpad', type: 'Otpad', form: 'Otpad', thickness: 2, length: 0, width: 0, quantity: 6, unit: 'kom', location: 'Kontejner', min: 0, note: 'Za zbrinjavanje' }
 ];
 
+const MATERIALS_KEY = 'kamen-app-materials-v1';
+const MOVEMENTS_KEY = 'kamen-app-movements-v1';
+function readStored(key, fallback) {
+  try { const saved = window.localStorage.getItem(key); return saved ? JSON.parse(saved) : fallback; }
+  catch { return fallback; }
+}
+
 const emptyForm = { name: '', type: 'Kamen', form: 'Ploča', thickness: '3', length: '', width: '', quantity: '1', unit: 'ploča', location: '', min: '1', note: '' };
 
 export default function WarehouseModule({ onBack }) {
-  const [materials, setMaterials] = useState(seedMaterials);
-  const [movements, setMovements] = useState([]);
+  const [materials, setMaterials] = useState(() => readStored(MATERIALS_KEY, seedMaterials));
+  const [movements, setMovements] = useState(() => readStored(MOVEMENTS_KEY, []));
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('Sve');
   const [showForm, setShowForm] = useState(false);
@@ -23,6 +30,9 @@ export default function WarehouseModule({ onBack }) {
   const [cutForm, setCutForm] = useState({ sourceId: 'MAT-001', usedQty: '1', resultType: 'Ostatak', resultName: '', length: '', width: '', location: 'Polica O1', note: '' });
   const [movementQty, setMovementQty] = useState('1');
   const [toast, setToast] = useState('');
+
+  useEffect(() => { try { window.localStorage.setItem(MATERIALS_KEY, JSON.stringify(materials)); } catch { /* Browser storage may be disabled or full. */ } }, [materials]);
+  useEffect(() => { try { window.localStorage.setItem(MOVEMENTS_KEY, JSON.stringify(movements)); } catch { /* Browser storage may be disabled or full. */ } }, [movements]);
 
   const filtered = useMemo(() => materials.filter(item => {
     const matchesQuery = [item.id, item.name, item.location, item.type].join(' ').toLowerCase().includes(query.toLowerCase());
@@ -46,7 +56,7 @@ export default function WarehouseModule({ onBack }) {
     setMaterials(current => [next, ...current]);
     setShowForm(false);
     setForm(emptyForm);
-    flash('Materijal je dodan u oglednu evidenciju.');
+    flash('Materijal je dodan u skladišnu evidenciju.');
   }
 
   function saveCut(event) {
@@ -126,7 +136,7 @@ export default function WarehouseModule({ onBack }) {
 
 
       {showCut && <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setShowCut(false); }}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="cut-modal-title"><div className="modal-head"><div><span className="modal-kicker">PROIZVODNJA · SKLADIŠTE</span><h2 id="cut-modal-title">Evidentiraj pilanje</h2><p>Utroši ulazni materijal i evidentiraj nastali ostatak ili otpad.</p></div><button className="icon-button" onClick={() => setShowCut(false)} aria-label="Zatvori"><X size={19}/></button></div><form onSubmit={saveCut}><label>Ulazni materijal<select value={cutForm.sourceId} onChange={e => setCutForm(current => ({ ...current, sourceId: e.target.value }))}>{materials.filter(item => item.form === 'Ploča' && item.quantity > 0).map(item => <option key={item.id} value={item.id}>{item.name} — {item.quantity} {item.unit} dostupno</option>)}</select></label><div className="form-row"><label>Utrošeno ploča<input type="number" min="1" step="1" value={cutForm.usedQty} onChange={e => setCutForm(current => ({ ...current, usedQty: e.target.value }))} required/></label><label>Nastali materijal<select value={cutForm.resultType} onChange={e => setCutForm(current => ({ ...current, resultType: e.target.value }))}><option>Ostatak</option><option>Otpad</option></select></label></div><label>Naziv ostatka / otpada<input value={cutForm.resultName} onChange={e => setCutForm(current => ({ ...current, resultName: e.target.value }))} placeholder="Automatski ako ostaviš prazno"/></label><div className="form-row"><label>Dužina ostatka (cm)<input type="number" min="0" value={cutForm.length} onChange={e => setCutForm(current => ({ ...current, length: e.target.value }))}/></label><label>Širina ostatka (cm)<input type="number" min="0" value={cutForm.width} onChange={e => setCutForm(current => ({ ...current, width: e.target.value }))}/></label></div><label>Lokacija ostatka / otpada<input value={cutForm.location} onChange={e => setCutForm(current => ({ ...current, location: e.target.value }))} required/></label><label>Napomena<input value={cutForm.note} onChange={e => setCutForm(current => ({ ...current, note: e.target.value }))} placeholder="Npr. nastalo pri izradi stepenice"/></label><div className="modal-note"><Scissors size={16}/><span>Prototip evidentira jednu izlaznu stavku po postupku. Dimenzije i količine provjeri prije stvarnog korištenja.</span></div><div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setShowCut(false)}>Odustani</button><button type="submit" className="button button-primary"><Check size={16}/> Evidentiraj pilanje</button></div></form></section></div>}
-      {movement && <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setMovement(null); }}><section className="modal movement-modal" role="dialog" aria-modal="true" aria-labelledby="movement-title"><div className="modal-head"><div><span className="modal-kicker">SKLADIŠNO KRETANJE</span><h2 id="movement-title">{movement.kind}</h2><p>{materials.find(row => row.id === movement.id)?.name}</p></div><button className="icon-button" onClick={() => setMovement(null)} aria-label="Zatvori"><X size={19}/></button></div><form onSubmit={saveMovement}><label>Količina<input type="number" min="1" step="1" value={movementQty} onChange={e => setMovementQty(e.target.value)} required/></label><div className="modal-note"><ClipboardCheck size={16}/><span>Trenutna količina: {materials.find(row => row.id === movement.id)?.quantity}. Ovo je privremena evidencija.</span></div><div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setMovement(null)}>Odustani</button><button type="submit" className="button button-primary"><Check size={16}/> Potvrdi</button></div></form></section></div>}
+      {movement && <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setMovement(null); }}><section className="modal movement-modal" role="dialog" aria-modal="true" aria-labelledby="movement-title"><div className="modal-head"><div><span className="modal-kicker">SKLADIŠNO KRETANJE</span><h2 id="movement-title">{movement.kind}</h2><p>{materials.find(row => row.id === movement.id)?.name}</p></div><button className="icon-button" onClick={() => setMovement(null)} aria-label="Zatvori"><X size={19}/></button></div><form onSubmit={saveMovement}><label>Količina<input type="number" min="1" step="1" value={movementQty} onChange={e => setMovementQty(e.target.value)} required/></label><div className="modal-note"><ClipboardCheck size={16}/><span>Trenutna količina: {materials.find(row => row.id === movement.id)?.quantity}. Podaci se spremaju u ovu preglednicu.</span></div><div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setMovement(null)}>Odustani</button><button type="submit" className="button button-primary"><Check size={16}/> Potvrdi</button></div></form></section></div>}
       {toast && <div className="toast"><Check size={17}/>{toast}<button onClick={() => setToast('')} aria-label="Zatvori poruku"><X size={15}/></button></div>}
     </div>
   );
