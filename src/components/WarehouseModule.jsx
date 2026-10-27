@@ -28,7 +28,10 @@ export default function WarehouseModule({ onBack }) {
   const [form, setForm] = useState(emptyForm);
   const [movement, setMovement] = useState(null);
   const [showCut, setShowCut] = useState(false);
-  const [cutForm, setCutForm] = useState({ sourceId: 'MAT-001', orderId: '', usedQty: '1', resultType: 'Ostatak', resultName: '', length: '', width: '', location: 'Polica O1', note: '' });
+  const sourceThicknessForCut = (items, id) => items.find(item => item.id === id)?.thickness ?? 0;
+const newOutput = () => ({ id: 'OUT-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7), name: '', type: 'Gotov komad', length: '', width: '', thickness: '', quantity: '1', location: 'Polica O1', note: '' });
+  const initialCutForm = () => ({ sourceId: 'MAT-001', orderId: '', usedQty: '1', note: '', outputs: [newOutput()] });
+  const [cutForm, setCutForm] = useState(initialCutForm);
   const availableOrders = readStored(WORK_ORDERS_KEY, []).filter(order => order.status !== 'Završen');
   const [movementQty, setMovementQty] = useState('1');
   const [toast, setToast] = useState('');
@@ -45,6 +48,9 @@ export default function WarehouseModule({ onBack }) {
   const lowStock = materials.filter(item => item.form !== 'Otpad' && item.quantity <= item.min).length;
   const remnants = materials.filter(item => item.form === 'Ostatak').length;
   const updateForm = (key, value) => setForm(current => ({ ...current, [key]: value }));
+  const updateCutOutput = (id, key, value) => setCutForm(current => ({ ...current, outputs: current.outputs.map(output => output.id === id ? { ...output, [key]: value } : output) }));
+  const addCutOutput = () => setCutForm(current => ({ ...current, outputs: [...current.outputs, { ...newOutput(), location: current.outputs[0]?.location || 'Polica O1' }] }));
+  const removeCutOutput = id => setCutForm(current => ({ ...current, outputs: current.outputs.length > 1 ? current.outputs.filter(output => output.id !== id) : current.outputs }));
   const flash = message => { setToast(message); window.setTimeout(() => setToast(''), 2800); };
 
   function addMaterial(event) {
@@ -69,23 +75,53 @@ export default function WarehouseModule({ onBack }) {
       flash('Provjeri ulazni materijal i količinu za pilanje.');
       return;
     }
-    if (!cutForm.location.trim()) { flash('Unesi lokaciju ostatka ili otpada.'); return; }
-    const linkedOrder = cutForm.orderId ? availableOrders.find(order => order.id === cutForm.orderId) : null;
+    if (!cutForm.outputs.length || cutForm.outputs.some(output =>
+      !output.name.trim() || !Number.isInteger(Number(output.quantity)) || Number(output.quantity) < 1 ||
+      Number(output.length) < 0 || Number(output.width) < 0 || Number(output.thickness) < 0 ||
+      !output.location.trim() || output.length === '' || output.width === '' || output.thickness === ''
+    )) {
+      flash('Za svaki izlazni komad unesi naziv, cijelu količinu, dimenzije i lokaciju.');
+      return;
+    }
+    const linkedOrder = cutForm.orderId ? readStored(WORK_ORDERS_KEY, []).find(order => order.id === cutForm.orderId && order.status !== 'Završen') : null;
     if (cutForm.orderId && !linkedOrder) { flash('Odabrani radni nalog više nije dostupan. Osvježi prikaz i pokušaj ponovno.'); return; }
-    const resultName = cutForm.resultName.trim() || source.name + (cutForm.resultType === 'Otpad' ? ' — otpad' : ' — ostatak');
-    const result = {
-      id: 'MAT-' + String(Date.now()).slice(-6), name: resultName, type: cutForm.resultType === 'Otpad' ? 'Otpad' : source.type,
-      form: cutForm.resultType, thickness: source.thickness, length: Number(cutForm.length) || 0, width: Number(cutForm.width) || 0,
-      quantity: 1, unit: 'kom', location: cutForm.location.trim(), min: 0,
+    const timestamp = Date.now();
+    const date = new Date().toLocaleDateString('hr-HR');
+    const outputMaterials = cutForm.outputs.map((output, index) => {
+      const kind = output.type;
+      const formType = kind === 'Ostatak' ? 'Ostatak' : kind === 'Otpad' ? 'Otpad' : 'Komad';
+      const materialType = kind === 'Otpad' ? 'Otpad' : source.type;
+      return {
+        id: 'MAT-' + String(timestamp + index).slice(-6),
+        name: output.name.trim(),
+        type: materialType,
+        form: formType,
+        thickness: Number(output.thickness),
+        length: Number(output.length),
+        width: Number(output.width),
+        quantity: Number(output.quantity),
+        unit: 'kom',
+        location: output.location.trim(),
+        min: 0,
+        orderId: linkedOrder?.id || '',
+        note: [output.note.trim(), linkedOrder ? 'Radni nalog ' + linkedOrder.id : '', 'Nastalo pilanjem materijala ' + source.id].filter(Boolean).join(' · ')
+      };
+    });
+    setMaterials(current => [...current.map(item => item.id === source.id ? { ...item, quantity: item.quantity - usedQty } : item), ...outputMaterials]);
+    const outputMovements = outputMaterials.map((item, index) => ({
+      id: timestamp + index + 2,
+      material: item.name,
+      kind: item.form === 'Otpad' ? 'Nastali otpad' : item.form === 'Ostatak' ? 'Nastali ostatak' : 'Gotov komad',
+      quantity: item.quantity,
+      location: item.location,
       orderId: linkedOrder?.id || '',
-      note: [cutForm.note.trim(), linkedOrder ? 'Radni nalog ' + linkedOrder.id : '', 'Nastalo pilanjem materijala ' + source.id].filter(Boolean).join(' · ')
-    };
-    setMaterials(current => [...current.map(item => item.id === source.id ? { ...item, quantity: item.quantity - usedQty } : item), result]);
+      date
+    }));
     setMovements(current => [
-      { id: Date.now() + 1, material: source.name, kind: 'Utrošak za pilanje', quantity: usedQty, location: source.location, orderId: linkedOrder?.id || '', date: new Date().toLocaleDateString('hr-HR') },
-      { id: Date.now() + 2, material: resultName, kind: cutForm.resultType === 'Otpad' ? 'Nastali otpad' : 'Nastali ostatak', quantity: 1, location: cutForm.location.trim(), orderId: linkedOrder?.id || '', date: new Date().toLocaleDateString('hr-HR') },
+      { id: timestamp + 1, material: source.name, kind: 'Utrošak za pilanje', quantity: usedQty, location: source.location, orderId: linkedOrder?.id || '', date },
+      ...outputMovements,
       ...current
-    ].slice(0, 8));
+    ].slice(0, 30));
     if (linkedOrder) {
       try {
         const currentOrders = JSON.parse(window.localStorage.getItem(WORK_ORDERS_KEY) || '[]');
@@ -93,8 +129,8 @@ export default function WarehouseModule({ onBack }) {
       } catch { /* The cutting record remains saved locally even if order status cannot be updated. */ }
     }
     setShowCut(false);
-    setCutForm({ sourceId: 'MAT-001', orderId: '', usedQty: '1', resultType: 'Ostatak', resultName: '', length: '', width: '', location: 'Polica O1', note: '' });
-    flash(linkedOrder ? 'Pilanje je evidentirano, a nalog ' + linkedOrder.id + ' prebačen je na kontrolu.' : 'Pilanje je evidentirano; ulazna zaliha i ostatak su ažurirani.');
+    setCutForm(initialCutForm());
+    flash('Pilanje evidentirano: ' + outputMaterials.length + ' izlaznih stavki dodano je u skladište.');
   }
 
   function saveMovement(event) {
@@ -146,7 +182,7 @@ export default function WarehouseModule({ onBack }) {
       {showForm && <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setShowForm(false); }}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="warehouse-modal-title"><div className="modal-head"><div><span className="modal-kicker">SKLADIŠTE</span><h2 id="warehouse-modal-title">Novi materijal</h2><p>Unesi osnovne podatke o zalihi.</p></div><button className="icon-button" onClick={() => setShowForm(false)} aria-label="Zatvori"><X size={19}/></button></div><form onSubmit={addMaterial}><label>Naziv materijala<input autoFocus value={form.name} onChange={e => updateForm('name', e.target.value)} placeholder="Npr. Jadranski kamen" required/></label><div className="form-row"><label>Vrsta<select value={form.type} onChange={e => updateForm('type', e.target.value)}><option>Kamen</option><option>Granit</option><option>Mramor</option><option>Ostalo</option><option>Otpad</option></select></label><label>Oblik stavke<select value={form.form} onChange={e => updateForm('form', e.target.value)}><option>Ploča</option><option>Komad</option><option>Ostatak</option><option>Otpad</option></select></label></div><div className="form-row"><label>Debljina (cm)<input type="number" min="0" step="0.1" value={form.thickness} onChange={e => updateForm('thickness', e.target.value)}/></label><label>Količina<input type="number" min="0" step="1" value={form.quantity} onChange={e => updateForm('quantity', e.target.value)} required/></label></div><div className="form-row"><label>Dužina (cm)<input type="number" min="0" value={form.length} onChange={e => updateForm('length', e.target.value)}/></label><label>Širina (cm)<input type="number" min="0" value={form.width} onChange={e => updateForm('width', e.target.value)}/></label></div><div className="form-row"><label>Jedinica<select value={form.unit} onChange={e => updateForm('unit', e.target.value)}><option>ploča</option><option>kom</option><option>m²</option><option>m³</option></select></label><label>Minimalna zaliha<input type="number" min="0" value={form.min} onChange={e => updateForm('min', e.target.value)}/></label></div><label>Lokacija u skladištu<input value={form.location} onChange={e => updateForm('location', e.target.value)} placeholder="Npr. Stalak C1" required/></label><label>Napomena<input value={form.note} onChange={e => updateForm('note', e.target.value)} placeholder="Opcionalno"/></label><div className="modal-note"><ClipboardCheck size={16}/><span>Unos je privremen i služi za provjeru sučelja. Ne sprema se u bazu.</span></div><div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setShowForm(false)}>Odustani</button><button type="submit" className="button button-primary"><Plus size={16}/> Dodaj materijal</button></div></form></section></div>}
 
 
-      {showCut && <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setShowCut(false); }}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="cut-modal-title"><div className="modal-head"><div><span className="modal-kicker">PROIZVODNJA · SKLADIŠTE</span><h2 id="cut-modal-title">Evidentiraj pilanje</h2><p>Utroši ulazni materijal i evidentiraj nastali ostatak ili otpad.</p></div><button className="icon-button" onClick={() => setShowCut(false)} aria-label="Zatvori"><X size={19}/></button></div><form onSubmit={saveCut}><label>Radni nalog (nije obavezno)<select value={cutForm.orderId} onChange={e => setCutForm(current => ({ ...current, orderId: e.target.value }))}><option value="">Bez povezivanja s nalogom</option>{availableOrders.map(order => <option key={order.id} value={order.id}>{order.id} — {order.project} · {order.customer}</option>)}</select></label>{cutForm.orderId && availableOrders.find(order => order.id === cutForm.orderId) && <div className="modal-note"><ClipboardCheck size={16}/><span>{availableOrders.find(order => order.id === cutForm.orderId).material} · {availableOrders.find(order => order.id === cutForm.orderId).pieces.reduce((sum, piece) => sum + Number(piece.quantity || 0), 0)} komada po nacrtu. Nakon evidentiranja pilanja nalog prelazi na „Čeka kontrolu”.</span></div>}<label>Ulazni materijal<select value={cutForm.sourceId} onChange={e => setCutForm(current => ({ ...current, sourceId: e.target.value }))}>{materials.filter(item => item.form === 'Ploča' && item.quantity > 0).map(item => <option key={item.id} value={item.id}>{item.name} — {item.quantity} {item.unit} dostupno</option>)}</select></label><div className="form-row"><label>Utrošeno ploča<input type="number" min="1" step="1" value={cutForm.usedQty} onChange={e => setCutForm(current => ({ ...current, usedQty: e.target.value }))} required/></label><label>Nastali materijal<select value={cutForm.resultType} onChange={e => setCutForm(current => ({ ...current, resultType: e.target.value }))}><option>Ostatak</option><option>Otpad</option></select></label></div><label>Naziv ostatka / otpada<input value={cutForm.resultName} onChange={e => setCutForm(current => ({ ...current, resultName: e.target.value }))} placeholder="Automatski ako ostaviš prazno"/></label><div className="form-row"><label>Dužina ostatka (cm)<input type="number" min="0" value={cutForm.length} onChange={e => setCutForm(current => ({ ...current, length: e.target.value }))}/></label><label>Širina ostatka (cm)<input type="number" min="0" value={cutForm.width} onChange={e => setCutForm(current => ({ ...current, width: e.target.value }))}/></label></div><label>Lokacija ostatka / otpada<input value={cutForm.location} onChange={e => setCutForm(current => ({ ...current, location: e.target.value }))} required/></label><label>Napomena<input value={cutForm.note} onChange={e => setCutForm(current => ({ ...current, note: e.target.value }))} placeholder="Npr. nastalo pri izradi stepenice"/></label><div className="modal-note"><Scissors size={16}/><span>Povezani nalog prelazi na kontrolu nakon evidentiranja. Ovaj prototip još bilježi jednu izlaznu stavku po postupku.</span></div><div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setShowCut(false)}>Odustani</button><button type="submit" className="button button-primary"><Check size={16}/> Evidentiraj pilanje</button></div></form></section></div>}
+      {showCut && <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setShowCut(false); }}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="cut-modal-title"><div className="modal-head"><div><span className="modal-kicker">PROIZVODNJA · SKLADIŠTE</span><h2 id="cut-modal-title">Evidentiraj pilanje</h2><p>Utroši ulazni materijal i evidentiraj nastali ostatak ili otpad.</p></div><button className="icon-button" onClick={() => setShowCut(false)} aria-label="Zatvori"><X size={19}/></button></div><form onSubmit={saveCut}><label>Radni nalog (nije obavezno)<select value={cutForm.orderId} onChange={e => setCutForm(current => ({ ...current, orderId: e.target.value }))}><option value="">Bez povezivanja s nalogom</option>{availableOrders.map(order => <option key={order.id} value={order.id}>{order.id} — {order.project} · {order.customer}</option>)}</select></label>{cutForm.orderId && availableOrders.find(order => order.id === cutForm.orderId) && <div className="modal-note"><ClipboardCheck size={16}/><span>{availableOrders.find(order => order.id === cutForm.orderId).material} · {availableOrders.find(order => order.id === cutForm.orderId).pieces.reduce((sum, piece) => sum + Number(piece.quantity || 0), 0)} komada po nacrtu. Nakon evidentiranja pilanja nalog prelazi na „Čeka kontrolu”.</span></div>}<label>Ulazni materijal<select value={cutForm.sourceId} onChange={e => setCutForm(current => ({ ...current, sourceId: e.target.value }))}>{materials.filter(item => item.form === 'Ploča' && item.quantity > 0).map(item => <option key={item.id} value={item.id}>{item.name} — {item.quantity} {item.unit} dostupno</option>)}</select></label><div className="form-row"><label>Utrošeno ploča<input type="number" min="1" step="1" value={cutForm.usedQty} onChange={e => setCutForm(current => ({ ...current, usedQty: e.target.value }))} required/></label><label>Napomena za postupak<input value={cutForm.note} onChange={e => setCutForm(current => ({ ...current, note: e.target.value }))} placeholder="Opcionalno"/></label></div><div className="cut-outputs-heading"><div><strong>Izlazne stavke</strong><p>Dodaj svaki gotov komad, upotrebljivi ostatak ili otpad.</p></div><button type="button" className="button button-secondary" onClick={addCutOutput}><Plus size={15}/> Dodaj stavku</button></div>{cutForm.outputs.map((output, index) => <section className="cut-output-card" key={output.id}><div className="cut-output-card-head"><strong>Izlazna stavka {index + 1}</strong>{cutForm.outputs.length > 1 && <button type="button" className="icon-button" onClick={() => removeCutOutput(output.id)} aria-label={'Ukloni izlaznu stavku ' + (index + 1)}><X size={16}/></button>}</div><label>Naziv komada / ostatka / otpada<input value={output.name} onChange={e => updateCutOutput(output.id, 'name', e.target.value)} placeholder="Npr. Gazište 1 ili ostatak Bračkog kamena" required/></label><div className="form-row"><label>Vrsta stavke<select value={output.type} onChange={e => updateCutOutput(output.id, 'type', e.target.value)}><option>Gotov komad</option><option>Ostatak</option><option>Otpad</option></select></label><label>Količina (kom)<input type="number" min="1" step="1" value={output.quantity} onChange={e => updateCutOutput(output.id, 'quantity', e.target.value)} required/></label></div><div className="form-row"><label>Dužina (cm)<input type="number" min="0" step="0.1" value={output.length} onChange={e => updateCutOutput(output.id, 'length', e.target.value)} required/></label><label>Širina (cm)<input type="number" min="0" step="0.1" value={output.width} onChange={e => updateCutOutput(output.id, 'width', e.target.value)} required/></label></div><div className="form-row"><label>Debljina (cm)<input type="number" min="0" step="0.1" value={output.thickness || sourceThicknessForCut(materials, cutForm.sourceId)} onChange={e => updateCutOutput(output.id, 'thickness', e.target.value)} required/></label><label>Lokacija<input value={output.location} onChange={e => updateCutOutput(output.id, 'location', e.target.value)} required/></label></div><label>Napomena<input value={output.note} onChange={e => updateCutOutput(output.id, 'note', e.target.value)} placeholder="Opcionalno"/></label></section>)}<div className="modal-note"><Scissors size={16}/><span>Možeš evidentirati više izlaznih stavki u jednom postupku. Količina ulaznih ploča smanjuje se jednom, a svaka izlazna stavka zasebno se dodaje u skladište.</span></div><div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setShowCut(false)}>Odustani</button><button type="submit" className="button button-primary"><Check size={16}/> Evidentiraj pilanje</button></div></form></section></div>}
       {movement && <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setMovement(null); }}><section className="modal movement-modal" role="dialog" aria-modal="true" aria-labelledby="movement-title"><div className="modal-head"><div><span className="modal-kicker">SKLADIŠNO KRETANJE</span><h2 id="movement-title">{movement.kind}</h2><p>{materials.find(row => row.id === movement.id)?.name}</p></div><button className="icon-button" onClick={() => setMovement(null)} aria-label="Zatvori"><X size={19}/></button></div><form onSubmit={saveMovement}><label>Količina<input type="number" min="1" step="1" value={movementQty} onChange={e => setMovementQty(e.target.value)} required/></label><div className="modal-note"><ClipboardCheck size={16}/><span>Trenutna količina: {materials.find(row => row.id === movement.id)?.quantity}. Podaci se spremaju u ovu preglednicu.</span></div><div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setMovement(null)}>Odustani</button><button type="submit" className="button button-primary"><Check size={16}/> Potvrdi</button></div></form></section></div>}
       {toast && <div className="toast"><Check size={17}/>{toast}<button onClick={() => setToast('')} aria-label="Zatvori poruku"><X size={15}/></button></div>}
     </div>
