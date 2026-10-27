@@ -11,7 +11,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  group: kamen-app-pages
   cancel-in-progress: true
 
 jobs:
@@ -24,10 +24,23 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
       - name: Install dependencies
-        run: npm install
+        run: npm ci
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
       - name: Build app
         run: npm run build
+      - name: Verify built entry point
+        run: |
+          test -f dist/index.html
+          grep -q '/Kamen-app/assets/' dist/index.html
+          if grep -q '/src/main.jsx' dist/index.html; then
+            echo "ERROR: GitHub Pages build is publishing uncompiled source."
+            exit 1
+          fi
+          echo "Built index.html references compiled Vite assets."
+          cat dist/index.html
       - name: Upload built site
         uses: actions/upload-pages-artifact@v3
         with:
