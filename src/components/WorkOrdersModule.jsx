@@ -1,16 +1,24 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ClipboardList, Plus, Search, X, CalendarDays, UserRound, Ruler, ChevronDown, CheckCircle2, Clock3, Hammer, Trash2 } from 'lucide-react';
 
 const seedOrders = [
   { id: 'RN-2026-001', customer: 'Primjer kupca d.o.o.', project: 'Kuhinjska radna ploča', material: 'Brački kamen', due: '2026-11-02', status: 'U pripremi', note: 'Provjeriti šablonu prije pilanja', pieces: [{ name: 'Radna ploča — glavni dio', length: 240, width: 62, thickness: 3, quantity: 1 }, { name: 'Bočna ploča', length: 62, width: 8, thickness: 3, quantity: 2 }] },
   { id: 'RN-2026-002', customer: 'Obitelj Horvat', project: 'Vanjske stepenice', material: 'Granit', due: '2026-11-05', status: 'U tijeku', note: '', pieces: [{ name: 'Gazište', length: 120, width: 32, thickness: 3, quantity: 8 }] }
 ];
+const STORAGE_KEY = 'kamen-app-work-orders-v1';
+function readStoredOrders() {
+  try {
+    const saved = window.localStorage.getItem(STORAGE_KEY);
+    return saved ? JSON.parse(saved) : seedOrders;
+  } catch { return seedOrders; }
+}
+
 const blankForm = { customer: '', project: '', material: '', due: '', note: '' };
 const blankPiece = () => ({ name: '', length: '', width: '', thickness: '3', quantity: '1' });
 const statuses = ['U pripremi', 'Spreman za pilanje', 'U tijeku', 'Čeka kontrolu', 'Završen'];
 
 export default function WorkOrdersModule({ onBack }) {
-  const [orders, setOrders] = useState(seedOrders);
+  const [orders, setOrders] = useState(readStoredOrders);
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('Svi statusi');
   const [showForm, setShowForm] = useState(false);
@@ -18,6 +26,7 @@ export default function WorkOrdersModule({ onBack }) {
   const [pieces, setPieces] = useState([blankPiece()]);
   const [expanded, setExpanded] = useState('RN-2026-001');
   const [error, setError] = useState('');
+  useEffect(() => { try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(orders)); } catch { /* Browser storage may be disabled or full. */ } }, [orders]);
   const filtered = useMemo(() => orders.filter(o => {
     const q = query.trim().toLowerCase();
     return (!q || [o.id, o.customer, o.project, o.material].some(v => v.toLowerCase().includes(q))) &&
@@ -64,11 +73,11 @@ export default function WorkOrdersModule({ onBack }) {
           <div className="workorder-detail-top"><div><strong>Komadi za izradu</strong><p>{order.pieces.length} stavki · ukupno {order.pieces.reduce((n,p) => n + p.quantity,0)} komada</p></div><label>Status naloga<select value={order.status} onChange={e => changeStatus(order.id, e.target.value)}>{statuses.map(s => <option key={s}>{s}</option>)}</select></label></div>
           <div className="workorder-pieces-wrap"><table className="workorder-pieces"><thead><tr><th>Opis komada</th><th>Duljina (cm)</th><th>Širina (cm)</th><th>Debljina (cm)</th><th>Količina</th></tr></thead><tbody>{order.pieces.map((p,i) => <tr key={i}><td>{p.name}</td><td>{p.length}</td><td>{p.width}</td><td>{p.thickness}</td><td>{p.quantity}</td></tr>)}</tbody></table></div>
           {order.note && <p className="workorder-note"><strong>Napomena:</strong> {order.note}</p>}
-          <div className="workorder-card-footer"><span><Hammer size={15}/> Sljedeći korak: priprema i evidentiranje pilanja</span><button className="button button-danger-light" onClick={() => removeOrder(order.id)}><Trash2 size={15}/> Ukloni ogledni nalog</button></div>
+          <div className="workorder-card-footer"><span><Hammer size={15}/> Sljedeći korak: priprema i evidentiranje pilanja</span><button className="button button-danger-light" onClick={() => removeOrder(order.id)}><Trash2 size={15}/> Ukloni nalog</button></div>
         </div>}
       </article>)}
       {!filtered.length && <div className="workorders-empty"><ClipboardList size={28}/><strong>Nema naloga za odabrani filter</strong><span>Promijeni pretragu ili izradi novi radni nalog.</span></div>}</div>
-      <p className="workorders-footnote">Napomena: trenutačno se podaci čuvaju samo dok je stranica otvorena. Trajno spremanje i veza sa skladištem još nisu uključeni.</p>
+      <p className="workorders-footnote">Radni nalozi spremaju se u ovu preglednicu. Još nisu sinkronizirani s drugim uređajima niti povezani sa skladištem.</p>
     </section>
     {showForm && <div className="workorders-modal-backdrop" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget) setShowForm(false); }}><section className="workorders-modal" role="dialog" aria-modal="true" aria-labelledby="workorders-form-title">
       <div className="workorders-modal-head"><div><span className="eyebrow">NOVI PROJEKT</span><h2 id="workorders-form-title">Izradi radni nalog</h2><p>Unesi osnovne podatke i popis komada za pilanje.</p></div><button className="icon-button" onClick={() => setShowForm(false)} aria-label="Zatvori"><X size={20}/></button></div>
