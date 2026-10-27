@@ -77,8 +77,8 @@ const newOutput = () => ({ id: 'OUT-' + Date.now() + '-' + Math.random().toStrin
     }
     if (!cutForm.outputs.length || cutForm.outputs.some(output =>
       !output.name.trim() || !Number.isInteger(Number(output.quantity)) || Number(output.quantity) < 1 ||
-      Number(output.length) < 0 || Number(output.width) < 0 || Number(output.thickness) < 0 ||
-      !output.location.trim() || output.length === '' || output.width === '' || output.thickness === ''
+      Number(output.length) < 0 || Number(output.width) < 0 || Number(output.thickness || source.thickness) <= 0 ||
+      !output.location.trim() || output.length === '' || output.width === ''
     )) {
       flash('Za svaki izlazni komad unesi naziv, cijelu količinu, dimenzije i lokaciju.');
       return;
@@ -96,7 +96,7 @@ const newOutput = () => ({ id: 'OUT-' + Date.now() + '-' + Math.random().toStrin
         name: output.name.trim(),
         type: materialType,
         form: formType,
-        thickness: Number(output.thickness),
+        thickness: Number(output.thickness || source.thickness),
         length: Number(output.length),
         width: Number(output.width),
         quantity: Number(output.quantity),
@@ -104,7 +104,7 @@ const newOutput = () => ({ id: 'OUT-' + Date.now() + '-' + Math.random().toStrin
         location: output.location.trim(),
         min: 0,
         orderId: linkedOrder?.id || '',
-        note: [output.note.trim(), linkedOrder ? 'Radni nalog ' + linkedOrder.id : '', 'Nastalo pilanjem materijala ' + source.id].filter(Boolean).join(' · ')
+        note: [cutForm.note.trim(), output.note.trim(), linkedOrder ? 'Radni nalog ' + linkedOrder.id : '', 'Nastalo pilanjem materijala ' + source.id].filter(Boolean).join(' · ')
       };
     });
     setMaterials(current => [...current.map(item => item.id === source.id ? { ...item, quantity: item.quantity - usedQty } : item), ...outputMaterials]);
