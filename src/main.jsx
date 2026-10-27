@@ -124,4 +124,27 @@ function App(){
     {toast&&<div className="toast"><CheckCircle2 size={18}/>{toast}<button onClick={()=>setToast('')} aria-label="Zatvori poruku"><X size={15}/></button></div>}
   </div>
 }
-createRoot(document.getElementById('root')).render(<App/>);
+class AppErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, message: '' };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, message: error?.message || 'Nepoznata pogreška' };
+  }
+  componentDidCatch(error) {
+    console.error('Kamen-app render error:', error);
+  }
+  render() {
+    if (this.state.hasError) {
+      return <div style={{maxWidth:600,margin:'10vh auto',padding:28,fontFamily:'system-ui,sans-serif',color:'#202b3c',background:'#fff',border:'1px solid #e3e8f0',borderRadius:16,boxShadow:'0 12px 40px #15213a12'}}>
+        <h1 style={{marginTop:0}}>Kamen-app je naišao na pogrešku</h1>
+        <p>Podaci u pregledniku nisu namjerno obrisani. Pokušaj ponovno učitati aplikaciju. Ako se pogreška ponovi, poruka ispod pomoći će nam pronaći uzrok.</p>
+        <pre style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere',padding:12,background:'#f5f7fb',borderRadius:8}}>{this.state.message}</pre>
+        <button style={{padding:'10px 16px',border:0,borderRadius:8,background:'#3468e8',color:'#fff',fontWeight:700,cursor:'pointer'}} onClick={() => window.location.reload()}>Ponovno učitaj</button>
+      </div>;
+    }
+    return this.props.children;
+  }
+}
+createRoot(document.getElementById('root')).render(<AppErrorBoundary><App /></AppErrorBoundary>);
