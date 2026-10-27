@@ -1,4 +1,5 @@
 import React from 'react';
+import WarehouseModule from './WarehouseModule.jsx';
 import { Boxes, ClipboardList, Factory, Truck, Users, Wallet, Settings2, ArrowRight, Construction } from 'lucide-react';
 
 const modules = {
@@ -54,6 +55,7 @@ const modules = {
 };
 
 export default function ModulePlaceholder({ name, onBack }) {
+  if (name === 'Skladište') return <WarehouseModule onBack={onBack} />;
   const module = modules[name] || {
     icon: Construction,
     eyebrow: 'SLJEDEĆI RAZVOJNI KORAK',
