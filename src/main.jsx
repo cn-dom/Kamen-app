@@ -82,7 +82,7 @@ function App(){
       </nav>
       <div className="sidebar-bottom">
         <div className="help-card"><div className="help-icon"><CircleHelp size={17}/></div><strong>Trebate pomoć?</strong><p>Vaš radni prostor, sve na jednom mjestu.</p><button onClick={()=>notify('Vodič za korištenje dodat ćemo uz prve funkcionalne module.')}>Otvori vodič <ArrowRight size={14}/></button></div>
-        <button className="nav-item settings-item" onClick={()=>notify('Postavke će se otvoriti kada dodamo upravljanje tvrtkom.')}><Settings2 size={18}/><span>Postavke</span></button>
+        <button className="nav-item settings-item" onClick={()=>{setActiveNav('Postavke');setMobileNav(false)}}><Settings2 size={18}/><span>Postavke</span></button>
         <button className="profile-row" onClick={()=>setShowProfile(!showProfile)}><div className="user-avatar">VK</div><div className="profile-copy"><strong>Vlasnik računa</strong><small>Administrator tvrtke</small></div><MoreHorizontal size={19}/></button>
         {showProfile&&<div className="profile-pop"><strong>Demo radni prostor</strong><p>Podaci su ogledni i spremaju se samo u trenutačnom prikazu.</p><button onClick={()=>{setShowProfile(false);notify('Postavke profila još nisu povezane.')}}>Postavke profila</button></div>}
       </div>
