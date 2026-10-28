@@ -56,7 +56,8 @@ const modules = {
 };
 
 export default function ModulePlaceholder({ name, onBack }) {
-  if (name === 'Skladište') return <WarehouseModule onBack={onBack} />;
+  if (name === 'Skladište') return <WarehouseModule onBack={onBack} mode="warehouse" />;
+  if (name === 'Proizvodnja') return <WarehouseModule onBack={onBack} mode="production" />;
   if (name === 'Radni nalozi') return <WorkOrdersModule onBack={onBack} />;
   const module = modules[name] || {
     icon: Construction,
