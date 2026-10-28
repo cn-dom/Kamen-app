@@ -19,7 +19,8 @@ function readStored(key, fallback) {
 
 const emptyForm = { name: '', type: 'Kamen', form: 'Ploča', thickness: '3', length: '', width: '', quantity: '1', unit: 'ploča', location: '', min: '1', note: '' };
 
-export default function WarehouseModule({ onBack }) {
+export default function WarehouseModule({ onBack, mode = 'warehouse' }) {
+  const productionMode = mode === 'production';
   const [materials, setMaterials] = useState(() => readStored(MATERIALS_KEY, seedMaterials));
   const [movements, setMovements] = useState(() => readStored(MOVEMENTS_KEY, []));
   const [query, setQuery] = useState('');
@@ -170,8 +171,8 @@ const newOutput = () => ({ id: 'OUT-' + Date.now() + '-' + Math.random().toStrin
   return (
     <div className="page-content module-page warehouse-page">
       <section className="welcome-row module-welcome">
-        <div><div className="eyebrow"><span className="live-dot" /> MATERIJAL I ZALIHE</div><h1>Skladište</h1><p className="subtitle">Evidencija kamenih ploča, komada, ostataka i otpada na jednome mjestu.</p></div>
-        <div className="welcome-actions"><button className="button button-secondary" onClick={onBack}>← Povratak na pregled</button><button className="button button-secondary" onClick={() => setShowCut(true)}><Scissors size={16}/> Evidentiraj pilanje</button><button className="button button-primary" onClick={() => setShowForm(true)}><Plus size={16}/> Novi materijal</button></div>
+        <div><div className="eyebrow"><span className="live-dot" /> {productionMode ? 'RADIONICA I OBRADA' : 'MATERIJAL I ZALIHE'}</div><h1>{productionMode ? 'Proizvodnja i pilanje' : 'Skladište'}</h1><p className="subtitle">{productionMode ? 'Poveži pilanje s radnim nalogom, evidentiraj gotove komade, ostatke i otpad te automatski ažuriraj stanje materijala.' : 'Evidencija kamenih ploča, komada, ostataka i otpada na jednome mjestu.'}</p></div>
+        <div className="welcome-actions"><button className="button button-secondary" onClick={onBack}>← Povratak na pregled</button><button className="button button-secondary" onClick={() => setShowCut(true)}><Scissors size={16}/> {productionMode ? 'Novi nalog za pilanje' : 'Evidentiraj pilanje'}</button><button className="button button-primary" onClick={() => setShowForm(true)}><Plus size={16}/> Novi materijal</button></div>
       </section>
 
       <section className="stats-grid warehouse-stats">
@@ -193,7 +194,7 @@ const newOutput = () => ({ id: 'OUT-' + Date.now() + '-' + Math.random().toStrin
         <div className="panel-foot"><span>Prikazano {filtered.length} od {materials.length} stavki</span><span>Podaci se spremaju lokalno u ovaj preglednik.</span></div>
       </section>
 
-      <section className="panel warehouse-movements"><div className="panel-heading"><div><h2>Zadnja kretanja</h2><p>Ogledni dnevnik zaprimanja i izdavanja.</p></div><ClipboardCheck size={19} className="muted-icon"/></div>
+      <section className="panel warehouse-movements"><div className="panel-heading"><div><h2>{productionMode ? 'Proizvodni dnevnik' : 'Zadnja kretanja'}</h2><p>{productionMode ? 'Utrošak ploča, gotovi komadi, ostatci i otpad iz postupaka pilanja.' : 'Ogledni dnevnik zaprimanja i izdavanja.'}</p></div><ClipboardCheck size={19} className="muted-icon"/></div>
         {movements.length ? <div className="warehouse-movement-list">{movements.map(row => <div className="warehouse-movement" key={row.id}><span className={'movement-icon ' + (row.kind === 'Zaprimanje' ? 'movement-in' : 'movement-out')}>{row.kind === 'Zaprimanje' ? <ArrowDownToLine size={16}/> : <ArrowUpFromLine size={16}/>}</span><div><strong>{row.kind}: {row.material}</strong><small>{row.date} · {row.location}</small></div><b>{row.kind === 'Zaprimanje' ? '+' : '−'}{row.quantity}</b></div>)}</div> : <div className="warehouse-empty"><ClipboardCheck size={24}/><strong>Nema evidentiranih kretanja</strong><span>Odaberi zaprimanje ili izdavanje u tablici materijala.</span></div>}
       </section>
 
