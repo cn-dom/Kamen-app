@@ -351,3 +351,15 @@ button:active { transform: translateY(1px); }
 @media(max-width:1050px){.costs-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:700px){.costs-actions{width:100%}.costs-actions .button{flex:1;justify-content:center}.costs-stats{gap:9px}.costs-stat{padding:13px;gap:9px}.costs-stat-icon{width:36px;height:36px}.costs-stat strong{font-size:17px}.costs-toolbar{align-items:stretch;flex-direction:column}.costs-project-select{align-items:stretch;flex-direction:column}.costs-project-select select{min-width:0;width:100%}.costs-search{min-width:0;width:100%}.costs-modal .form-row{grid-template-columns:1fr}.costs-foot{align-items:flex-start;flex-direction:column}}
 @media print{.sidebar,.topbar,.costs-actions,.costs-search,.costs-modal,.costs-foot button{display:none!important}.main-area,.page-content{padding:0!important}.costs-page{background:#fff}.panel{box-shadow:none!important;break-inside:avoid}.costs-table{min-width:0}.costs-table-wrap{overflow:visible}}
+
+/* Višestruki odabir kategorija troška */
+.cost-category-field{display:flex;flex-direction:column;gap:8px;min-width:0;margin-bottom:13px}
+.cost-category-field>span{font-size:11px;font-weight:700;color:#536176}
+.cost-category-field>span small{font-size:10px;font-weight:500;color:#8995a6}
+.cost-category-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.cost-category-option{display:flex;align-items:center;gap:9px;padding:10px 11px;border:1px solid #dfe6ef;border-radius:9px;background:#fff;color:#536176;font-size:11px;font-weight:600;cursor:pointer;transition:border-color .15s,background .15s}
+.cost-category-option:hover{border-color:#a9bee9;background:#f8faff}
+.cost-category-option.selected{border-color:#9bb5ee;background:#eef4ff;color:#315fc4}
+.cost-category-option input{width:16px;height:16px;accent-color:#3569e8;margin:0;flex:0 0 auto}
+.costs-modal .form-row{align-items:start}
+@media(max-width:700px){.cost-category-options{grid-template-columns:1fr}}
