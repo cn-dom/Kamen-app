@@ -18,7 +18,7 @@ const money = value => new Intl.NumberFormat('hr-HR', { style: 'currency', curre
 const blank = { orderId: '', kind: 'Stvarni trošak', categories: ['Materijal'], description: '', amount: '', hours: '', hourlyRate: '', date: today(), note: '' };
 
 export default function CostsReportsModule({ onBack }) {
-  const [orders, setOrders] = useState(() => { const saved = read(ORDERS_KEY, null); return Array.isArray(saved) && saved.length ? saved : SEED_ORDERS; });
+  const [orders, setOrders] = useState(() => { const saved = read(ORDERS_KEY, null); return Array.isArray(saved) ? saved : SEED_ORDERS; });
   const [records, setRecords] = useState(() => read(COSTS_KEY, []));
   const [query, setQuery] = useState('');
   const [selectedOrder, setSelectedOrder] = useState('Svi projekti');
@@ -86,7 +86,7 @@ export default function CostsReportsModule({ onBack }) {
   return <div className="page-content module-page costs-page">
     <section className="welcome-row module-welcome">
       <div><div className="eyebrow"><span className="live-dot"/> KONTROLA POSLOVANJA</div><h1>Troškovi i izvještaji</h1><p className="subtitle">Prati planirane i stvarne troškove, sate rada i financijski rezultat svakog projekta.</p></div>
-      <div className="costs-actions"><button className="button button-secondary" onClick={onBack}>← Povratak na pregled</button><button className="button button-secondary" onClick={exportCsv}><Download size={16}/> Izvoz CSV</button><button className="button button-primary" onClick={() => { setForm(blank); setError(''); setShowForm(true); }}><Plus size={16}/> Nova stavka</button></div>
+      <div className="costs-actions"><button className="button button-secondary" onClick={onBack}>← Povratak na pregled</button><button className="button button-secondary" onClick={exportCsv}><Download size={16}/> Izvoz CSV</button><button className="button button-primary" onClick={() => { const latestOrders = read(ORDERS_KEY, SEED_ORDERS); setOrders(Array.isArray(latestOrders) ? latestOrders : SEED_ORDERS); setForm(blank); setError(''); setShowForm(true); }}><Plus size={16}/> Nova stavka</button></div>
     </section>
 
     <section className="costs-stats">
