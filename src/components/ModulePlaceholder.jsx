@@ -3,6 +3,7 @@ import WarehouseModule from './WarehouseModule.jsx';
 import WorkOrdersModule from './WorkOrdersModule.jsx';
 import FieldWorkModule from './FieldWorkModule.jsx';
 import CustomersModule from './CustomersModule.jsx';
+import CostsReportsModule from './CostsReportsModule.jsx';
 import { Boxes, ClipboardList, Factory, Truck, Users, Wallet, Settings2, ArrowRight, Construction } from 'lucide-react';
 
 const modules = {
@@ -63,6 +64,7 @@ export default function ModulePlaceholder({ name, onBack }) {
   if (name === 'Radni nalozi') return <WorkOrdersModule onBack={onBack} />;
   if (name === 'Terenski rad') return <FieldWorkModule onBack={onBack} />;
   if (name === 'Kupci') return <CustomersModule onBack={onBack} />;
+  if (name === 'Troškovi i izvještaji') return <CostsReportsModule onBack={onBack} />;
   const module = modules[name] || {
     icon: Construction,
     eyebrow: 'SLJEDEĆI RAZVOJNI KORAK',
