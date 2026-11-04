@@ -296,3 +296,35 @@ button:active { transform: translateY(1px); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+
+/* Terenski rad i imenik kupaca */
+.field-stats,.customers-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:18px}
+.field-cards,.customers-grid{display:grid;gap:12px}
+.field-card-head{grid-template-columns:110px auto minmax(160px,1fr) minmax(120px,1fr) minmax(160px,1.2fr) auto}
+.field-detail-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:5px 0 18px}
+.field-detail-grid>div{display:flex;flex-direction:column;gap:6px;padding:13px;border:1px solid #e8edf4;border-radius:10px;background:#fafbfd;min-width:0}
+.field-detail-grid small{font-size:9px;letter-spacing:.05em;color:#8995a6;font-weight:800}
+.field-detail-grid strong{font-size:12px;overflow-wrap:anywhere}
+.field-timeline{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:12px 0}
+.field-timeline>div{padding:12px;border-radius:10px;background:#f5f7fb;display:flex;flex-direction:column;gap:5px}
+.field-timeline span{font-size:10px;color:#78869a}.field-timeline strong{font-size:13px}
+.field-actions{display:flex;align-items:end;justify-content:flex-end;gap:12px;margin-top:16px;padding-top:14px;border-top:1px solid #edf0f5}
+.field-actions label{display:flex;flex-direction:column;gap:6px;font-size:11px;font-weight:700;color:#536176}
+.field-actions select{min-width:170px;padding:10px;border:1px solid #dfe6ef;border-radius:9px;background:#fff}
+.field-actions .button:disabled{opacity:.55;cursor:not-allowed}
+.customer-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 12px;border:1px solid #e8edf4;border-radius:13px;background:#fff;overflow:hidden;transition:border-color .18s ease,box-shadow .18s ease}
+.customer-card:hover,.customer-card.selected{border-color:#cbd9ef;box-shadow:0 5px 18px rgba(25,42,68,.045)}
+.customer-main{display:flex;align-items:center;gap:13px;padding:16px;text-align:left;background:transparent;border:0;min-width:0}
+.customer-avatar{width:43px;height:43px;flex:0 0 43px;border-radius:13px;display:grid;place-items:center;background:linear-gradient(145deg,#e5edff,#d5e1ff);color:#315fd0;font-weight:800;font-size:13px}
+.customer-copy{display:flex;flex-direction:column;gap:4px;min-width:0}.customer-copy strong{font-size:14px;color:#1d293b}.customer-copy small{font-size:11px;color:#7c899b}.customer-order-count{font-size:10px;color:#4773d7;font-weight:700}
+.customer-actions{display:flex;align-items:center;gap:4px;padding:0 12px}
+.customer-detail{grid-column:1/-1;padding:15px 17px 17px;border-top:1px solid #edf0f5;background:#fbfcfe}
+.customer-contact-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 18px}
+.customer-contact-grid span{display:flex;align-items:center;gap:8px;color:#566579;font-size:12px;min-width:0;overflow-wrap:anywhere}
+.customer-contact-grid svg{color:#7890b7;flex:0 0 auto}
+.customer-detail h3{font-size:12px;margin:17px 0 9px}
+.customer-order{display:grid;grid-template-columns:130px minmax(0,1fr) auto;gap:10px;padding:10px 0;border-top:1px solid #edf0f5;font-size:11px;align-items:center}
+.customer-order strong{color:#315fd0}.customer-order small{color:#7c899b}
+@media(max-width:900px){.field-card-head{grid-template-columns:100px auto minmax(150px,1fr) auto}.field-card-head .workorder-customer,.field-card-head .workorder-material{grid-column:1/-1}.field-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.field-timeline{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:650px){.field-stats,.customers-stats{grid-template-columns:1fr;gap:9px}.field-card-head{grid-template-columns:1fr auto;gap:8px}.field-card-head .workorder-id,.field-card-head .workorder-status,.field-card-head .workorder-title,.field-card-head .workorder-customer,.field-card-head .workorder-material,.field-card-head .workorder-due{grid-column:1/-1}.field-detail-grid{grid-template-columns:1fr 1fr}.field-timeline{grid-template-columns:1fr 1fr}.field-actions{align-items:stretch;flex-direction:column}.field-actions select,.field-actions .button{width:100%;justify-content:center}.customer-main{padding:13px}.customer-actions{padding:0 8px}.customer-contact-grid{grid-template-columns:1fr}.customer-order{grid-template-columns:1fr;gap:4px}}
