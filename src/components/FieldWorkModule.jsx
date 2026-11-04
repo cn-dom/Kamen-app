@@ -7,12 +7,20 @@ const seed = [
   { id:'TR-2026-001', orderId:'RN-2026-002', customer:'Obitelj Horvat', project:'Vanjske stepenice', location:'Groblje — dogovoriti točnu lokaciju', date:'2026-11-06', team:'M. Kovač, D. Perić', vehicle:'Kombi', status:'Planirano', departure:'', arrival:'', workStart:'', workEnd:'', returnTime:'', materials:'Gazišta i montažni materijal', note:'Provjeriti pristup vozilom prije polaska' }
 ];
 const read = (key, fallback) => { try { const v = window.localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; } };
+const readWorkOrders = () => {
+  const saved = read(ORDER_KEY, null);
+  // WorkOrdersModule uses these same initial examples before the first saved list exists.
+  return Array.isArray(saved) && saved.length ? saved : [
+    { id:'RN-2026-001', customer:'Primjer kupca d.o.o.', project:'Kuhinjska radna ploča', material:'Brački kamen', due:'2026-11-02', status:'U pripremi', pieces:[] },
+    { id:'RN-2026-002', customer:'Obitelj Horvat', project:'Vanjske stepenice', material:'Granit', due:'2026-11-05', status:'U tijeku', pieces:[] }
+  ];
+};
 const blank = { orderId:'', customer:'', project:'', location:'', date:'', team:'', vehicle:'', materials:'', note:'' };
 const steps = ['Planirano','Na putu','Na lokaciji','Montaža u tijeku','Završeno','Vraćeno'];
 
 export default function FieldWorkModule({ onBack }) {
   const [jobs,setJobs] = useState(()=>read(KEY,seed));
-  const [orders] = useState(()=>read(ORDER_KEY,[]));
+  const [orders,setOrders] = useState(readWorkOrders);
   const [query,setQuery] = useState('');
   const [filter,setFilter] = useState('Svi');
   const [showForm,setShowForm] = useState(false);
@@ -27,7 +35,7 @@ export default function FieldWorkModule({ onBack }) {
   const create=(e)=>{e.preventDefault();if(!form.customer.trim()||!form.project.trim()||!form.location.trim()||!form.date){setError('Unesi kupca, projekt, lokaciju i datum terenskog rada.');return;}const id='TR-2026-'+String(Math.max(0,...jobs.map(j=>Number(j.id.split('-').at(-1))||0))+1).padStart(3,'0');setJobs(prev=>[{...form,id,status:'Planirano',departure:'',arrival:'',workStart:'',workEnd:'',returnTime:''},...prev]);setExpanded(id);setForm(blank);setShowForm(false);setError('');};
   const linkOrder=(id)=>{const o=orders.find(x=>x.id===id);setForm(p=>({...p,orderId:o?.id||'',customer:o?.customer||p.customer,project:o?.project||p.project}));};
   return <div className="page-content field-page">
-    <section className="welcome-row module-welcome"><div><div className="eyebrow"><span className="live-dot"/> PRIJEVOZ I MONTAŽA</div><h1>Terenski rad</h1><p className="subtitle">Planiraj montaže i prati ekipu, vrijeme, lokaciju i materijal na terenu.</p></div><div className="workorders-actions"><button className="button button-secondary" onClick={onBack}><ArrowLeft size={15}/> Pregled</button><button className="button button-primary" onClick={()=>{setForm(blank);setError('');setShowForm(true);}}><Plus size={17}/> Novi terenski nalog</button></div></section>
+    <section className="welcome-row module-welcome"><div><div className="eyebrow"><span className="live-dot"/> PRIJEVOZ I MONTAŽA</div><h1>Terenski rad</h1><p className="subtitle">Planiraj montaže i prati ekipu, vrijeme, lokaciju i materijal na terenu.</p></div><div className="workorders-actions"><button className="button button-secondary" onClick={onBack}><ArrowLeft size={15}/> Pregled</button><button className="button button-primary" onClick={()=>{setOrders(readWorkOrders());setForm(blank);setError('');setShowForm(true);}}><Plus size={17}/> Novi terenski nalog</button></div></section>
     <section className="field-stats"><article className="panel workorders-stat"><span className="workorders-stat-icon blue"><ClipboardList size={19}/></span><div><small>Ukupno naloga</small><strong>{jobs.length}</strong></div></article><article className="panel workorders-stat"><span className="workorders-stat-icon amber"><Clock3 size={19}/></span><div><small>Planirano / aktivno</small><strong>{jobs.filter(j=>!['Završeno','Vraćeno'].includes(j.status)).length}</strong></div></article><article className="panel workorders-stat"><span className="workorders-stat-icon green"><CheckCircle2 size={19}/></span><div><small>Vraćeno</small><strong>{jobs.filter(j=>j.status==='Vraćeno').length}</strong></div></article></section>
     <section className="panel workorders-list-panel"><div className="workorders-list-head"><div><h2>Terenski nalozi</h2><p>Otvori nalog za evidenciju vremena i napredovanja montaže.</p></div><div className="workorders-filters"><label className="workorders-search"><Search size={17}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Traži kupca, projekt ili lokaciju…"/></label><select value={filter} onChange={e=>setFilter(e.target.value)}><option>Svi</option>{steps.map(s=><option key={s}>{s}</option>)}</select></div></div>
     <div className="field-cards">{filtered.map(j=><article className="workorder-card" key={j.id}><button className="workorder-card-head field-card-head" onClick={()=>setExpanded(expanded===j.id?'':j.id)} aria-expanded={expanded===j.id}><span className="workorder-id">{j.id}</span><span className="workorder-status">{j.status}</span><span className="workorder-title">{j.project}</span><span className="workorder-customer"><Users size={14}/>{j.customer}</span><span className="workorder-material"><MapPin size={14}/>{j.location}</span><span className="workorder-due"><CalendarDays size={14}/>{j.date}</span></button>
