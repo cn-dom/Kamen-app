@@ -23,10 +23,10 @@ export default function ProductionModule({ onBack }) {
     return () => window.removeEventListener('focus', refresh);
   }, []);
 
-  const activeOrders = orders.filter(order => order.status !== 'Završen');
+  const activeOrders = orders.filter(order => !['Završen', 'Otkazan'].includes(order.status));
   const visible = useMemo(() => orders.filter(order => {
     const matches = [order.id, order.project, order.customer, order.material].join(' ').toLowerCase().includes(query.toLowerCase());
-    return matches && (filter === 'Svi' || (filter === 'Aktivni' && order.status !== 'Završen') || (filter === 'Završeni' && order.status === 'Završen'));
+    return matches && (filter === 'Svi' || (filter === 'Aktivni' && !['Završen', 'Otkazan'].includes(order.status)) || (filter === 'Završeni' && order.status === 'Završen') || (filter === 'Otkazani' && order.status === 'Otkazan'));
   }), [orders, query, filter]);
   const getStage = (orderId, stage) => records[orderId]?.[stage] || 'Nije započeto';
   const updateStage = (orderId, stage, status) => setRecords(current => ({
@@ -49,7 +49,7 @@ export default function ProductionModule({ onBack }) {
     </section>
     <section className="panel warehouse-panel">
       <div className="panel-heading"><div><h2>Proizvodni nalozi</h2><p>Odaberi status svake faze. Promjene se čuvaju u ovom pregledniku.</p></div><span className="demo-label"><span/> LOKALNA EVIDENCIJA</span></div>
-      <div className="warehouse-toolbar"><label className="warehouse-search"><Search size={16}/><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Traži nalog, kupca ili projekt..."/></label><label className="warehouse-filter"><span>Prikaz</span><select value={filter} onChange={e => setFilter(e.target.value)}><option>Aktivni</option><option>Svi</option><option>Završeni</option></select></label></div>
+      <div className="warehouse-toolbar"><label className="warehouse-search"><Search size={16}/><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Traži nalog, kupca ili projekt..."/></label><label className="warehouse-filter"><span>Prikaz</span><select value={filter} onChange={e => setFilter(e.target.value)}><option>Aktivni</option><option>Svi</option><option>Završeni</option><option>Otkazani</option></select></label></div>
       <div className="workorders-cards">
         {visible.map(order => {
           const done = stages.filter(stage => ['Završeno', 'Nije potrebno'].includes(getStage(order.id, stage))).length;
