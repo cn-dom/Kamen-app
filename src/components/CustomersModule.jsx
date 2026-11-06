@@ -2,10 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Users, Plus, Search, X, Phone, Mail, MapPin, BriefcaseBusiness, Pencil, Archive, ArrowLeft, FileText } from 'lucide-react';
 const KEY='kamen-app-customers-v1';
 const ORDER_KEY='kamen-app-work-orders-v1';
-const seed=[
- {id:'KUP-001',name:'Obitelj Horvat',type:'Privatni kupac',contact:'',phone:'',email:'',address:'',city:'',taxId:'',note:'',active:true},
- {id:'KUP-002',name:'Primjer kupca d.o.o.',type:'Tvrtka',contact:'',phone:'',email:'',address:'',city:'',taxId:'',note:'',active:true}
-];
+const seed=[];
 const read=(key,fallback)=>{try{const v=window.localStorage.getItem(key);return v?JSON.parse(v):fallback;}catch{return fallback;}};
 const blank={name:'',type:'Privatni kupac',contact:'',phone:'',email:'',address:'',city:'',taxId:'',note:''};
 export default function CustomersModule({onBack}){
