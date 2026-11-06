@@ -424,3 +424,29 @@ button:active { transform: translateY(1px); }
 /* Warehouse row actions */
 .warehouse-row-actions .row-action.danger { color: #b54747; }
 .warehouse-row-actions .row-action.danger:hover { background: #fff0f0; border-color: #f0caca; }
+
+
+/* Cutting planner */
+.cutting-planner{margin:18px 0;padding:18px;border:1px solid #dce6f5;border-radius:14px;background:linear-gradient(145deg,#f8fbff,#f3f6fc)}
+.cutting-planner-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px}
+.cutting-planner-head h3{font:800 15px Manrope,sans-serif;color:#243147;margin:4px 0}
+.cutting-planner-head p{font-size:11px;color:#7b8798;margin:0}
+.cutting-planner-tag{font-size:9px;font-weight:800;letter-spacing:.7px;padding:5px 8px;border-radius:20px;background:#e7efff;color:#315fc2}
+.cutting-settings{margin-bottom:8px}
+.cutting-rotation{display:flex;align-items:center;gap:8px;font-size:12px;color:#536176;margin:8px 0 14px}
+.cutting-rotation input{width:15px;height:15px;accent-color:#3268d9}
+.cutting-plan-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px 0}
+.cutting-plan-summary>div{padding:10px;border:1px solid #e1e8f2;border-radius:10px;background:#fff;display:flex;flex-direction:column;gap:3px}
+.cutting-plan-summary strong{font-size:19px;color:#263954}
+.cutting-plan-summary span{font-size:10px;color:#7a8798}
+.cutting-board-preview{padding:12px;border:1px solid #e1e8f2;border-radius:11px;background:#fff;margin-top:10px}
+.cutting-board-label{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:8px}
+.cutting-board-label strong{font-size:12px;color:#34445d}
+.cutting-board-label span{font-size:10px;color:#7b8798}
+.cutting-board-preview svg{display:block;width:100%;max-height:300px;background:#f8fafc;border-radius:6px}
+.cutting-board-outline{fill:#e6ebf2;stroke:#9eabbc;stroke-width:.35}
+.cutting-board-usable{fill:#fff;stroke:#c1ccda;stroke-width:.25;stroke-dasharray:2 1}
+.cutting-piece-rect{fill:#9bbcf4;stroke:#315fc2;stroke-width:.35;rx:.5}
+.cutting-board-preview text{font-size:3px;fill:#17396f;font-weight:700}
+.cutting-plan-warning{padding:10px 12px;border-radius:9px;background:#fff5e8;border:1px solid #f1d6aa;color:#8a5a16;font-size:11px;margin-top:10px}
+@media(max-width:620px){.cutting-planner{padding:13px}.cutting-plan-summary{grid-template-columns:repeat(3,minmax(0,1fr))}.cutting-plan-summary strong{font-size:16px}.cutting-board-label{align-items:flex-start;flex-direction:column;gap:3px}}
