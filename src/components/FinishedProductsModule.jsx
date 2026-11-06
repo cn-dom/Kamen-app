@@ -3,10 +3,11 @@ import { PackageCheck, Plus, Search, X, Ruler, Boxes, Hammer, ClipboardList, Ima
 
 const STORAGE_KEY = 'kamen-app-finished-products-v1';
 const ORDERS_KEY = 'kamen-app-work-orders-v1';
+const MATERIALS_KEY = 'kamen-app-materials-v1';
+const MOVEMENTS_KEY = 'kamen-app-movements-v1';
 const categories = ['Spomenik', 'Postolje', 'Vaza', 'Svijećnjak', 'Tanjur', 'Poklopna ploča', 'Obloga', 'Vertikala', 'Kutni element', 'Gazište', 'Čelo stepenice', 'Poklopnica', 'Vanjska klupica', 'Unutarnja klupica', 'Ostalo'];
 const processes = ['Rezanje', 'Ravnanje', 'Štokanje', 'Brušenje', 'Poliranje', 'Fazetiranje', 'Profiliranje', 'Bušenje', 'CNC obrada', 'Lijepljenje', 'Impregnacija', 'Ostalo'];
 const statuses = ['Na zalihi', 'Rezerviran', 'Čeka ugradnju', 'Ugrađen', 'Prodano'];
-const materials = ['Granit', 'Mramor', 'Umjetni granit', 'Brački kamen', 'Kvarcit', 'Travertin', 'Drugo'];
 const emptyForm = { name: '', category: 'Spomenik', customCategory: '', material: '', length: '', width: '', thickness: '', quantity: '1', unit: 'kom', processes: [], status: 'Na zalihi', orderId: '', customer: '', location: '', price: '', photo: '', note: '' };
 
 function readJson(key, fallback) {
@@ -17,6 +18,7 @@ function readJson(key, fallback) {
 export default function FinishedProductsModule({ onBack }) {
   const [items, setItems] = useState(() => readJson(STORAGE_KEY, []));
   const [orders, setOrders] = useState(() => readJson(ORDERS_KEY, []));
+  const [materials, setMaterials] = useState(() => readJson(MATERIALS_KEY, []));
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('Sve');
   const [showForm, setShowForm] = useState(false);
@@ -25,7 +27,7 @@ export default function FinishedProductsModule({ onBack }) {
 
   useEffect(() => { try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items)); } catch { /* Storage unavailable. */ } }, [items]);
   useEffect(() => {
-    const refresh = () => setOrders(readJson(ORDERS_KEY, []));
+    const refresh = () => { setOrders(readJson(ORDERS_KEY, [])); setMaterials(readJson(MATERIALS_KEY, [])); };
     window.addEventListener('focus', refresh);
     return () => window.removeEventListener('focus', refresh);
   }, []);
@@ -49,6 +51,7 @@ export default function FinishedProductsModule({ onBack }) {
     const item = {
       ...form,
       id: 'GP-' + Date.now().toString().slice(-8),
+      stockQuantity: form.status === 'Ugrađen' || form.status === 'Prodano' ? 0 : Number(form.quantity),
       name: form.name.trim(),
       category,
       quantity: Number(form.quantity),
@@ -66,14 +69,33 @@ export default function FinishedProductsModule({ onBack }) {
     setShowForm(false);
   }
 
-  const updateStatus = (id, status) => setItems(current => current.map(item => item.id === id ? { ...item, status, updatedAt: new Date().toISOString() } : item));
-  const count = status => items.filter(item => item.status === status).reduce((sum, item) => sum + item.quantity, 0);
-  const total = items.reduce((sum, item) => sum + item.quantity, 0);
+  const updateStatus = (id, status) => {
+    const item = items.find(row => row.id === id);
+    if (!item || item.status === status) return;
+    const previousStock = Number(item.stockQuantity ?? item.quantity);
+    const terminal = status === 'Ugrađen' || status === 'Prodano';
+    const nextStock = terminal ? 0 : Number(item.quantity);
+    const delta = nextStock - previousStock;
+    setItems(current => current.map(row => row.id === id ? { ...row, status, stockQuantity: nextStock, updatedAt: new Date().toISOString() } : row));
+    if (delta !== 0) {
+      try {
+        const movements = readJson(MOVEMENTS_KEY, []);
+        const kind = status === 'Ugrađen' ? 'Ugradnja' : status === 'Prodano' ? 'Prodaja' : 'Povrat gotovog proizvoda na zalihu';
+        window.localStorage.setItem(MOVEMENTS_KEY, JSON.stringify([{
+          id: Date.now(), material: item.name, kind, quantity: Math.abs(delta), location: item.location || '',
+          date: new Date().toLocaleDateString('hr-HR'), productId: item.id, orderId: item.orderId || ''
+        }, ...movements].slice(0, 100)));
+      } catch { /* Product status is still saved if the movement log is unavailable. */ }
+    }
+  };
+  const availableQuantity = item => Number(item.stockQuantity ?? ((item.status === 'Ugrađen' || item.status === 'Prodano') ? 0 : item.quantity));
+  const count = status => items.filter(item => item.status === status).reduce((sum, item) => sum + availableQuantity(item), 0);
+  const total = items.reduce((sum, item) => sum + availableQuantity(item), 0);
 
   return <div className="page-content module-page finished-products-page">
     <section className="welcome-row module-welcome">
       <div><div className="eyebrow"><span className="live-dot"/> ZALIHA GOTOVIH ELEMENATA</div><h1>Gotovi proizvodi</h1><p className="subtitle">Evidencija izrađenih kamenih elemenata koji čekaju kupca, prodaju ili ugradnju.</p></div>
-      <div className="welcome-actions"><button className="button button-secondary" onClick={onBack}>← Povratak na pregled</button><button className="button button-primary" onClick={() => { setOrders(readJson(ORDERS_KEY, [])); setError(''); setShowForm(true); }}><Plus size={16}/> Ručni unos proizvoda</button></div>
+      <div className="welcome-actions"><button className="button button-secondary" onClick={onBack}>← Povratak na pregled</button><button className="button button-primary" onClick={() => { setOrders(readJson(ORDERS_KEY, [])); setMaterials(readJson(MATERIALS_KEY, [])); setError(''); setShowForm(true); }}><Plus size={16}/> Ručni unos proizvoda</button></div>
     </section>
 
     <section className="stats-grid warehouse-stats finished-stats">
@@ -95,7 +117,7 @@ export default function FinishedProductsModule({ onBack }) {
           <div className="finished-product-content">
             <div className="finished-product-top"><span className="workorder-id">{item.id}</span><span className={'finished-status finished-status-' + item.status.toLowerCase().replaceAll(' ', '-')}>{item.status}</span></div>
             <h3>{item.name}</h3><p className="finished-product-category">{item.category} · {item.material}</p>
-            <div className="finished-product-specs"><span><Ruler size={14}/>{[item.length, item.width, item.thickness].some(v => v) ? [item.length, item.width, item.thickness].map(v => v || '—').join(' × ') + ' cm' : 'Dimenzije nisu unesene'}</span><strong>{item.quantity} {item.unit}</strong></div>
+            <div className="finished-product-specs"><span><Ruler size={14}/>{[item.length, item.width, item.thickness].some(v => v) ? [item.length, item.width, item.thickness].map(v => v || '—').join(' × ') + ' cm' : 'Dimenzije nisu unesene'}</span><strong>{availableQuantity(item)} {item.unit} na zalihi</strong></div>
             {item.processes?.length > 0 && <div className="finished-process-list">{item.processes.map(p => <span key={p}>{p}</span>)}</div>}
             <div className="finished-product-meta">{item.orderId && <span>Nalog: {item.orderId}</span>}{item.customer && <span>Kupac: {item.customer}</span>}<span>Lokacija: {item.location}</span></div>
             {item.note && <p className="finished-product-note">{item.note}</p>}
@@ -106,14 +128,14 @@ export default function FinishedProductsModule({ onBack }) {
       </div>
       <div className="panel-foot"><span>Prikazano {visible.length} od {items.length} stavki</span><span>Podaci se spremaju lokalno u ovaj preglednik.</span></div>
     </section>
-    <div className="module-notice"><PackageCheck size={17}/><span>Ručni unos služi za popis postojeće gotove robe. Proizvod može biti povezan s radnim nalogom, ali i unesen samostalno. Podaci se zasad ne sinkroniziraju između uređaja i korisnika.</span></div>
+    <div className="module-notice"><PackageCheck size={17}/><span>Ručni unos služi za popis postojeće gotove robe. Materijal se upisuje prema stvarnoj zalihi. Status Ugrađen ili Prodano automatski skida cijelu količinu proizvoda s raspoložive zalihe. Podaci su lokalni u ovom pregledniku.</span></div>
 
     {showForm && <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setShowForm(false); }}><section className="modal finished-product-modal" role="dialog" aria-modal="true" aria-labelledby="finished-form-title">
       <div className="modal-head"><div><span className="modal-kicker">GOTOVI PROIZVODI · RUČNI UNOS</span><h2 id="finished-form-title">Dodaj gotovi element</h2><p>Unesi jedan element ili komad. Za različite dijelove koristi zasebne stavke.</p></div><button className="icon-button" onClick={() => setShowForm(false)} aria-label="Zatvori"><X size={19}/></button></div>
       <form onSubmit={saveItem}>
         <label>Naziv elementa *<input autoFocus value={form.name} onChange={e => update('name', e.target.value)} placeholder="Npr. Spomenik obitelji Horvat, gazište 1..." required/></label>
         <div className="form-row"><label>Vrsta elementa<select value={form.category} onChange={e => update('category', e.target.value)}>{categories.map(category => <option key={category}>{category}</option>)}</select></label>{form.category === 'Ostalo' && <label>Vlastita vrsta<input value={form.customCategory} onChange={e => update('customCategory', e.target.value)} placeholder="Upiši novu vrstu"/></label>}</div>
-        <div className="form-row"><label>Materijal *<select value={form.material} onChange={e => update('material', e.target.value)} required><option value="">Odaberi materijal</option>{materials.map(material => <option key={material}>{material}</option>)}</select></label><label>Količina *<input type="number" min="1" step="1" value={form.quantity} onChange={e => update('quantity', e.target.value)} required/></label></div>
+        <div className="form-row"><label>Materijal *<input list="warehouse-material-options" value={form.material} onChange={e => update('material', e.target.value)} placeholder="Upiši materijal" required/><datalist id="warehouse-material-options">{materials.map(material => <option key={material.id} value={material.name}/>)}</datalist></label><label>Količina *<input type="number" min="1" step="1" value={form.quantity} onChange={e => update('quantity', e.target.value)} required/></label></div>
         <div className="form-row"><label>Duljina (cm)<input type="number" min="0" step="0.1" value={form.length} onChange={e => update('length', e.target.value)} placeholder="Nije obavezno"/></label><label>Širina (cm)<input type="number" min="0" step="0.1" value={form.width} onChange={e => update('width', e.target.value)} placeholder="Nije obavezno"/></label><label>Debljina (cm)<input type="number" min="0" step="0.1" value={form.thickness} onChange={e => update('thickness', e.target.value)} placeholder="Nije obavezno"/></label></div>
         <div className="form-row"><label>Jedinica<select value={form.unit} onChange={e => update('unit', e.target.value)}><option>kom</option><option>par</option><option>set</option><option>m²</option><option>m</option></select></label><label>Prodajna cijena (€)<input type="number" min="0" step="0.01" value={form.price} onChange={e => update('price', e.target.value)} placeholder="Opcionalno"/></label></div>
         <fieldset className="finished-process-fieldset"><legend>Obrade na ovom elementu (može više)</legend><div className="finished-process-options">{processes.map(process => <label key={process}><input type="checkbox" checked={form.processes.includes(process)} onChange={() => toggleProcess(process)}/><span>{process}</span></label>)}</div></fieldset>

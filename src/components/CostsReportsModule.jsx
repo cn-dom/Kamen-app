@@ -4,10 +4,7 @@ import { Wallet, Plus, Search, Download, Printer, X, TrendingUp, Clock3, Receipt
 const ORDERS_KEY = 'kamen-app-work-orders-v1';
 const COSTS_KEY = 'kamen-app-cost-records-v1';
 const CATEGORIES = ['Materijal', 'Rad', 'Prijevoz', 'Vanjska obrada', 'Ostalo'];
-const SEED_ORDERS = [
-  { id: 'RN-2026-001', customer: 'Primjer kupca d.o.o.', project: 'Kuhinjska radna ploča' },
-  { id: 'RN-2026-002', customer: 'Obitelj Horvat', project: 'Vanjske stepenice' }
-];
+const SEED_ORDERS = [];
 const categoriesOf = record => Array.isArray(record.categories) ? record.categories : [record.category || 'Ostalo'];
 const today = () => new Date().toISOString().slice(0, 10);
 const read = (key, fallback) => {

@@ -1,11 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ClipboardList, Plus, Search, X, CalendarDays, UserRound, Ruler, ChevronDown, CheckCircle2, Clock3, Hammer, Trash2 } from 'lucide-react';
 
-const seedOrders = [
-  { id: 'RN-2026-001', customer: 'Primjer kupca d.o.o.', project: 'Kuhinjska radna ploča', material: 'Brački kamen', due: '2026-11-02', status: 'U pripremi', note: 'Provjeriti šablonu prije pilanja', pieces: [{ name: 'Radna ploča — glavni dio', length: 240, width: 62, thickness: 3, quantity: 1 }, { name: 'Bočna ploča', length: 62, width: 8, thickness: 3, quantity: 2 }] },
-  { id: 'RN-2026-002', customer: 'Obitelj Horvat', project: 'Vanjske stepenice', material: 'Granit', due: '2026-11-05', status: 'U tijeku', note: '', pieces: [{ name: 'Gazište', length: 120, width: 32, thickness: 3, quantity: 8 }] }
-];
+const seedOrders = [];
 const STORAGE_KEY = 'kamen-app-work-orders-v1';
+const MATERIALS_KEY = 'kamen-app-materials-v1';
 function readStoredOrders() {
   try {
     const saved = window.localStorage.getItem(STORAGE_KEY);
@@ -19,12 +17,13 @@ const statuses = ['U pripremi', 'Spreman za pilanje', 'U tijeku', 'Čeka kontrol
 
 export default function WorkOrdersModule({ onBack }) {
   const [orders, setOrders] = useState(readStoredOrders);
+  const [materials, setMaterials] = useState(() => { try { return JSON.parse(window.localStorage.getItem(MATERIALS_KEY) || '[]'); } catch { return []; } });
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('Svi statusi');
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(blankForm);
   const [pieces, setPieces] = useState([blankPiece()]);
-  const [expanded, setExpanded] = useState('RN-2026-001');
+  const [expanded, setExpanded] = useState('');
   const [error, setError] = useState('');
   useEffect(() => { try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(orders)); } catch { /* Browser storage may be disabled or full. */ } }, [orders]);
   const filtered = useMemo(() => orders.filter(o => {
@@ -55,7 +54,7 @@ export default function WorkOrdersModule({ onBack }) {
   return <div className="page-content workorders-page">
     <section className="welcome-row module-welcome">
       <div><div className="eyebrow"><span className="live-dot" /> PROJEKTI I EVIDENCIJA</div><h1>Radni nalozi</h1><p className="subtitle">Evidentiraj narudžbu, kupca i svaki komad koji treba izrezati ili obraditi.</p></div>
-      <div className="workorders-actions"><button className="button button-secondary" onClick={onBack}>← Pregled</button><button className="button button-primary" onClick={() => { setShowForm(true); setError(''); }}><Plus size={17}/> Novi radni nalog</button></div>
+      <div className="workorders-actions"><button className="button button-secondary" onClick={onBack}>← Pregled</button><button className="button button-primary" onClick={() => { try { setMaterials(JSON.parse(window.localStorage.getItem(MATERIALS_KEY) || '[]')); } catch { setMaterials([]); } setShowForm(true); setError(''); }}><Plus size={17}/> Novi radni nalog</button></div>
     </section>
     <section className="workorders-stats">
       <article className="panel workorders-stat"><span className="workorders-stat-icon blue"><ClipboardList size={19}/></span><div><small>Ukupno naloga</small><strong>{orders.length}</strong></div></article>
@@ -82,7 +81,7 @@ export default function WorkOrdersModule({ onBack }) {
     {showForm && <div className="workorders-modal-backdrop" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget) setShowForm(false); }}><section className="workorders-modal" role="dialog" aria-modal="true" aria-labelledby="workorders-form-title">
       <div className="workorders-modal-head"><div><span className="eyebrow">NOVI PROJEKT</span><h2 id="workorders-form-title">Izradi radni nalog</h2><p>Unesi osnovne podatke i popis komada za pilanje.</p></div><button className="icon-button" onClick={() => setShowForm(false)} aria-label="Zatvori"><X size={20}/></button></div>
       <form onSubmit={createOrder}>
-        <div className="workorders-form-grid"><label>Kupac *<input value={form.customer} onChange={e => updateForm('customer',e.target.value)} placeholder="Naziv kupca ili tvrtke"/></label><label>Naziv projekta *<input value={form.project} onChange={e => updateForm('project',e.target.value)} placeholder="Npr. kuhinjska ploča"/></label><label>Materijal *<input value={form.material} onChange={e => updateForm('material',e.target.value)} placeholder="Npr. granit, mramor"/></label><label>Rok izrade<input type="date" value={form.due} onChange={e => updateForm('due',e.target.value)}/></label></div>
+        <div className="workorders-form-grid"><label>Kupac *<input value={form.customer} onChange={e => updateForm('customer',e.target.value)} placeholder="Naziv kupca ili tvrtke"/></label><label>Naziv projekta *<input value={form.project} onChange={e => updateForm('project',e.target.value)} placeholder="Npr. kuhinjska ploča"/></label><label>Materijal *<input list="workorder-material-options" value={form.material} onChange={e => updateForm('material',e.target.value)} placeholder="Upiši materijal"/><datalist id="workorder-material-options">{materials.map(item=><option key={item.id} value={item.name}/>)}</datalist></label><label>Rok izrade<input type="date" value={form.due} onChange={e => updateForm('due',e.target.value)}/></label></div>
         <div className="workorders-piece-head"><div><h3>Popis komada</h3><p>Dimenzije u centimetrima.</p></div><button type="button" className="button button-secondary" onClick={() => setPieces(prev => [...prev, blankPiece()])}><Plus size={15}/> Dodaj komad</button></div>
         {pieces.map((p,index) => <div className="workorders-piece-form" key={index}><label className="piece-name">Opis komada<input value={p.name} onChange={e => updatePiece(index,'name',e.target.value)} placeholder="Npr. gazište, klupčica"/></label><label>Duljina<input type="number" min="0.1" step="0.1" value={p.length} onChange={e => updatePiece(index,'length',e.target.value)} placeholder="cm"/></label><label>Širina<input type="number" min="0.1" step="0.1" value={p.width} onChange={e => updatePiece(index,'width',e.target.value)} placeholder="cm"/></label><label>Debljina<input type="number" min="0.1" step="0.1" value={p.thickness} onChange={e => updatePiece(index,'thickness',e.target.value)}/></label><label>Količina<input type="number" min="1" step="1" value={p.quantity} onChange={e => updatePiece(index,'quantity',e.target.value)}/></label>{pieces.length > 1 && <button type="button" className="piece-remove" onClick={() => setPieces(prev => prev.filter((_,i) => i !== index))} aria-label="Ukloni komad"><X size={16}/></button>}</div>)}
         <label className="workorders-note-label">Napomena<textarea value={form.note} onChange={e => updateForm('note',e.target.value)} rows="2" placeholder="Posebne upute, rubovi, završna obrada…"/></label>
