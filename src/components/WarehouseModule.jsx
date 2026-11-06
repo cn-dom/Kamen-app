@@ -31,8 +31,71 @@ const newOutput = () => ({ id: 'OUT-' + Date.now() + '-' + Math.random().toStrin
   const initialCutForm = () => ({ sourceId: '', orderId: '', usedQty: '', note: '', outputs: [newOutput()] });
 const parseQuantity = value => Number(String(value ?? '').trim().replace(',', '.'));
 const formatQuantity = value => Number(value || 0).toLocaleString('hr-HR', { maximumFractionDigits: 2 });
+
+function buildCuttingPlan(boardLength, boardWidth, pieces, kerf, trim, allowRotation, maxBoards) {
+  const usableLength = boardLength - trim * 2;
+  const usableWidth = boardWidth - trim * 2;
+  if (!(usableLength > 0 && usableWidth > 0)) return { boards: [], unplaced: pieces, error: 'Rubno obrezivanje je veće od dimenzija ploče.' };
+  const expanded = pieces.flatMap(piece => Array.from({ length: Math.max(0, Math.min(500, Number(piece.quantity) || 0)) }, (_, index) => ({
+    id: piece.id + '-' + index, name: piece.name, length: Number(piece.length), width: Number(piece.width), sourceIndex: piece.sourceIndex
+  }))).sort((a, b) => b.length * b.width - a.length * a.width);
+  const boards = [];
+  let remaining = [...expanded];
+  const intersects = (a, b) => a.x < b.x + b.w - 1e-7 && a.x + a.w > b.x + 1e-7 && a.y < b.y + b.h - 1e-7 && a.y + a.h > b.y + 1e-7;
+  const contains = (a, b) => b.x >= a.x - 1e-7 && b.y >= a.y - 1e-7 && b.x + b.w <= a.x + a.w + 1e-7 && b.y + b.h <= a.y + a.h + 1e-7;
+  for (let boardIndex = 0; boardIndex < maxBoards && remaining.length; boardIndex++) {
+    let free = [{ x: 0, y: 0, w: usableLength, h: usableWidth }];
+    const placed = [];
+    for (let p = 0; p < remaining.length;) {
+      const piece = remaining[p];
+      let best = null;
+      for (const rect of free) {
+        const orientations = [{ w: piece.length + kerf, h: piece.width + kerf, rotated: false }];
+        if (allowRotation && Math.abs(piece.length - piece.width) > 1e-7) orientations.push({ w: piece.width + kerf, h: piece.length + kerf, rotated: true });
+        for (const option of orientations) {
+          if (option.w <= rect.w + 1e-7 && option.h <= rect.h + 1e-7) {
+            const shortSide = Math.min(rect.w - option.w, rect.h - option.h);
+            const longSide = Math.max(rect.w - option.w, rect.h - option.h);
+            const score = shortSide * 100000 + longSide;
+            if (!best || score < best.score) best = { rect, option, score };
+          }
+        }
+      }
+      if (!best) { p++; continue; }
+      const placedRect = { x: best.rect.x, y: best.rect.y, w: best.option.w, h: best.option.h };
+      placed.push({ ...piece, x: placedRect.x, y: placedRect.y, w: best.option.rotated ? piece.width : piece.length, h: best.option.rotated ? piece.length : piece.width, rotated: best.option.rotated });
+      const nextFree = [];
+      for (const rect of free) {
+        if (!intersects(rect, placedRect)) { nextFree.push(rect); continue; }
+        if (placedRect.x > rect.x) nextFree.push({ x: rect.x, y: rect.y, w: placedRect.x - rect.x, h: rect.h });
+        if (placedRect.x + placedRect.w < rect.x + rect.w) nextFree.push({ x: placedRect.x + placedRect.w, y: rect.y, w: rect.x + rect.w - (placedRect.x + placedRect.w), h: rect.h });
+        if (placedRect.y > rect.y) nextFree.push({ x: rect.x, y: rect.y, w: rect.w, h: placedRect.y - rect.y });
+        if (placedRect.y + placedRect.h < rect.y + rect.h) nextFree.push({ x: rect.x, y: placedRect.y + placedRect.h, w: rect.w, h: rect.y + rect.h - (placedRect.y + placedRect.h) });
+      }
+      free = nextFree.filter((rect, index, all) => rect.w > 1e-7 && rect.h > 1e-7 && !all.some((other, otherIndex) => otherIndex !== index && contains(other, rect)));
+      remaining.splice(p, 1);
+    }
+    if (!placed.length) break;
+    boards.push({ index: boardIndex + 1, placed, usableArea: usableLength * usableWidth, placedArea: placed.reduce((sum, item) => sum + item.length * item.width, 0) });
+  }
+  return { boards, unplaced: remaining, error: '' };
+}
+
   const [cutForm, setCutForm] = useState(initialCutForm);
+  const [cutKerf, setCutKerf] = useState('0.4');
+  const [cutTrim, setCutTrim] = useState('1');
+  const [allowRotation, setAllowRotation] = useState(true);
   const availableOrders = readStored(WORK_ORDERS_KEY, []).filter(order => !['Završen', 'Otkazan'].includes(order.status));
+  const selectedCutSource = materials.find(item => item.id === cutForm.sourceId);
+  const selectedCutOrder = availableOrders.find(order => order.id === cutForm.orderId);
+  const cuttingPlan = useMemo(() => {
+    if (!selectedCutSource || !selectedCutOrder || !Array.isArray(selectedCutOrder.pieces)) return null;
+    const kerf = parseQuantity(cutKerf);
+    const trim = parseQuantity(cutTrim);
+    if (!Number.isFinite(kerf) || kerf < 0 || !Number.isFinite(trim) || trim < 0) return { error: 'Unesi valjanu širinu reza i rubno obrezivanje.', boards: [], unplaced: [] };
+    const pieces = selectedCutOrder.pieces.map((piece, sourceIndex) => ({ ...piece, sourceIndex, id: 'piece-' + sourceIndex })).filter(piece => Number(piece.length) > 0 && Number(piece.width) > 0 && Number(piece.quantity) > Number(piece.producedQuantity || 0)).map(piece => ({ ...piece, quantity: Number(piece.quantity) - Number(piece.producedQuantity || 0) }));
+    return buildCuttingPlan(Number(selectedCutSource.length), Number(selectedCutSource.width), pieces, kerf, trim, allowRotation, Math.floor(Number(selectedCutSource.quantity || 0) + Number(selectedCutOrder.reservedMaterialId === selectedCutSource.id ? selectedCutOrder.reservedMaterialQty || 0 : 0)));
+  }, [selectedCutSource, selectedCutOrder, cutKerf, cutTrim, allowRotation]);
   const [movementQty, setMovementQty] = useState('1');
   const [toast, setToast] = useState('');
 
