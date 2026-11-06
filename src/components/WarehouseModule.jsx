@@ -94,7 +94,7 @@ const formatQuantity = value => Number(value || 0).toLocaleString('hr-HR', { max
     event.preventDefault();
     const source = materials.find(item => item.id === cutForm.sourceId);
     const usedQty = parseQuantity(cutForm.usedQty);
-    const linkedOrder = cutForm.orderId ? readStored(WORK_ORDERS_KEY, []).find(order => order.id === cutForm.orderId && !['Završen', 'Otkazan'].includes(order.status))) : null;
+    const linkedOrder = cutForm.orderId ? readStored(WORK_ORDERS_KEY, []).find(order => order.id === cutForm.orderId && !['Završen', 'Otkazan'].includes(order.status)) : null;
     const reservedForOrder = linkedOrder && linkedOrder.reservedMaterialId === source?.id ? Number(linkedOrder.reservedMaterialQty || 0) : 0;
     const availableForCut = Number(source?.quantity || 0) + reservedForOrder;
     if (!source || !Number.isFinite(usedQty) || usedQty <= 0 || Math.round(usedQty * 100) !== usedQty * 100 || usedQty > availableForCut + 1e-9) {
