@@ -3,18 +3,9 @@ import { Truck, Plus, Search, MapPin, CalendarDays, Clock3, Users, Car, Package,
 
 const KEY = 'kamen-app-field-work-v1';
 const ORDER_KEY = 'kamen-app-work-orders-v1';
-const seed = [
-  { id:'TR-2026-001', orderId:'RN-2026-002', customer:'Obitelj Horvat', project:'Vanjske stepenice', location:'Groblje — dogovoriti točnu lokaciju', date:'2026-11-06', team:'M. Kovač, D. Perić', vehicle:'Kombi', status:'Planirano', departure:'', arrival:'', workStart:'', workEnd:'', returnTime:'', materials:'Gazišta i montažni materijal', note:'Provjeriti pristup vozilom prije polaska' }
-];
+const seed = [];
 const read = (key, fallback) => { try { const v = window.localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; } };
-const readWorkOrders = () => {
-  const saved = read(ORDER_KEY, null);
-  // WorkOrdersModule uses these same initial examples before the first saved list exists.
-  return Array.isArray(saved) && saved.length ? saved : [
-    { id:'RN-2026-001', customer:'Primjer kupca d.o.o.', project:'Kuhinjska radna ploča', material:'Brački kamen', due:'2026-11-02', status:'U pripremi', pieces:[] },
-    { id:'RN-2026-002', customer:'Obitelj Horvat', project:'Vanjske stepenice', material:'Granit', due:'2026-11-05', status:'U tijeku', pieces:[] }
-  ];
-};
+const readWorkOrders = () => read(ORDER_KEY, []);
 const blank = { orderId:'', customer:'', project:'', location:'', date:'', team:'', vehicle:'', materials:'', note:'' };
 const steps = ['Planirano','Na putu','Na lokaciji','Montaža u tijeku','Završeno','Vraćeno'];
 
