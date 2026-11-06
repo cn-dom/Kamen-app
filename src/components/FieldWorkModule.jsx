@@ -46,7 +46,7 @@ export default function FieldWorkModule({ onBack }) {
     }
   };
   const timestamp=()=>new Date().toLocaleString('hr-HR',{hour:'2-digit',minute:'2-digit'});
-  const advance=(job)=>{ const next=steps[Math.min(steps.indexOf(job.status)+1,steps.length-1)]; const key=({ 'Na putu':'departure','Na lokaciji':'arrival','Montaža u tijeku':'workStart','Završeno':'workEnd','Vraćeno':'returnTime'})[next]; setJobs(prev=>prev.map(j=>j.id===job.id?{...j,status:next,...(key?{[key]:timestamp()}:{})}:j)); };
+  const advance=(job)=>{ const next=steps[Math.min(steps.indexOf(job.status)+1,steps.length-1)]; const key=({ 'Na putu':'departure','Na lokaciji':'arrival','Montaža u tijeku':'workStart','Završeno':'workEnd','Vraćeno':'returnTime'})[next]; setField(job.id,'status',next); if(key) setJobs(prev=>prev.map(j=>j.id===job.id?{...j,[key]:timestamp()}:j)); };
   const create=(e)=>{e.preventDefault();if(!form.customer.trim()||!form.project.trim()||!form.location.trim()||!form.date){setError('Unesi kupca, projekt, lokaciju i datum terenskog rada.');return;}const id='TR-2026-'+String(Math.max(0,...jobs.map(j=>Number(j.id.split('-').at(-1))||0))+1).padStart(3,'0');setJobs(prev=>[{...form,id,status:'Planirano',departure:'',arrival:'',workStart:'',workEnd:'',returnTime:''},...prev]);setExpanded(id);setForm(blank);setShowForm(false);setError('');};
   const linkOrder=(id)=>{const o=orders.find(x=>x.id===id);setForm(p=>({...p,orderId:o?.id||'',customer:o?.customer||p.customer,project:o?.project||p.project}));};
   return <div className="page-content field-page">
