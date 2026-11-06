@@ -90,11 +90,12 @@ const newOutput = () => ({ id: 'OUT-' + Date.now() + '-' + Math.random().toStrin
     event.preventDefault();
     const source = materials.find(item => item.id === cutForm.sourceId);
     const usedQty = Number(cutForm.usedQty);
-    if (!source || !Number.isInteger(usedQty) || usedQty < 1 || usedQty > source.quantity) {
-      flash('Provjeri ulazni materijal i količinu za pilanje.');
+    const linkedOrder = cutForm.orderId ? readStored(WORK_ORDERS_KEY, []).find(order => order.id === cutForm.orderId && order.status !== 'Završen') : null;
+    const reservedForOrder = linkedOrder && linkedOrder.reservedMaterialId === source?.id ? Number(linkedOrder.reservedMaterialQty || 0) : 0;
+    if (!source || !Number.isInteger(usedQty) || usedQty < 1 || usedQty > (reservedForOrder > 0 ? reservedForOrder : source.quantity)) {
+      flash('Provjeri ulazni materijal i količinu. Za povezani nalog koristi se njegova prethodno rezervirana količina.');
       return;
     }
-    const linkedOrder = cutForm.orderId ? readStored(WORK_ORDERS_KEY, []).find(order => order.id === cutForm.orderId && order.status !== 'Završen') : null;
     if (cutForm.orderId && !linkedOrder) { flash('Odabrani radni nalog više nije dostupan. Osvježi prikaz i pokušaj ponovno.'); return; }
     if (!cutForm.outputs.length || cutForm.outputs.some(output =>
       !output.name.trim() || !Number.isInteger(Number(output.quantity)) || Number(output.quantity) < 1 ||
@@ -165,7 +166,7 @@ const newOutput = () => ({ id: 'OUT-' + Date.now() + '-' + Math.random().toStrin
         window.localStorage.setItem('kamen-app-finished-products-v1', JSON.stringify([...finishedOutputs, ...currentFinished]));
       } catch { /* Warehouse cutting is still recorded if the finished goods list cannot be updated. */ }
     }
-    setMaterials(current => [...current.map(item => item.id === source.id ? { ...item, quantity: item.quantity - usedQty } : item), ...outputMaterials.filter(item => item.form !== 'Komad')]);
+    setMaterials(current => [...current.map(item => item.id === source.id ? { ...item, quantity: item.quantity - (reservedForOrder > 0 ? 0 : usedQty) } : item), ...outputMaterials.filter(item => item.form !== 'Komad')]);
     const outputMovements = outputMaterials.map((item, index) => ({
       id: timestamp + index + 2,
       material: item.name,
@@ -176,7 +177,7 @@ const newOutput = () => ({ id: 'OUT-' + Date.now() + '-' + Math.random().toStrin
       date
     }));
     setMovements(current => [
-      { id: timestamp + 1, material: source.name, kind: 'Utrošak za pilanje', quantity: usedQty, location: source.location, orderId: linkedOrder?.id || '', date },
+      { id: timestamp + 1, material: source.name, kind: reservedForOrder > 0 ? 'Potrošnja rezerviranog materijala' : 'Utrošak za pilanje', quantity: usedQty, location: source.location, orderId: linkedOrder?.id || '', date },
       ...outputMovements,
       ...current
     ].slice(0, 30));
@@ -190,7 +191,7 @@ const newOutput = () => ({ id: 'OUT-' + Date.now() + '-' + Math.random().toStrin
             return added ? { ...piece, producedQuantity: Number(piece.producedQuantity || 0) + added } : piece;
           });
           const allProduced = updatedPieces.every(piece => Number(piece.producedQuantity || 0) >= Number(piece.quantity || 0));
-          return { ...order, pieces: updatedPieces, status: allProduced ? 'Čeka kontrolu' : 'U tijeku' };
+          return { ...order, reservedMaterialQty: order.id === linkedOrder.id && order.reservedMaterialId === source.id ? Math.max(0, Number(order.reservedMaterialQty || 0) - usedQty) : order.reservedMaterialQty, pieces: updatedPieces, status: allProduced ? 'Čeka kontrolu' : 'U tijeku' };
         })));
       } catch { /* The cutting record remains saved locally even if order status cannot be updated. */ }
     }
