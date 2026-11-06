@@ -11,7 +11,7 @@ function readStoredOrders() {
   } catch { return seedOrders; }
 }
 
-const blankForm = { customer: '', project: '', material: '', materialQty: '0', due: '', note: '' };
+const blankForm = { customer: '', project: '', material: '', materialQty: '1', due: '', note: '' };
 const blankPiece = () => ({ name: '', length: '', width: '', thickness: '3', quantity: '1' });
 const statuses = ['U pripremi', 'Spreman za pilanje', 'U tijeku', 'Čeka kontrolu', 'Završen'];
 
