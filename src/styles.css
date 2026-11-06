@@ -363,3 +363,18 @@ button:active { transform: translateY(1px); }
 .cost-category-option input{width:16px;height:16px;accent-color:#3569e8;margin:0;flex:0 0 auto}
 .costs-modal .form-row{align-items:start}
 @media(max-width:700px){.cost-category-options{grid-template-columns:1fr}}
+
+
+/* Production workflow */
+.production-order-head { display:flex; align-items:center; gap:14px; padding:18px 20px; flex-wrap:wrap; }
+.production-order-head .workorder-title { flex:1 1 220px; }
+.production-stage-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:12px; margin-top:20px; }
+.production-stage { display:flex; flex-direction:column; gap:9px; min-width:0; padding:14px; border:1px solid var(--border, #e6eaf0); border-radius:12px; background:var(--surface-subtle, #f8fafc); }
+.production-stage > span { display:flex; align-items:flex-start; gap:8px; font-size:13px; font-weight:650; line-height:1.35; min-height:34px; }
+.production-stage > span b { color:var(--muted, #778397); font-size:11px; letter-spacing:.04em; }
+.production-stage select { width:100%; min-width:0; }
+.production-stage-grid + .workorder-card-footer { margin-top:18px; }
+.production-page .workorder-detail-top .progress-track { margin-top:10px; max-width:360px; }
+@media (max-width: 1050px) { .production-stage-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+@media (max-width: 680px) { .production-stage-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .production-order-head { align-items:flex-start; } }
+@media (max-width: 420px) { .production-stage-grid { grid-template-columns:1fr; } }
