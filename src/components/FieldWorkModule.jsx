@@ -29,7 +29,7 @@ export default function FieldWorkModule({ onBack }) {
       try {
         const finished = read(FINISHED_KEY, []);
         const installed = finished.filter(item=>item.orderId===job.orderId && Number(item.stockQuantity ?? item.quantity)>0);
-        const updated = finished.map(item=>item.orderId===job.orderId
+        const updated = finished.map(item=>item.orderId===job.orderId && Number(item.stockQuantity ?? item.quantity)>0
           ? {...item,status:'Ugrađen',stockQuantity:0,updatedAt:new Date().toISOString()}
           : item);
         window.localStorage.setItem(FINISHED_KEY,JSON.stringify(updated));
