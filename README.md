@@ -1,39 +1,46 @@
 # Kamen-app
 
-Program za kamenoklesarske tvrtke: skladište kamena, praćenje ploča i ostataka, radni nalozi, proizvodne faze, montaža na terenu, alati, troškovi i izvještaji.
+Poslovna aplikacija za kamenoklesarske radionice. Projekt se razvija postupno, uz očuvanje postojećih funkcionalnosti i provjeru svake promjene.
 
-## Status
+## Trenutačno stanje
 
-Projekt je u fazi planiranja. Dokumentacija se priprema prije izrade aplikacije. Funkcionalnosti navedene u specifikaciji još nisu tvrdnja da su implementirane.
+Aplikacija već sadrži početne module:
+- nadzorna ploča;
+- radni nalozi s komadima i okvirnim izračunom potrebnih ploča;
+- skladište materijala, decimalna potrošnja pri pilanju, ostatci i otpad;
+- gotovi proizvodi;
+- proizvodne faze;
+- terenski rad;
+- kupci;
+- troškovi i osnovni izvještaji.
 
-## Dokumentacija
+**Važno:** trenutačni podaci spremaju se lokalno u preglednik (`localStorage`). Nema prijave, višekorisničke sinkronizacije, izolacije tvrtki ni sigurnosne kopije. Aplikacija se još ne smije smatrati spremnom za stvarni višekorisnički poslovni rad.
 
+## Revizija i dokumentacija
+
+- [Revizija postojećeg stanja i prioriteti](docs/AUDIT-POSTOJECEG-STANJA.md)
 - [Funkcionalna specifikacija](SPECIFIKACIJA-PROGRAMA.md)
+- [Model podataka](docs/MODEL-PODATAKA.md)
 - [Struktura projekta](docs/STRUKTURA-PROJEKTA.md)
 - [Plan ekrana i korisničkih tokova](docs/PLAN-EKRANA.md)
+- [Testni scenariji](docs/TESTNI-SCENARIJI.md)
+- [Uloge i ovlasti](docs/ULOGE-I-OVLASTI.md)
 
 ## Temeljna pravila
 
-- Svaka tvrtka ima odvojene podatke i korisnike.
+- Nadograđivati postojeći Kamen-app; ne počinjati ispočetka.
+- Svaka tvrtka u budućem višekorisničkom sustavu mora imati odvojene podatke i korisnike.
 - Vlasnik tvrtke upravlja podacima i ovlastima svoje tvrtke.
 - Radnici prema zadanim postavkama ne vide financijske podatke.
 - Valuta je euro (EUR, €).
-- Sučelje se planira za mobitel i računalo, uz mogućnost PWA instalacije.
+- Sučelje mora biti uporabljivo na mobitelu i računalu.
 - Sigurnost i provjera ovlasti moraju biti provedene na poslužiteljskoj strani, a ne samo skrivanjem elemenata sučelja.
-- Izvorni kod, dokumentacija i promjene vode se u ovom GitHub repozitoriju.
+- Svaka promjena zalihe mora imati jasan i provjerljiv trag.
 
-## Trenutačno izvan opsega
+## Pohrana i Supabase
 
-Supabase nije povezan niti se smije konfigurirati u ovoj fazi. Ne stvarati tablice, migracije, politike, ključeve ni produkcijske postavke dok vlasnik projekta to izričito ne odobri.
+Supabase nije povezan niti se smije konfigurirati dok vlasnik projekta to izričito ne odobri. Trenutačna lokalna pohrana služi za razvoj i provjeru sučelja, a ne za sinkronizirani rad više zaposlenika.
 
-## Plan rada
+## Razvoj i objava
 
-1. Uskladiti specifikaciju, strukturu i plan ekrana.
-2. Razraditi korisničke uloge, podatkovne tokove i kriterije prihvaćanja.
-3. Odabrati tehnologije i pripremiti lokalni razvojni kostur tek nakon potvrde plana.
-4. Razvijati module postupno i testirati svaki prije nastavka.
-5. Integraciju baze i autentikacije odraditi tek uz izričito odobrenje.
-
-## Pravilo
-
-Prije većih promjena prvo provjeriti postojeće datoteke i utjecaj promjene. Ne prikazivati planirane funkcije kao dovršene.
+Promjene se rade u zasebnim granama i kroz pull request prema `main`. Prije spajanja mora proći build; nakon spajanja provjerava se objava na GitHub Pages.
