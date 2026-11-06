@@ -28,7 +28,6 @@ const nav = [
   {label:'Radni nalozi', icon:ClipboardList, count:'12'},
   {label:'Proizvodnja', icon:Factory},
   {label:'Skladište', icon:Boxes, count:'4', alert:true},
-  {label:'Gotovi proizvodi', icon:PackageCheck},
   {label:'Terenski rad', icon:Truck},
   {label:'Kupci', icon:Users},
   {label:'Troškovi i izvještaji', icon:Wallet, section:'POSLOVANJE'},
