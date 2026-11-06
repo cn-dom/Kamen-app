@@ -1,10 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ClipboardList, Plus, Search, X, CalendarDays, UserRound, Ruler, ChevronDown, CheckCircle2, Clock3, Hammer, Trash2 } from 'lucide-react';
 
-const seedOrders = [
-  { id: 'RN-2026-001', customer: 'Primjer kupca d.o.o.', project: 'Kuhinjska radna ploča', material: 'Brački kamen', due: '2026-11-02', status: 'U pripremi', note: 'Provjeriti šablonu prije pilanja', pieces: [{ name: 'Radna ploča — glavni dio', length: 240, width: 62, thickness: 3, quantity: 1 }, { name: 'Bočna ploča', length: 62, width: 8, thickness: 3, quantity: 2 }] },
-  { id: 'RN-2026-002', customer: 'Obitelj Horvat', project: 'Vanjske stepenice', material: 'Granit', due: '2026-11-05', status: 'U tijeku', note: '', pieces: [{ name: 'Gazište', length: 120, width: 32, thickness: 3, quantity: 8 }] }
-];
+const seedOrders = [];
 const STORAGE_KEY = 'kamen-app-work-orders-v1';
 function readStoredOrders() {
   try {
@@ -24,7 +21,7 @@ export default function WorkOrdersModule({ onBack }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(blankForm);
   const [pieces, setPieces] = useState([blankPiece()]);
-  const [expanded, setExpanded] = useState('RN-2026-001');
+  const [expanded, setExpanded] = useState('');
   const [error, setError] = useState('');
   useEffect(() => { try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(orders)); } catch { /* Browser storage may be disabled or full. */ } }, [orders]);
   const filtered = useMemo(() => orders.filter(o => {
