@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import FinishedProductsModule from './FinishedProductsModule.jsx';
 import { ArrowDownToLine, ArrowUpFromLine, Boxes, Check, ChevronDown, ClipboardCheck, Layers3, Plus, Search, Scissors, X } from 'lucide-react';
 
 const seedMaterials = [
@@ -22,6 +23,7 @@ const emptyForm = { name: '', type: 'Kamen', form: 'Ploča', thickness: '3', len
 export default function WarehouseModule({ onBack, mode = 'warehouse' }) {
   const productionMode = mode === 'production';
   const [materials, setMaterials] = useState(() => readStored(MATERIALS_KEY, seedMaterials));
+  const [warehouseTab, setWarehouseTab] = useState('materials');
   const [movements, setMovements] = useState(() => readStored(MOVEMENTS_KEY, []));
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('Sve');
@@ -168,12 +170,16 @@ const newOutput = () => ({ id: 'OUT-' + Date.now() + '-' + Math.random().toStrin
     flash(movement.kind + ' je evidentirano u oglednom prikazu.');
   }
 
+  if (!productionMode && warehouseTab === 'finished') return <div className="page-content module-page warehouse-page"><div className="warehouse-subnav"><button className="warehouse-subnav-item" onClick={() => setWarehouseTab('materials')}><Boxes size={16}/> Materijali i zalihe</button><button className="warehouse-subnav-item active" onClick={() => setWarehouseTab('finished')}><Layers3 size={16}/> Gotovi proizvodi</button></div><FinishedProductsModule onBack={() => setWarehouseTab('materials')} /></div>;
+
   return (
     <div className="page-content module-page warehouse-page">
       <section className="welcome-row module-welcome">
         <div><div className="eyebrow"><span className="live-dot" /> {productionMode ? 'RADIONICA I OBRADA' : 'MATERIJAL I ZALIHE'}</div><h1>{productionMode ? 'Proizvodnja i pilanje' : 'Skladište'}</h1><p className="subtitle">{productionMode ? 'Poveži pilanje s radnim nalogom, evidentiraj gotove komade, ostatke i otpad te automatski ažuriraj stanje materijala.' : 'Evidencija kamenih ploča, komada, ostataka i otpada na jednome mjestu.'}</p></div>
         <div className="welcome-actions"><button className="button button-secondary" onClick={onBack}>← Povratak na pregled</button><button className="button button-secondary" onClick={() => setShowCut(true)}><Scissors size={16}/> {productionMode ? 'Novi nalog za pilanje' : 'Evidentiraj pilanje'}</button><button className="button button-primary" onClick={() => setShowForm(true)}><Plus size={16}/> Novi materijal</button></div>
       </section>
+
+      {!productionMode && <div className="warehouse-subnav"><button className="warehouse-subnav-item active" onClick={() => setWarehouseTab('materials')}><Boxes size={16}/> Materijali i zalihe</button><button className="warehouse-subnav-item" onClick={() => setWarehouseTab('finished')}><Layers3 size={16}/> Gotovi proizvodi</button></div>}
 
       <section className="stats-grid warehouse-stats">
         <article className="stat-card"><div className="stat-top"><span>Stavke u evidenciji</span><span className="stat-icon blue-icon"><Boxes size={18}/></span></div><div className="stat-value">{materials.length}<span className="stat-unit">stavki</span></div><div className="stat-foot">Materijali, ostaci i otpad</div></article>

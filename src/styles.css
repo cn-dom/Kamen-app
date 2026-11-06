@@ -412,3 +412,10 @@ button:active { transform: translateY(1px); }
 .finished-product-modal{max-width:720px}
 @media(max-width:1050px){.finished-product-grid{grid-template-columns:1fr}}
 @media(max-width:650px){.finished-product-card{grid-template-columns:1fr}.finished-product-photo,.finished-product-placeholder{width:100%;height:150px;min-height:150px}.finished-process-options{grid-template-columns:repeat(2,minmax(0,1fr))}.finished-product-content{padding:12px}.finished-status-control{align-items:flex-start;flex-direction:column}.finished-status-control select{max-width:none;width:100%}}
+
+/* Podkategorije skladišta */
+.warehouse-subnav{display:flex;align-items:center;gap:8px;padding:0 0 18px;margin-top:-4px;border-bottom:1px solid #e9edf4;margin-bottom:20px}
+.warehouse-subnav-item{display:inline-flex;align-items:center;gap:8px;border:1px solid transparent;background:transparent;color:#718096;border-radius:9px;padding:10px 14px;font-size:12px;font-weight:700;cursor:pointer;transition:background .18s,border-color .18s,color .18s}
+.warehouse-subnav-item:hover{background:#f4f7fc;color:#344967}
+.warehouse-subnav-item.active{background:#edf3ff;border-color:#dce7ff;color:#315fc0}
+@media(max-width:560px){.warehouse-subnav{gap:4px;overflow-x:auto}.warehouse-subnav-item{white-space:nowrap;padding:9px 10px;font-size:11px}}
