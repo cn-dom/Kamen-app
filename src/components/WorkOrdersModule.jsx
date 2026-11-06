@@ -38,7 +38,7 @@ export default function WorkOrdersModule({ onBack }) {
   const filtered = useMemo(() => orders.filter(o => {
     const q = query.trim().toLowerCase();
     return (!q || [o.id, o.customer, o.project, o.material].some(v => v.toLowerCase().includes(q))) &&
-      (statusFilter === 'Svi statusi' || o.status === statusFilter);
+      (statusFilter === 'Svi statusi' || (statusFilter === 'Otkazani' ? o.status === 'Otkazan' : o.status === statusFilter));
   }), [orders, query, statusFilter]);
   const updateForm = (key, value) => setForm(prev => ({ ...prev, [key]: value }));
   const updatePiece = (index, key, value) => setPieces(prev => prev.map((p, i) => i === index ? { ...p, [key]: value } : p));
@@ -86,8 +86,38 @@ export default function WorkOrdersModule({ onBack }) {
     }
     setExpanded(id); setShowForm(false); setForm(blankForm); setPieces([blankPiece()]); setError('');
   };
-  const changeStatus = (id, status) => setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o));
-  const removeOrder = (id) => { setOrders(prev => prev.filter(o => o.id !== id)); if (expanded === id) setExpanded(''); };
+  const changeStatus = (id, status) => setOrders(prev => prev.map(o => o.id === id && o.status !== 'Otkazan' ? { ...o, status } : o));
+  const cancelOrder = (id) => {
+    const order = orders.find(item => item.id === id);
+    if (!order || order.status === 'Otkazan') return;
+    const reservedQty = Number(order.reservedMaterialQty || 0);
+    const reservedMaterial = reservedQty > 0 ? materials.find(item => item.id === order.reservedMaterialId) : null;
+    if (reservedQty > 0 && !reservedMaterial) {
+      window.alert('Rezervirani materijal nije pronađen u skladištu. Nalog nije otkazan kako se stanje ne bi pogrešno evidentiralo.');
+      return;
+    }
+    const explanation = reservedQty > 0 ? 'Neiskorištena rezervacija od ' + reservedQty.toLocaleString('hr-HR') + ' ploča bit će vraćena u skladište.' : 'Već utrošeni materijal neće se vraćati.';
+    if (!window.confirm('Otkazati nalog ' + order.id + '? ' + explanation)) return;
+    if (reservedQty > 0 && reservedMaterial) {
+      const nextMaterials = materials.map(item => item.id === reservedMaterial.id
+        ? { ...item, quantity: Math.round((Number(item.quantity || 0) + reservedQty) * 100) / 100 }
+        : item);
+      setMaterials(nextMaterials);
+      try { window.localStorage.setItem(MATERIALS_KEY, JSON.stringify(nextMaterials)); } catch {}
+      try {
+        const key = 'kamen-app-movements-v1';
+        const log = JSON.parse(window.localStorage.getItem(key) || '[]');
+        window.localStorage.setItem(key, JSON.stringify([{
+          id: Date.now(), material: reservedMaterial.name, kind: 'Povrat rezervacije - otkazivanje naloga',
+          quantity: reservedQty, location: reservedMaterial.location, orderId: order.id,
+          date: new Date().toLocaleDateString('hr-HR')
+        }, ...log].slice(0, 100)));
+      } catch {}
+    }
+    setOrders(prev => prev.map(item => item.id === id
+      ? { ...item, status: 'Otkazan', reservedMaterialQty: 0, cancelledAt: new Date().toISOString() }
+      : item));
+  };
   const pieceCount = orders.reduce((sum, order) => sum + order.pieces.reduce((n, p) => n + p.quantity, 0), 0);
   return <div className="page-content workorders-page">
     <section className="welcome-row module-welcome">
@@ -101,16 +131,16 @@ export default function WorkOrdersModule({ onBack }) {
       <article className="panel workorders-stat"><span className="workorders-stat-icon purple"><Ruler size={19}/></span><div><small>Komada po nacrtu</small><strong>{pieceCount}</strong></div></article>
     </section>
     <section className="panel workorders-list-panel">
-      <div className="workorders-list-head"><div><h2>Popis radnih naloga</h2><p>Otvori nalog za pregled komada i promjenu statusa.</p></div><div className="workorders-filters"><label className="workorders-search"><Search size={17}/><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Traži nalog, kupca ili projekt…"/></label><select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}><option>Svi statusi</option>{statuses.map(s => <option key={s}>{s}</option>)}</select></div></div>
+      <div className="workorders-list-head"><div><h2>Popis radnih naloga</h2><p>Otvori nalog za pregled komada i promjenu statusa.</p></div><div className="workorders-filters"><label className="workorders-search"><Search size={17}/><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Traži nalog, kupca ili projekt…"/></label><select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}><option>Svi statusi</option>{statuses.map(s => <option key={s}>{s}</option>)}<option>Otkazani</option></select></div></div>
       <div className="workorders-cards">{filtered.map(order => <article className="workorder-card" key={order.id}>
         <button className="workorder-card-head" onClick={() => setExpanded(expanded === order.id ? '' : order.id)} aria-expanded={expanded === order.id}>
           <span className="workorder-id">{order.id}</span><span className={'workorder-status status-' + order.status.toLowerCase().replaceAll(' ', '-')}>{order.status}</span><span className="workorder-title">{order.project}</span><span className="workorder-customer"><UserRound size={14}/>{order.customer}</span><span className="workorder-material">{order.material}</span><span className="workorder-due"><CalendarDays size={14}/>{order.due || 'Rok nije određen'}</span><ChevronDown size={17} className={expanded === order.id ? 'workorder-chevron open' : 'workorder-chevron'}/>
         </button>
         {expanded === order.id && <div className="workorder-details">
-          <div className="workorder-detail-top"><div><strong>Komadi za izradu</strong><p>{order.pieces.length} stavki · naručeno {order.pieces.reduce((n,p) => n + Number(p.quantity || 0),0)} komada · izrađeno {order.pieces.reduce((n,p) => n + Number(p.producedQuantity || 0),0)} · preostalo {order.pieces.reduce((n,p) => n + Math.max(0, Number(p.quantity || 0) - Number(p.producedQuantity || 0)),0)}</p>{order.estimatedMaterialCost != null && <p><strong>Procijenjeni trošak kamena: {money(order.estimatedMaterialCost)}</strong> · {Number(order.materialAreaM2 || 0).toLocaleString('hr-HR', { maximumFractionDigits: 4 })} m² × {money(order.materialPricePerM2)} / m²</p>}</div><label>Status naloga<select value={order.status} onChange={e => changeStatus(order.id, e.target.value)}>{statuses.map(s => <option key={s}>{s}</option>)}</select></label></div>
+          <div className="workorder-detail-top"><div><strong>Komadi za izradu</strong><p>{order.pieces.length} stavki · naručeno {order.pieces.reduce((n,p) => n + Number(p.quantity || 0),0)} komada · izrađeno {order.pieces.reduce((n,p) => n + Number(p.producedQuantity || 0),0)} · preostalo {order.pieces.reduce((n,p) => n + Math.max(0, Number(p.quantity || 0) - Number(p.producedQuantity || 0)),0)}</p>{order.estimatedMaterialCost != null && <p><strong>Procijenjeni trošak kamena: {money(order.estimatedMaterialCost)}</strong> · {Number(order.materialAreaM2 || 0).toLocaleString('hr-HR', { maximumFractionDigits: 4 })} m² × {money(order.materialPricePerM2)} / m²</p>}</div><label>Status naloga<select value={order.status} disabled={order.status === 'Otkazan'} onChange={e => changeStatus(order.id, e.target.value)}>{statuses.map(s => <option key={s}>{s}</option>)}</select></label></div>
           <div className="workorder-pieces-wrap"><table className="workorder-pieces"><thead><tr><th>Opis komada</th><th>Duljina (cm)</th><th>Širina (cm)</th><th>Debljina (cm)</th><th>Naručeno</th><th>Izrađeno</th><th>Preostalo</th></tr></thead><tbody>{order.pieces.map((p,i) => { const produced = Number(p.producedQuantity || 0); const remaining = Math.max(0, Number(p.quantity || 0) - produced); return <tr key={i}><td>{p.name}</td><td>{p.length}</td><td>{p.width}</td><td>{p.thickness}</td><td>{p.quantity}</td><td><strong>{produced}</strong></td><td><span className={remaining === 0 ? "piece-progress-done" : ""}>{remaining}</span></td></tr>; })}</tbody></table></div>
           {order.note && <p className="workorder-note"><strong>Napomena:</strong> {order.note}</p>}
-          <div className="workorder-card-footer"><span><Hammer size={15}/> Sljedeći korak: priprema i evidentiranje pilanja</span><button className="button button-danger-light" onClick={() => removeOrder(order.id)}><Trash2 size={15}/> Ukloni nalog</button></div>
+          <div className="workorder-card-footer"><span><Hammer size={15}/> Sljedeći korak: priprema i evidentiranje pilanja</span>{order.status !== 'Otkazan' ? <button className="button button-danger-light" onClick={() => cancelOrder(order.id)}><Trash2 size={15}/> Otkaži nalog</button> : <span className="muted-icon">Nalog je otkazan · rezervacija je vraćena ako nije bila utrošena</span>}</div>
         </div>}
       </article>)}
       {!filtered.length && <div className="workorders-empty"><ClipboardList size={28}/><strong>Nema naloga za odabrani filter</strong><span>Promijeni pretragu ili izradi novi radni nalog.</span></div>}</div>

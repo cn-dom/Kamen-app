@@ -32,7 +32,7 @@ const newOutput = () => ({ id: 'OUT-' + Date.now() + '-' + Math.random().toStrin
 const parseQuantity = value => Number(String(value ?? '').trim().replace(',', '.'));
 const formatQuantity = value => Number(value || 0).toLocaleString('hr-HR', { maximumFractionDigits: 2 });
   const [cutForm, setCutForm] = useState(initialCutForm);
-  const availableOrders = readStored(WORK_ORDERS_KEY, []).filter(order => order.status !== 'Završen');
+  const availableOrders = readStored(WORK_ORDERS_KEY, []).filter(order => !['Završen', 'Otkazan'].includes(order.status));
   const [movementQty, setMovementQty] = useState('1');
   const [toast, setToast] = useState('');
 
@@ -94,7 +94,7 @@ const formatQuantity = value => Number(value || 0).toLocaleString('hr-HR', { max
     event.preventDefault();
     const source = materials.find(item => item.id === cutForm.sourceId);
     const usedQty = parseQuantity(cutForm.usedQty);
-    const linkedOrder = cutForm.orderId ? readStored(WORK_ORDERS_KEY, []).find(order => order.id === cutForm.orderId && order.status !== 'Završen') : null;
+    const linkedOrder = cutForm.orderId ? readStored(WORK_ORDERS_KEY, []).find(order => order.id === cutForm.orderId && !['Završen', 'Otkazan'].includes(order.status)) : null;
     const reservedForOrder = linkedOrder && linkedOrder.reservedMaterialId === source?.id ? Number(linkedOrder.reservedMaterialQty || 0) : 0;
     const availableForCut = Number(source?.quantity || 0) + reservedForOrder;
     if (!source || !Number.isFinite(usedQty) || usedQty <= 0 || Math.round(usedQty * 100) !== usedQty * 100 || usedQty > availableForCut + 1e-9) {
