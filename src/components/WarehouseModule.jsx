@@ -53,12 +53,13 @@ const newOutput = () => ({ id: 'OUT-' + Date.now() + '-' + Math.random().toStrin
   function addMaterial(event) {
     event.preventDefault();
     const quantity = Number(form.quantity);
-    if (!form.name.trim() || !form.location.trim() || !Number.isFinite(quantity) || quantity < 0) {
+    if (!form.name.trim() || !form.location.trim() || !Number.isFinite(quantity) || quantity <= 0) {
       flash('Provjeri naziv, lokaciju i količinu.');
       return;
     }
     const next = { ...form, id: 'MAT-' + String(Date.now()).slice(-6), thickness: Number(form.thickness) || 0, length: Number(form.length) || 0, width: Number(form.width) || 0, quantity, min: Number(form.min) || 0 };
     setMaterials(current => [next, ...current]);
+    setMovements(current => [{ id: Date.now(), material: next.name, kind: 'Zaprimanje', quantity, location: next.location, date: new Date().toLocaleDateString('hr-HR') }, ...current].slice(0, 100));
     setShowForm(false);
     setForm(emptyForm);
     flash('Materijal je dodan u skladišnu evidenciju.');
@@ -185,7 +186,7 @@ const newOutput = () => ({ id: 'OUT-' + Date.now() + '-' + Math.random().toStrin
     if (!item) return;
     if (movement.kind === 'Izdavanje' && qty > item.quantity) { flash('Nema dovoljno zalihe za izdavanje.'); return; }
     setMaterials(current => current.map(row => row.id === movement.id ? { ...row, quantity: row.quantity + (movement.kind === 'Zaprimanje' ? qty : -qty) } : row));
-    setMovements(current => [{ id: Date.now(), material: item.name, kind: movement.kind, quantity: qty, location: item.location, date: new Date().toLocaleDateString('hr-HR') }, ...current].slice(0, 8));
+    setMovements(current => [{ id: Date.now(), material: item.name, kind: movement.kind, quantity: qty, location: item.location, date: new Date().toLocaleDateString('hr-HR') }, ...current].slice(0, 100));
     setMovement(null);
     setMovementQty('1');
     flash(movement.kind + ' je evidentirano u oglednom prikazu.');
@@ -222,7 +223,7 @@ const newOutput = () => ({ id: 'OUT-' + Date.now() + '-' + Math.random().toStrin
       </section>
 
       <section className="panel warehouse-movements"><div className="panel-heading"><div><h2>{productionMode ? 'Proizvodni dnevnik' : 'Zadnja kretanja'}</h2><p>{productionMode ? 'Utrošak ploča, gotovi komadi, ostatci i otpad iz postupaka pilanja.' : 'Ogledni dnevnik zaprimanja i izdavanja.'}</p></div><ClipboardCheck size={19} className="muted-icon"/></div>
-        {movements.length ? <div className="warehouse-movement-list">{movements.map(row => <div className="warehouse-movement" key={row.id}><span className={'movement-icon ' + (row.kind === 'Zaprimanje' ? 'movement-in' : 'movement-out')}>{row.kind === 'Zaprimanje' ? <ArrowDownToLine size={16}/> : <ArrowUpFromLine size={16}/>}</span><div><strong>{row.kind}: {row.material}</strong><small>{row.date} · {row.location}</small></div><b>{row.kind === 'Zaprimanje' ? '+' : '−'}{row.quantity}</b></div>)}</div> : <div className="warehouse-empty"><ClipboardCheck size={24}/><strong>Nema evidentiranih kretanja</strong><span>Odaberi zaprimanje ili izdavanje u tablici materijala.</span></div>}
+        {movements.length ? <div className="warehouse-movement-list">{movements.map(row => <div className="warehouse-movement" key={row.id}><span className={'movement-icon ' + (['Zaprimanje','Nastali ostatak','Nastali otpad','Gotov komad','Povrat gotovog proizvoda na zalihu'].includes(row.kind) ? 'movement-in' : 'movement-out')}>{['Zaprimanje','Nastali ostatak','Nastali otpad','Gotov komad','Povrat gotovog proizvoda na zalihu'].includes(row.kind) ? <ArrowDownToLine size={16}/> : <ArrowUpFromLine size={16}/>}</span><div><strong>{row.kind}: {row.material}</strong><small>{row.date} · {row.location}</small></div><b>{['Zaprimanje','Nastali ostatak','Nastali otpad','Gotov komad','Povrat gotovog proizvoda na zalihu'].includes(row.kind) ? '+' : '−'}{row.quantity}</b></div>)}</div> : <div className="warehouse-empty"><ClipboardCheck size={24}/><strong>Nema evidentiranih kretanja</strong><span>Odaberi zaprimanje ili izdavanje u tablici materijala.</span></div>}
       </section>
 
       <div className="module-notice"><Boxes size={17}/><span>Početno stanje je prazno. Unosi materijal koji stvarno zaprimiš; količine se vode u ovom pregledniku i još se ne sinkroniziraju između uređaja.</span></div>
