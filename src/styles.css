@@ -419,3 +419,8 @@ button:active { transform: translateY(1px); }
 .warehouse-subnav-item:hover{background:#f4f7fc;color:#344967}
 .warehouse-subnav-item.active{background:#edf3ff;border-color:#dce7ff;color:#315fc0}
 @media(max-width:560px){.warehouse-subnav{gap:4px;overflow-x:auto}.warehouse-subnav-item{white-space:nowrap;padding:9px 10px;font-size:11px}}
+
+
+/* Warehouse row actions */
+.warehouse-row-actions .row-action.danger { color: #b54747; }
+.warehouse-row-actions .row-action.danger:hover { background: #fff0f0; border-color: #f0caca; }
