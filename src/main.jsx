@@ -5,7 +5,7 @@ import {
   Bell, Boxes, CalendarDays, Check, CheckCircle2, ChevronDown, ChevronRight,
   CircleHelp, Clock3, Command, Factory, FileText, Filter, Hammer, LayoutDashboard,
   Menu, MoreHorizontal, Package, Plus, Search, Settings2, ShieldCheck,
-  Truck, Users, Wallet, X, HardHat, ClipboardList, Layers3
+  Truck, Users, Wallet, X, HardHat, ClipboardList, Layers3, PackageCheck
 } from 'lucide-react';
 import './styles.css';
 import ModulePlaceholder from './components/ModulePlaceholder.jsx';
@@ -28,6 +28,7 @@ const nav = [
   {label:'Radni nalozi', icon:ClipboardList, count:'12'},
   {label:'Proizvodnja', icon:Factory},
   {label:'Skladište', icon:Boxes, count:'4', alert:true},
+  {label:'Gotovi proizvodi', icon:PackageCheck},
   {label:'Terenski rad', icon:Truck},
   {label:'Kupci', icon:Users},
   {label:'Troškovi i izvještaji', icon:Wallet, section:'POSLOVANJE'},
