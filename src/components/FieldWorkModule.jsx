@@ -3,6 +3,8 @@ import { Truck, Plus, Search, MapPin, CalendarDays, Clock3, Users, Car, Package,
 
 const KEY = 'kamen-app-field-work-v1';
 const ORDER_KEY = 'kamen-app-work-orders-v1';
+const FINISHED_KEY = 'kamen-app-finished-products-v1';
+const MOVEMENTS_KEY = 'kamen-app-movements-v1';
 const seed = [];
 const read = (key, fallback) => { try { const v = window.localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; } };
 const readWorkOrders = () => read(ORDER_KEY, []);
@@ -20,7 +22,29 @@ export default function FieldWorkModule({ onBack }) {
   const [error,setError] = useState('');
   useEffect(()=>{ try { window.localStorage.setItem(KEY,JSON.stringify(jobs)); } catch {} },[jobs]);
   const filtered = useMemo(()=>jobs.filter(j=>(filter==='Svi'||j.status===filter)&&(!query.trim()||[j.id,j.customer,j.project,j.location,j.orderId].some(v=>(v||'').toLowerCase().includes(query.toLowerCase())))),[jobs,filter,query]);
-  const setField=(id,key,value)=>setJobs(prev=>prev.map(j=>j.id===id?{...j,[key]:value}:j));
+  const setField=(id,key,value)=>{
+    const job = jobs.find(row=>row.id===id);
+    setJobs(prev=>prev.map(j=>j.id===id?{...j,[key]:value}:j));
+    if(key==='status' && value==='Završeno' && job?.orderId){
+      try {
+        const finished = read(FINISHED_KEY, []);
+        const installed = finished.filter(item=>item.orderId===job.orderId && Number(item.stockQuantity ?? item.quantity)>0);
+        const updated = finished.map(item=>item.orderId===job.orderId
+          ? {...item,status:'Ugrađen',stockQuantity:0,updatedAt:new Date().toISOString()}
+          : item);
+        window.localStorage.setItem(FINISHED_KEY,JSON.stringify(updated));
+        if(installed.length){
+          const movements = read(MOVEMENTS_KEY, []);
+          const entries = installed.map((item,index)=>({
+            id:Date.now()+index,material:item.name,kind:'Ugradnja',quantity:Number(item.stockQuantity ?? item.quantity),
+            location:job.location||item.location||'',date:new Date().toLocaleDateString('hr-HR'),
+            productId:item.id,orderId:job.orderId
+          }));
+          window.localStorage.setItem(MOVEMENTS_KEY,JSON.stringify([...entries,...movements].slice(0,100)));
+        }
+      } catch { /* Field job status remains recorded if the stock log cannot be updated. */ }
+    }
+  };
   const timestamp=()=>new Date().toLocaleString('hr-HR',{hour:'2-digit',minute:'2-digit'});
   const advance=(job)=>{ const next=steps[Math.min(steps.indexOf(job.status)+1,steps.length-1)]; const key=({ 'Na putu':'departure','Na lokaciji':'arrival','Montaža u tijeku':'workStart','Završeno':'workEnd','Vraćeno':'returnTime'})[next]; setJobs(prev=>prev.map(j=>j.id===job.id?{...j,status:next,...(key?{[key]:timestamp()}:{})}:j)); };
   const create=(e)=>{e.preventDefault();if(!form.customer.trim()||!form.project.trim()||!form.location.trim()||!form.date){setError('Unesi kupca, projekt, lokaciju i datum terenskog rada.');return;}const id='TR-2026-'+String(Math.max(0,...jobs.map(j=>Number(j.id.split('-').at(-1))||0))+1).padStart(3,'0');setJobs(prev=>[{...form,id,status:'Planirano',departure:'',arrival:'',workStart:'',workEnd:'',returnTime:''},...prev]);setExpanded(id);setForm(blank);setShowForm(false);setError('');};
