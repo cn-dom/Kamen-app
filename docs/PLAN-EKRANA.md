@@ -1,8 +1,8 @@
 # Kamen-app — detaljan plan ekrana
 
 **Verzija:** 1.0  
-**Status:** plan prije razvoja  
-**Napomena:** ekrani su opisani funkcionalno. Nisu implementirani. Nema povezivanja sa Supabaseom.
+**Status:** Ciljni plan ekrana; dio ekrana već je implementiran. Za razliku između postojećeg i planiranog pogledati [reviziju](AUDIT-POSTOJECEG-STANJA.md).  
+**Napomena:** dokument opisuje ciljno ponašanje ekrana. Dio modula već postoji, ali mnoge napredne funkcije još nisu implementirane. Nema povezivanja sa Supabaseom.
 
 ## 1. Načela sučelja
 

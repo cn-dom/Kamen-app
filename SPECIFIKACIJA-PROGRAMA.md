@@ -1,11 +1,11 @@
 # Kamen-app — specifikacija programa
 **Verzija:** 1.1  
-**Status:** Početna funkcionalna specifikacija — prije razvoja  
+**Status:** Radna specifikacija; aplikacija je djelomično implementirana. Za stvarno stanje i prioritete pogledati [reviziju](docs/AUDIT-POSTOJECEG-STANJA.md).  
 **Repozitorij:** https://github.com/cn-dom/Kamen-app
 
 ## 1. Svrha i temeljna pravila
 
-Kamen-app je planirani program za kamenoklesarske tvrtke. Objedinjuje skladište, kameni materijal, radne naloge, proizvodne faze, radnike, montažu na terenu, alate, kupce, troškove i izvještaje.
+Kamen-app je aplikacija u postupnom razvoju za kamenoklesarske tvrtke. Početni moduli već postoje; ova specifikacija opisuje ciljno i prošireno poslovno ponašanje, a ne potvrdu da je svaki navedeni zahtjev već implementiran. Objedinjuje skladište, kameni materijal, radne naloge, proizvodne faze, radnike, montažu na terenu, alate, kupce, troškove i izvještaje.
 
 Temeljna pravila:
 - Vlasnik programa zadržava prava na vlastiti izvorni kod, naziv i identitet u mjeri u kojoj su ta prava osigurana; komponente trećih strana koriste se prema njihovim licencama.
@@ -14,7 +14,7 @@ Temeljna pravila:
 - Radnici vide samo podatke potrebne za dodijeljene poslove. Financijski podaci nisu dostupni radnicima prema zadanim postavkama.
 - Valuta je euro (EUR, €).
 - Program je namijenjen radu na računalu i mobitelu. Planira se responzivna web-aplikacija, uz mogućnost PWA instalacije.
-- Supabase se neće konfigurirati niti koristiti dok vlasnik projekta to izričito ne zatraži. U ovoj fazi radimo dokumentaciju i pripremu u GitHub repozitoriju.
+- Supabase se neće konfigurirati niti koristiti dok vlasnik projekta to izričito ne zatraži. Trenutačna aplikacija koristi lokalnu pohranu preglednika; višekorisnička sinkronizacija i poslužiteljska provjera ovlasti još nisu implementirane.
 
 ## 2. Tvrtke i profili
 

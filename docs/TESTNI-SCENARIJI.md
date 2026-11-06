@@ -1,7 +1,7 @@
 # Kamen-app — testni scenariji
 
 **Verzija:** 1.0  
-**Status:** Plan testiranja — testovi još nisu implementirani
+**Status:** Kriteriji prihvaćanja i plan testiranja. Automatizirani funkcionalni testovi još nisu implementirani; trenutačni CI provjerava Vite build. Za poznate rizike pogledati [reviziju](AUDIT-POSTOJECEG-STANJA.md).
 
 Svi scenariji su kriteriji koje će aplikacija morati zadovoljiti. Njihovo navođenje ne znači da je funkcionalnost već izrađena ili provjerena.
 
