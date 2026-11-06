@@ -116,7 +116,34 @@ const newOutput = () => ({ id: 'OUT-' + Date.now() + '-' + Math.random().toStrin
         note: [cutForm.note.trim(), output.note.trim(), linkedOrder ? 'Radni nalog ' + linkedOrder.id : '', linkedOrder && output.type === 'Gotov komad' ? 'Komad: ' + (linkedOrder.pieces[Number(output.orderPieceIndex)]?.name || '') : '', 'Nastalo pilanjem materijala ' + source.id].filter(Boolean).join(' · ')
       };
     });
-    setMaterials(current => [...current.map(item => item.id === source.id ? { ...item, quantity: item.quantity - usedQty } : item), ...outputMaterials]);
+    const finishedOutputs = outputMaterials.filter(item => item.form === 'Komad').map(item => ({
+      id: 'GP-' + item.id,
+      name: item.name,
+      category: item.orderPieceName || 'Ostalo',
+      material: source.name,
+      length: item.length,
+      width: item.width,
+      thickness: item.thickness,
+      quantity: item.quantity,
+      stockQuantity: item.quantity,
+      unit: item.unit,
+      status: linkedOrder ? 'Čeka ugradnju' : 'Na zalihi',
+      orderId: linkedOrder?.id || '',
+      customer: linkedOrder?.customer || '',
+      location: item.location,
+      price: null,
+      processes: [],
+      photo: '',
+      note: item.note,
+      createdAt: new Date(timestamp).toISOString()
+    }));
+    if (finishedOutputs.length) {
+      try {
+        const currentFinished = readStored('kamen-app-finished-products-v1', []);
+        window.localStorage.setItem('kamen-app-finished-products-v1', JSON.stringify([...finishedOutputs, ...currentFinished]));
+      } catch { /* Warehouse cutting is still recorded if the finished goods list cannot be updated. */ }
+    }
+    setMaterials(current => [...current.map(item => item.id === source.id ? { ...item, quantity: item.quantity - usedQty } : item), ...outputMaterials.filter(item => item.form !== 'Komad')]);
     const outputMovements = outputMaterials.map((item, index) => ({
       id: timestamp + index + 2,
       material: item.name,
