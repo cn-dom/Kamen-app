@@ -378,3 +378,37 @@ button:active { transform: translateY(1px); }
 @media (max-width: 1050px) { .production-stage-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
 @media (max-width: 680px) { .production-stage-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .production-order-head { align-items:flex-start; } }
 @media (max-width: 420px) { .production-stage-grid { grid-template-columns:1fr; } }
+
+/* Gotovi proizvodi */
+.finished-product-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px;padding:18px}
+.finished-product-card{display:grid;grid-template-columns:145px minmax(0,1fr);overflow:hidden;border:1px solid #e9edf4;border-radius:12px;background:#fff;min-width:0}
+.finished-product-photo,.finished-product-placeholder{width:145px;height:100%;min-height:210px;object-fit:cover;background:#f0f3f8}
+.finished-product-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#9aa5b5;font-size:10px;text-align:center;padding:12px}
+.finished-product-content{padding:14px;min-width:0}
+.finished-product-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.finished-product-content h3{font:700 15px Manrope,sans-serif;color:#243148;margin:11px 0 4px;overflow-wrap:anywhere}
+.finished-product-category{font-size:11px;color:#7f8b9d;margin:0 0 12px}
+.finished-product-specs{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;color:#68768b;padding:9px 0;border-top:1px solid #edf0f5;border-bottom:1px solid #edf0f5}
+.finished-product-specs span{display:flex;align-items:center;gap:6px;min-width:0}
+.finished-product-specs strong{white-space:nowrap;color:#26364e}
+.finished-process-list{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
+.finished-process-list span{font-size:9px;font-weight:600;color:#536b9a;background:#edf2ff;border-radius:5px;padding:4px 6px}
+.finished-product-meta{display:flex;flex-wrap:wrap;gap:5px 12px;margin-top:10px;color:#8490a1;font-size:10px}
+.finished-product-note{font-size:10px;color:#68768b;background:#f7f9fc;border-radius:6px;padding:8px;margin:9px 0}
+.finished-status{font-size:9px;font-weight:700;padding:5px 7px;border-radius:6px;background:#edf2ff;color:#4865a3;white-space:nowrap}
+.finished-status-na-zalihi{background:#e8f7f0;color:#16845f}
+.finished-status-rezerviran{background:#f1edff;color:#7055b5}
+.finished-status-čeka-ugradnju{background:#fff4df;color:#a66a12}
+.finished-status-ugrađen,.finished-status-prodano{background:#edf0f4;color:#59677a}
+.finished-status-control{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;font-size:10px;color:#7d899a}
+.finished-status-control select{max-width:175px;min-width:0;border:1px solid #e5eaf1;border-radius:7px;padding:7px;background:#fff;color:#344258;font-size:10px}
+.finished-empty{grid-column:1/-1;min-height:220px}
+.finished-empty .button{margin-top:10px}
+.finished-process-fieldset{border:1px solid #e6ebf2;border-radius:9px;padding:12px;margin:2px 0 14px;min-width:0}
+.finished-process-fieldset legend{font-size:11px;font-weight:700;color:#536176;padding:0 5px}
+.finished-process-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.finished-process-options label{display:flex;align-items:center;gap:7px;font-size:10px;color:#59677b;min-width:0}
+.finished-process-options input{accent-color:#3569e8}
+.finished-product-modal{max-width:720px}
+@media(max-width:1050px){.finished-product-grid{grid-template-columns:1fr}}
+@media(max-width:650px){.finished-product-card{grid-template-columns:1fr}.finished-product-photo,.finished-product-placeholder{width:100%;height:150px;min-height:150px}.finished-process-options{grid-template-columns:repeat(2,minmax(0,1fr))}.finished-product-content{padding:12px}.finished-status-control{align-items:flex-start;flex-direction:column}.finished-status-control select{max-width:none;width:100%}}
