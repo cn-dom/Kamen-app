@@ -11,7 +11,8 @@ function readStoredOrders() {
   } catch { return seedOrders; }
 }
 
-const blankForm = { customer: '', project: '', material: '', materialQty: '1', due: '', note: '' };
+const blankForm = { customer: '', project: '', material: '', materialQty: '0', due: '', note: '' };
+const parseQuantity = value => Number(String(value ?? '').trim().replace(',', '.'));
 const blankPiece = () => ({ name: '', length: '', width: '', thickness: '3', quantity: '1' });
 const statuses = ['U pripremi', 'Spreman za pilanje', 'U tijeku', 'Čeka kontrolu', 'Završen'];
 
@@ -43,9 +44,9 @@ export default function WorkOrdersModule({ onBack }) {
       setError('Za svaki komad unesi naziv, pozitivne dimenzije, debljinu i količinu.');
       return;
     }
-    const materialQty = Number(form.materialQty || 0);
+    const materialQty = parseQuantity(form.materialQty || 0);
     const stockItem = materials.find(item => item.name.trim().toLowerCase() === form.material.trim().toLowerCase() && item.form === 'Ploča');
-    if (!Number.isInteger(materialQty) || materialQty < 0 || (materialQty > 0 && (!stockItem || stockItem.quantity < materialQty))) {
+    if (!Number.isFinite(materialQty) || materialQty < 0 || Math.round(materialQty * 100) !== materialQty * 100 || (materialQty > 0 && (!stockItem || stockItem.quantity < materialQty))) {
       setError('Za rezervaciju odaberi točan naziv ploče iz skladišta i provjeri raspoloživu količinu.');
       return;
     }
@@ -97,7 +98,7 @@ export default function WorkOrdersModule({ onBack }) {
     {showForm && <div className="workorders-modal-backdrop" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget) setShowForm(false); }}><section className="workorders-modal" role="dialog" aria-modal="true" aria-labelledby="workorders-form-title">
       <div className="workorders-modal-head"><div><span className="eyebrow">NOVI PROJEKT</span><h2 id="workorders-form-title">Izradi radni nalog</h2><p>Unesi osnovne podatke i popis komada za pilanje.</p></div><button className="icon-button" onClick={() => setShowForm(false)} aria-label="Zatvori"><X size={20}/></button></div>
       <form onSubmit={createOrder}>
-        <div className="workorders-form-grid"><label>Kupac *<input value={form.customer} onChange={e => updateForm('customer',e.target.value)} placeholder="Naziv kupca ili tvrtke"/></label><label>Naziv projekta *<input value={form.project} onChange={e => updateForm('project',e.target.value)} placeholder="Npr. kuhinjska ploča"/></label><label>Materijal *<input list="workorder-material-options" value={form.material} onChange={e => updateForm('material',e.target.value)} placeholder="Odaberi materijal iz skladišta"/><datalist id="workorder-material-options">{materials.filter(item=>item.form==='Ploča').map(item=><option key={item.id} value={item.name}/>)}</datalist></label><label>Rok izrade<input type="date" value={form.due} onChange={e => updateForm('due',e.target.value)}/></label><label>Količina ploča za ovaj nalog<input type="number" min="0" step="1" value={form.materialQty} onChange={e=>updateForm('materialQty',e.target.value)}/><small>Unesi 0 ako materijal još ne želiš rezervirati. Veća količina odmah se skida s raspoložive zalihe.</small></label></div>
+        <div className="workorders-form-grid"><label>Kupac *<input value={form.customer} onChange={e => updateForm('customer',e.target.value)} placeholder="Naziv kupca ili tvrtke"/></label><label>Naziv projekta *<input value={form.project} onChange={e => updateForm('project',e.target.value)} placeholder="Npr. kuhinjska ploča"/></label><label>Materijal *<input list="workorder-material-options" value={form.material} onChange={e => updateForm('material',e.target.value)} placeholder="Odaberi materijal iz skladišta"/><datalist id="workorder-material-options">{materials.filter(item=>item.form==='Ploča').map(item=><option key={item.id} value={item.name}/>)}</datalist></label><label>Rok izrade<input type="date" value={form.due} onChange={e => updateForm('due',e.target.value)}/></label><label>Količina ploča za rezervaciju (opcionalno)<input type="text" inputMode="decimal" placeholder="Npr. 0,5" value={form.materialQty} onChange={e=>updateForm('materialQty',e.target.value)}/><small>Unesi količinu za rezervaciju; možeš koristiti decimalne vrijednosti (npr. 0,5). Ako ne želiš rezervaciju, ostavi 0. Pri evidentiranju reza obračunava se stvarna potrošnja.</small></label></div>
         <div className="workorders-piece-head"><div><h3>Popis komada</h3><p>Dimenzije u centimetrima.</p></div><button type="button" className="button button-secondary" onClick={() => setPieces(prev => [...prev, blankPiece()])}><Plus size={15}/> Dodaj komad</button></div>
         {pieces.map((p,index) => <div className="workorders-piece-form" key={index}><label className="piece-name">Opis komada<input value={p.name} onChange={e => updatePiece(index,'name',e.target.value)} placeholder="Npr. gazište, klupčica"/></label><label>Duljina<input type="number" min="0.1" step="0.1" value={p.length} onChange={e => updatePiece(index,'length',e.target.value)} placeholder="cm"/></label><label>Širina<input type="number" min="0.1" step="0.1" value={p.width} onChange={e => updatePiece(index,'width',e.target.value)} placeholder="cm"/></label><label>Debljina<input type="number" min="0.1" step="0.1" value={p.thickness} onChange={e => updatePiece(index,'thickness',e.target.value)}/></label><label>Količina<input type="number" min="1" step="1" value={p.quantity} onChange={e => updatePiece(index,'quantity',e.target.value)}/></label>{pieces.length > 1 && <button type="button" className="piece-remove" onClick={() => setPieces(prev => prev.filter((_,i) => i !== index))} aria-label="Ukloni komad"><X size={16}/></button>}</div>)}
         <label className="workorders-note-label">Napomena<textarea value={form.note} onChange={e => updateForm('note',e.target.value)} rows="2" placeholder="Posebne upute, rubovi, završna obrada…"/></label>
