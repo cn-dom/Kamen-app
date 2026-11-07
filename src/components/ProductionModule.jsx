@@ -49,7 +49,8 @@ export default function ProductionModule({ onBack }) {
       const nextOrders = readJson(ORDERS_KEY, []);
       setOrders(nextOrders);
       setRecords(current => {
-        const migrated = normalizeRecords(current, nextOrders);
+        const saved = readJson(PRODUCTION_KEY, current);
+        const migrated = normalizeRecords(saved, nextOrders);
         return { ...migrated, pieces: { ...migrated.pieces } };
       });
     };
@@ -108,7 +109,8 @@ export default function ProductionModule({ onBack }) {
     if (previous.status !== 'U tijeku') return previous;
     const now = new Date().toISOString();
     const sessions = [...(previous.sessions || [])];
-    const open = sessions.findLastIndex(session => !session.endedAt);
+    let open = sessions.length - 1;
+    while (open >= 0 && sessions[open].endedAt) open -= 1;
     if (open >= 0) sessions[open] = { ...sessions[open], endedAt: now };
     return { ...previous, status: 'Završeno', completedAt: now, blockedReason: '', sessions };
   });
