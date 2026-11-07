@@ -46,7 +46,7 @@ test('sažima financijske pokazatelje više projekata', () => {
     { plannedCost: 100, actualCost: 80, estimatedMaterialCost: 40, productionHours: 2, materialEstimateComplete: true },
     { plannedCost: 50, actualCost: 60, estimatedMaterialCost: null, productionHours: 1.5, materialEstimateComplete: false }
   ]);
-  assert.deepEqual(summary, { plannedCost: 150, actualCost: 140, estimatedMaterialCost: 40, productionHours: 3.5, incompleteMaterialEstimates: 1 });
+  assert.deepEqual(summary, { plannedCost: 150, actualCost: 140, estimatedMaterialCost: 40, invoiceNet: 0, invoiceGross: 0, collected: 0, receivable: 0, productionHours: 3.5, incompleteMaterialEstimates: 1 });
 });
 
 test('prepoznaje kategoriju rada i u starijem zapisu', () => {
@@ -56,4 +56,22 @@ test('prepoznaje kategoriju rada i u starijem zapisu', () => {
     { pieces: {} }
   );
   assert.equal(result.laborCost, 45);
+});
+
+
+test('povezuje izdane račune i stvarne uplate s radnim nalogom', () => {
+  const result = calculateOrderFinancials(
+    { id: 'RN-005', pieces: [] }, [], { pieces: {} }, Date.now(),
+    [
+      { id: 'R-1', quoteId: 'P-1', orderId: 'RN-005', netTotal: 200, grossTotal: 250 },
+      { id: 'R-2', quoteId: 'P-2', orderId: 'RN-005', netTotal: 100, grossTotal: 125 },
+      { id: 'R-3', quoteId: 'P-3', orderId: 'RN-OTHER', netTotal: 500, grossTotal: 625 }
+    ],
+    [{ invoiceId: 'R-1', amount: 100 }, { quoteId: 'P-2', amount: 125 }, { invoiceId: 'R-3', amount: 625 }]
+  );
+  assert.equal(result.invoiceCount, 2);
+  assert.equal(result.invoiceNet, 300);
+  assert.equal(result.invoiceGross, 375);
+  assert.equal(result.collected, 225);
+  assert.equal(result.receivable, 150);
 });
