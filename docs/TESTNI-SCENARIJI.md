@@ -108,6 +108,14 @@ Svi scenariji su kriteriji koje će aplikacija morati zadovoljiti. Njihovo navo�
 **Koraci:** Prodati cijelu količinu proizvoda, zatim evidentirati povrat dijela količine uz obvezan razlog.
 **Očekivano:** Vraćena količina ponovno je na zalihi, stavka se otvara kao Na zalihi, a povrat ostaje zaseban događaj s razlogom i vremenom.
 
+### INV-011 — inventura i usklađenje zalihe
+**Koraci:** Otvoriti inventuru s više skladišnih stavki, unijeti fizički prebrojene količine, ostaviti jednu stavku bez brojanja i pokušati potvrditi. Zatim unijeti sve količine, ostaviti razlog praznim za stavku s razlikom i pokušati potvrditi. Na kraju unijeti razloge i potvrditi inventuru.
+**Očekivano:** Nepotpuna inventura i razlika bez razloga ne mogu se potvrditi. Prije potvrde stanje zalihe ostaje nepromijenjeno. Nakon potvrde svaka stavka usklađuje se na prebrojenu količinu, a svaka razlika dobiva zasebno kretanje s predznakom i razlogom. Provedena inventura zaključana je i ne može se ponovno primijeniti.
+
+### INV-012 — zaštita od zastarjele inventure
+**Koraci:** Otvoriti inventuru, zatim promijeniti količinu jedne obuhvaćene stavke kroz zaprimanje, izdavanje ili drugu skladišnu radnju. Pokušati potvrditi staru inventuru.
+**Očekivano:** Potvrda se blokira za cijelu inventuru; sustav ne prepisuje novije skladišno stanje starim snimkom. Korisnik otvara novu inventuru i ponovno prebrojava.
+
 ### INV-010 — korekcija zalihe s razlogom
 **Koraci:** Povećati pa umanjiti zalihu gotovog proizvoda korekcijom. Pokušati potvrditi korekciju bez razloga i umanjiti zalihu ispod nule.
 **Očekivano:** Korekcija bez razloga i umanjenje veće od raspoložive količine odbijaju se. Potvrđena korekcija mijenja samo unesenu količinu i bilježi predznak, razlog, proizvod i vrijeme.
