@@ -48,3 +48,12 @@ test('sažima financijske pokazatelje više projekata', () => {
   ]);
   assert.deepEqual(summary, { plannedCost: 150, actualCost: 140, estimatedMaterialCost: 40, productionHours: 3.5, incompleteMaterialEstimates: 1 });
 });
+
+test('prepoznaje kategoriju rada i u starijem zapisu', () => {
+  const result = calculateOrderFinancials(
+    { id: 'RN-004', pieces: [] },
+    [{ orderId: 'RN-004', kind: 'Stvarni trošak', category: 'Materijal, Rad', amount: 45 }],
+    { pieces: {} }
+  );
+  assert.equal(result.laborCost, 45);
+});
