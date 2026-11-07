@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ClipboardList, Plus, Search, X, CalendarDays, UserRound, Ruler, ChevronDown, CheckCircle2, Clock3, Hammer, Trash2, Wallet } from 'lucide-react';
+import { ClipboardList, Plus, Search, X, CalendarDays, UserRound, Ruler, ChevronDown, CheckCircle2, Clock3, Hammer, Trash2, Wallet, Scissors, Boxes } from 'lucide-react';
 import { isProductionOrderComplete } from '../lib/production.js';
 import { calculateMaterialReservation } from '../lib/materialStock.js';
 import { suggestRemnantAssignments } from '../lib/remnantPlanner.js';
