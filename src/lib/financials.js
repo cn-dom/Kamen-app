@@ -15,7 +15,7 @@ export function calculateOrderFinancials(order, costRecords = [], productionReco
   }).reduce((sum, record) => sum + Number(record.amount || 0), 0));
   const materialConsumption = summarizeMaterialConsumption(materialConsumptionRecords, orderId);
   // Once cutting consumption is recorded, its warehouse-based cost replaces manual material entries to avoid double counting.
-  const totalActualCost = roundMoney(actualCost - (materialConsumption.recordCount ? manualMaterialCost : 0) + materialConsumption.materialCost);
+  const totalActualCost = roundMoney(actualCost - (materialConsumption.recordCount ? manualMaterialCost : 0) + materialConsumption.jobMaterialCost);
   const laborCost = roundMoney(related.filter(record => { const categories = Array.isArray(record.categories) ? record.categories : String(record.category || '').split(',').map(value => value.trim()); return record.kind === 'Stvarni trošak' && categories.includes('Rad'); }).reduce((sum, record) => sum + Number(record.amount || 0), 0));
 
   const allocations = Array.isArray(order?.materialAllocations) ? order.materialAllocations : [];
@@ -54,6 +54,13 @@ export function calculateOrderFinancials(order, costRecords = [], productionReco
     manualMaterialCost,
     consumedMaterialCost: materialConsumption.materialCost,
     consumedMaterialAreaM2: materialConsumption.consumedAreaM2,
+    finishedMaterialAreaM2: materialConsumption.finishedAreaM2,
+    remnantMaterialAreaM2: materialConsumption.remnantAreaM2,
+    wasteMaterialAreaM2: materialConsumption.wasteAreaM2,
+    processLossAreaM2: materialConsumption.processLossAreaM2,
+    remnantMaterialValue: materialConsumption.remnantValue,
+    wasteMaterialCost: materialConsumption.wasteCost,
+    jobMaterialCost: materialConsumption.jobMaterialCost,
     materialConsumptionCount: materialConsumption.recordCount,
     unpricedMaterialConsumptionCount: materialConsumption.unpricedRecordCount,
     totalActualCost,
@@ -71,6 +78,13 @@ export function summarizeFinancials(rows = []) {
     actualCost: roundMoney(summary.actualCost + row.actualCost),
     totalActualCost: roundMoney(summary.totalActualCost + Number(row.totalActualCost ?? row.actualCost ?? 0)),
     consumedMaterialCost: roundMoney(summary.consumedMaterialCost + Number(row.consumedMaterialCost || 0)),
+    remnantMaterialValue: roundMoney(summary.remnantMaterialValue + Number(row.remnantMaterialValue || 0)),
+    wasteMaterialCost: roundMoney(summary.wasteMaterialCost + Number(row.wasteMaterialCost || 0)),
+    jobMaterialCost: roundMoney(summary.jobMaterialCost + Number(row.jobMaterialCost || 0)),
+    finishedMaterialAreaM2: Math.round((summary.finishedMaterialAreaM2 + Number(row.finishedMaterialAreaM2 || 0)) * 10000) / 10000,
+    remnantMaterialAreaM2: Math.round((summary.remnantMaterialAreaM2 + Number(row.remnantMaterialAreaM2 || 0)) * 10000) / 10000,
+    wasteMaterialAreaM2: Math.round((summary.wasteMaterialAreaM2 + Number(row.wasteMaterialAreaM2 || 0)) * 10000) / 10000,
+    processLossAreaM2: Math.round((summary.processLossAreaM2 + Number(row.processLossAreaM2 || 0)) * 10000) / 10000,
     consumedMaterialAreaM2: Math.round((summary.consumedMaterialAreaM2 + Number(row.consumedMaterialAreaM2 || 0)) * 10000) / 10000,
     unpricedMaterialConsumptionCount: summary.unpricedMaterialConsumptionCount + Number(row.unpricedMaterialConsumptionCount || 0),
     estimatedMaterialCost: roundMoney(summary.estimatedMaterialCost + (row.estimatedMaterialCost ?? 0)),
@@ -82,5 +96,5 @@ export function summarizeFinancials(rows = []) {
     projectsWithInvoices: summary.projectsWithInvoices + (Number(row.invoiceCount || 0) > 0 ? 1 : 0),
     productionHours: Math.round((summary.productionHours + row.productionHours) * 100) / 100,
     incompleteMaterialEstimates: summary.incompleteMaterialEstimates + (row.materialEstimateComplete ? 0 : 1)
-  }), { plannedCost: 0, actualCost: 0, totalActualCost: 0, consumedMaterialCost: 0, consumedMaterialAreaM2: 0, unpricedMaterialConsumptionCount: 0, estimatedMaterialCost: 0, invoiceNet: 0, invoiceGross: 0, collected: 0, receivable: 0, netDifference: 0, projectsWithInvoices: 0, productionHours: 0, incompleteMaterialEstimates: 0 });
+  }), { plannedCost: 0, actualCost: 0, totalActualCost: 0, consumedMaterialCost: 0, consumedMaterialAreaM2: 0, remnantMaterialValue: 0, wasteMaterialCost: 0, jobMaterialCost: 0, finishedMaterialAreaM2: 0, remnantMaterialAreaM2: 0, wasteMaterialAreaM2: 0, processLossAreaM2: 0, unpricedMaterialConsumptionCount: 0, estimatedMaterialCost: 0, invoiceNet: 0, invoiceGross: 0, collected: 0, receivable: 0, netDifference: 0, projectsWithInvoices: 0, productionHours: 0, incompleteMaterialEstimates: 0 });
 }
