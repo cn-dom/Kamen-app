@@ -564,3 +564,9 @@ button:active { transform: translateY(1px); }
 .sale-calculation>div:nth-child(3){padding-top:9px;border-top:1px solid #e0e7f0}
 .sale-calculation>div:nth-child(3) strong{color:#1e805e;font-size:19px}
 @media(max-width:560px){.sale-calculation{grid-template-columns:1fr 1fr;padding:11px}.sale-calculation strong{font-size:13px}}
+
+
+/* Skladiste: arhiva stavki */
+.warehouse-heading-actions{display:flex;align-items:center;gap:12px;flex-shrink:0}
+.warehouse-heading-actions .button{height:34px;padding:0 11px;font-size:10px}
+@media(max-width:760px){.warehouse-heading-actions{gap:8px}.warehouse-heading-actions .demo-label{display:none}}

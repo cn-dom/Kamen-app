@@ -24,7 +24,7 @@ const calculateSlabUsage = (stockItem, orderPieces) => {
 const blankPiece = () => ({ name: '', materialId: '', length: '', width: '', thickness: '3', quantity: '1' });
 const statuses = ['U pripremi', 'Spreman za pilanje', 'U tijeku', 'Čeka kontrolu', 'Završen'];
 
-export default function WorkOrdersModule({ onBack }) {
+export default function WorkOrdersModule({ onBack, openCreate = false, onCreateOpened }) {
   const [orders, setOrders] = useState(readStoredOrders);
   const [materials, setMaterials] = useState(() => { try { return JSON.parse(window.localStorage.getItem(MATERIALS_KEY) || '[]'); } catch { return []; } });
   const [query, setQuery] = useState('');
@@ -35,6 +35,13 @@ export default function WorkOrdersModule({ onBack }) {
   const [expanded, setExpanded] = useState('');
   const [error, setError] = useState('');
   useEffect(() => { try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(orders)); } catch { /* Browser storage may be disabled or full. */ } }, [orders]);
+  useEffect(() => {
+    if (!openCreate) return;
+    try { setMaterials(JSON.parse(window.localStorage.getItem(MATERIALS_KEY) || '[]')); } catch { setMaterials([]); }
+    setShowForm(true);
+    setError('');
+    onCreateOpened?.();
+  }, [openCreate]);
   const filtered = useMemo(() => orders.filter(o => {
     const q = query.trim().toLowerCase();
     return (!q || [o.id, o.customer, o.project, o.material].some(v => v.toLowerCase().includes(q))) &&
@@ -42,7 +49,7 @@ export default function WorkOrdersModule({ onBack }) {
   }), [orders, query, statusFilter]);
   const updateForm = (key, value) => setForm(prev => ({ ...prev, [key]: value }));
   const updatePiece = (index, key, value) => setPieces(prev => prev.map((p, i) => i === index ? { ...p, [key]: value } : p));
-  const plateMaterials = materials.filter(item => item.form === 'Ploča');
+  const plateMaterials = materials.filter(item => item.form === 'Ploča' && !item.archived);
   const materialGroups = useMemo(() => {
     const groups = new Map();
     pieces.forEach((piece, index) => {
