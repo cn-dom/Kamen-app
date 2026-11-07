@@ -66,3 +66,12 @@ Modul **Nabava** vodi adresar dobavljača, narudžbe s više stavki, količine, 
 ## Ponude i kalkulacije
 
 Modul **Ponude** omogućuje izradu ponuda za kupce iz imenika ili ručni unos kupca, više stavki materijala i usluga, različite stope PDV-a, popust, uvjete i rok valjanosti. Ispis se otvara u pregledniku i može se spremiti kao PDF. Podaci ponuditelja spremaju se za ponovnu uporabu. Ponude imaju statuse nacrt, poslana, prihvaćena i odbijena; prihvaćenu ponudu moguće je povezati s postojećim radnim nalogom. Ponude i profil ponuditelja uključeni su u JSON sigurnosnu kopiju.
+
+
+## Isporuke i naplata
+
+Modul **Isporuke i naplata** prikazuje prihvaćene ponude, iznos naplaćenih uplata, otvorena potraživanja i dospjele obveze kupaca. Rok plaćanja može se postaviti po prihvaćenoj ponudi. Uplate se evidentiraju djelomično ili u cijelosti uz datum, način plaćanja i referencu; sustav ne dopušta evidentiranje iznosa većeg od preostalog duga.
+
+Otpremnica se izrađuje iz prihvaćene ponude, omogućuje djelomičnu isporuku pojedinih stavki i kontrolira da ukupno evidentirana isporuka ne prijeđe ugovorenu količinu. Dokument se može ispisati ili spremiti u PDF. Otpremnice i uplate uključene su u JSON sigurnosnu kopiju.
+
+**Ograničenja:** ovo je interna evidencija, a ne fiskalizirani račun, eRačun ili knjigovodstvena evidencija. Evidentiranje otpremnice trenutačno ne umanjuje automatski zalihu gotovih proizvoda; stvarno izdavanje iz skladišta i povezivanje s fizičkim komadima zahtijeva zasebno usklađivanje zaliha.
