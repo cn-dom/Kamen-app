@@ -9,12 +9,17 @@ Aplikacija već sadrži početne module:
 - radni nalozi s komadima i okvirnim izračunom potrebnih ploča;
 - skladište materijala, decimalna potrošnja pri pilanju, ostatci i otpad;
 - gotovi proizvodi;
-- proizvodne faze;
+- proizvodnja po fizičkom komadu, radniku, vremenskim intervalima, zastojima i kontroli kvalitete;
 - terenski rad;
 - kupci;
 - troškovi i osnovni izvještaji.
 
-**Važno:** trenutačni podaci spremaju se lokalno u preglednik (`localStorage`). Nema prijave, višekorisničke sinkronizacije, izolacije tvrtki ni sigurnosne kopije. Aplikacija se još ne smije smatrati spremnom za stvarni višekorisnički poslovni rad.
+**Važno:** poslovni podaci spremaju se lokalno u preglednik (`localStorage`). Postoji ručni izvoz i povrat sigurnosne kopije, ali nema prijave, višekorisničke sinkronizacije ni izolacije tvrtki. Aplikacija se još ne smije smatrati spremnom za stvarni višekorisnički poslovni rad.
+
+## Provjera kvalitete koda
+
+- `npm test` pokreće automatizirane testove proizvodnih izračuna i migracije podataka.
+- GitHub Actions pokreće testove prije builda i objave.
 
 ## Revizija i dokumentacija
 

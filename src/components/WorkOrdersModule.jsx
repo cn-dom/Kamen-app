@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ClipboardList, Plus, Search, X, CalendarDays, UserRound, Ruler, ChevronDown, CheckCircle2, Clock3, Hammer, Trash2, Wallet } from 'lucide-react';
+import { isProductionOrderComplete } from '../lib/production.js';
 
 const seedOrders = [];
 const STORAGE_KEY = 'kamen-app-work-orders-v1';
 const MATERIALS_KEY = 'kamen-app-materials-v1';
+const PRODUCTION_KEY = 'kamen-app-production-stages-v1';
 function readStoredOrders() {
   try {
     const saved = window.localStorage.getItem(STORAGE_KEY);
@@ -107,7 +109,19 @@ export default function WorkOrdersModule({ onBack, openCreate = false, onCreateO
     } catch {}
     setExpanded(id); setShowForm(false); setForm(blankForm); setPieces([blankPiece()]); setError('');
   };
-  const changeStatus = (id, status) => setOrders(prev => prev.map(o => o.id === id && o.status !== 'Otkazan' ? { ...o, status } : o));
+  const changeStatus = (id, status) => {
+    const order = orders.find(item => item.id === id);
+    if (!order || order.status === 'Otkazan') return;
+    if (status === 'Završen') {
+      let productionRecords = {};
+      try { productionRecords = JSON.parse(window.localStorage.getItem(PRODUCTION_KEY) || '{}'); } catch {}
+      if (!isProductionOrderComplete(order, productionRecords)) {
+        window.alert('Nalog se ne može završiti dok svaki fizički komad nema završene potrebne faze i potvrđenu kontrolu kvalitete u modulu Proizvodnja.');
+        return;
+      }
+    }
+    setOrders(prev => prev.map(item => item.id === id && item.status !== 'Otkazan' ? { ...item, status } : item));
+  };
   const cancelOrder = (id) => {
     const order = orders.find(item => item.id === id);
     if (!order || order.status === 'Otkazan') return;

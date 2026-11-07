@@ -1,7 +1,7 @@
 # Kamen-app — testni scenariji
 
 **Verzija:** 1.0  
-**Status:** Kriteriji prihvaćanja i plan testiranja. Automatizirani funkcionalni testovi još nisu implementirani; trenutačni CI provjerava Vite build. Za poznate rizike pogledati [reviziju](AUDIT-POSTOJECEG-STANJA.md).
+**Status:** Kriteriji prihvaćanja i plan testiranja. Automatizirani testovi pokrivaju temeljne pomoćne funkcije proizvodnje; ostali scenariji i dalje zahtijevaju ručno testiranje. CI pokreće `npm test` i Vite build. Za poznate rizike pogledati [reviziju](AUDIT-POSTOJECEG-STANJA.md).
 
 Svi scenariji su kriteriji koje će aplikacija morati zadovoljiti. Njihovo navođenje ne znači da je funkcionalnost već izrađena ili provjerena.
 
@@ -180,3 +180,34 @@ Testovi sadrže izmišljene testne podatke. Ne koristiti stvarne podatke klijena
 ### INV-015 — arhiviranje bez brisanja povijesti
 **Koraci:** Pokušati arhivirati stavku s raspoloživom zalihom, zatim stavku povezanu s aktivnim nalogom. Nakon toga arhivirati stavku s nulom zalihe i bez aktivnih veza. Otvoriti arhivu i vratiti stavku.
 **Očekivano:** Prva dva pokušaja su blokirana. Uspješno arhivirana stavka ostaje u lokalnim podacima, ne nudi se za nove naloge i pilanje, može se pronaći u arhivi i vratiti u aktivno skladište. Nijedan povijesni zapis ne briše se.
+
+
+## I. Proizvodnja po fizičkom komadu
+
+### PRD-004 — odvojena evidencija svakog komada
+**Koraci:** Izraditi radni nalog sa stavkom količine 3 i drugom stavkom količine 2. Otvoriti Proizvodnju.
+**Očekivano:** Prikazuje se pet fizičkih komada s odvojenim statusima. Promjena faze jednog komada ne mijenja ostale komade ni druge stavke naloga.
+
+### PRD-005 — radnik po fazi
+**Koraci:** Dodati dva radnika u popis. Dodijeliti prvog pilanju, drugog poliranju. Ponovno otvoriti modul i provjeriti zapise.
+**Očekivano:** Dodjele ostaju spremljene po komadu i fazi; popis radnika nudi se kao pomoć pri unosu. Uklanjanje imena iz popisa ne briše stare dodjele.
+
+### PRD-006 — mjerenje aktivnog rada
+**Koraci:** Pokrenuti fazu, ostaviti je aktivnom, zatim je završiti.
+**Očekivano:** Sustav bilježi početak i završetak te izračunava trajanje. Završena faza ne ostaje aktivna.
+
+### PRD-007 — zastoj i nastavak
+**Koraci:** Pokrenuti fazu, evidentirati zastoj s razlogom, zatim nastaviti i završiti fazu.
+**Očekivano:** Razlog zastoja je obvezan; aktivni interval završava na zastoju, nastavak otvara novi interval, a ukupno vrijeme zbraja samo evidentirane intervale.
+
+### PRD-008 — kontrola kvalitete
+**Koraci:** Pokušati potvrditi kontrolu prije završetka obrade. Zatim završiti sve potrebne faze, označiti kontrolu kao prošlu, a na drugom komadu kao neispravnu uz opis.
+**Očekivano:** Kontrola je blokirana dok faze nisu završene ili označene nepotrebnima. Rezultat i bilješka vode se zasebno po komadu.
+
+### PRD-009 — očuvanje stare evidencije proizvodnje
+**Koraci:** Otvoriti postojeće podatke s prethodnim statusima po nalogu nakon nadogradnje.
+**Očekivano:** Stari statusi se prenose na pripadajuće komade, a izvorni zapis ostaje sačuvan u migracijskom objektu. Novi zapisi ne prepisuju povijesne podatke.
+
+### PRD-010 — izvoz proizvodnje
+**Koraci:** Filtrirati proizvodnju i izvesti CSV.
+**Očekivano:** Izvoz sadrži radni nalog, kupca, projekt, komad, dimenzije, materijal, fazu, radnika, početak, završetak, trajanje, zastoj i kontrolu kvalitete.
