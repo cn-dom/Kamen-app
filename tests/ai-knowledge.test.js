@@ -52,5 +52,5 @@ test('Kamen AI pravila pokrivaju stvarni primjer Impala vertikala', () => {
   const prompt = buildKamenAiPrompt('tako je', null, history);
   assert.match(prompt, /2 komada vertikale 250 x 38 x 3 cm od impale/);
   assert.match(prompt, /TUMAČI KRATKE POTVRDE/);
-  assert.match(prompt, /ne pitaj je li debljina 3 cm/);
+  assert.match(prompt, /ne pitaj je li debljina 3 cm/i);
 });
