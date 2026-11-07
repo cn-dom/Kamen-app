@@ -68,7 +68,7 @@ export default function WorkOrdersModule({ onBack }) {
       return;
     }
     const allocations = materialGroups.map(group => ({ materialId: group.stock.id, material: group.stock.name, quantity: group.materialQty, areaM2: Math.round(group.areaM2 * 10000) / 10000, pricePerM2: group.stock.pricePerM2 == null || group.stock.pricePerM2 === '' ? null : Number(group.stock.pricePerM2), cost: group.stock.pricePerM2 == null || group.stock.pricePerM2 === '' ? null : Math.round(group.areaM2 * Number(group.stock.pricePerM2) * 100) / 100 }));
-    if (!allocations.length || allocations.some(group => Number(group.stock?.length || 0) <= 0 || Number(group.stock?.width || 0) <= 0 || group.materialQty <= 0)) {
+    if (!allocations.length || materialGroups.some(group => Number(group.stock?.length || 0) <= 0 || Number(group.stock?.width || 0) <= 0 || group.materialQty <= 0)) {
       setError('Za svaku stavku odaberi valjanu ploču iz skladišta s upisanim dimenzijama.');
       return;
     }
