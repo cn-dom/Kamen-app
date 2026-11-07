@@ -27,3 +27,30 @@ test('Kamen AI dobiva prethodne poruke i mora zadržati već unesene mjere', () 
   assert.match(prompt, /Ne pitaj ponovno/);
   assert.match(prompt, /izračunaj površinu/);
 });
+
+
+test('Kamen AI ne traži potvrdu dimenzija koje su već izričito navedene', () => {
+  assert.match(KAMEN_AI_DOMAIN_PROMPT, /NE TRAŽI POTVRDU JASNIH PODATAKA/);
+  assert.match(KAMEN_AI_DOMAIN_PROMPT, /Ne pitaj je li debljina 3 cm/);
+});
+
+test('Kamen AI ne ponavlja pitanje nakon kratke potvrde i izbjegava nepotrebna pitanja o obradi', () => {
+  assert.match(KAMEN_AI_DOMAIN_PROMPT, /TUMAČI KRATKE POTVRDE PREMA PRETHODNOM KONTEKSTU/);
+  assert.match(KAMEN_AI_DOMAIN_PROMPT, /nemoj ponoviti isto pitanje/);
+  assert.match(KAMEN_AI_DOMAIN_PROMPT, /NE OTVARAJ NEPOTREBNE TEME/);
+  assert.match(KAMEN_AI_DOMAIN_PROMPT, /osnovnu\/pilanu mjeru bez dodatne obrade/);
+});
+
+test('Kamen AI pravila pokrivaju stvarni primjer Impala vertikala', () => {
+  const history = [
+    { role: 'user', content: 'treba mi 2 komada vertikale 250 x 38 x 3 cm od impale' },
+    { role: 'assistant', content: 'Trebaš 2 kom vertikala od granita Impala, 250 × 38 × 3 cm.' },
+    { role: 'user', content: 'da' },
+    { role: 'assistant', content: 'Trebaju ravne pilane ivice ili standardno bez dodatne obrade?' },
+    { role: 'user', content: 'tako je' }
+  ];
+  const prompt = buildKamenAiPrompt('tako je', null, history);
+  assert.match(prompt, /2 komada vertikale 250 x 38 x 3 cm od impale/);
+  assert.match(prompt, /TUMAČI KRATKE POTVRDE/);
+  assert.match(prompt, /ne pitaj je li debljina 3 cm/);
+});
