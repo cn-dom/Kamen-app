@@ -3,7 +3,7 @@ import { calculateStageElapsedMs } from './production.js';
 const roundMoney = value => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
 const validAmount = value => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value));
 
-export function calculateOrderFinancials(order, costRecords = [], productionRecords = { pieces: {} }, now = Date.now()) {
+export function calculateOrderFinancials(order, costRecords = [], productionRecords = { pieces: {} }, now = Date.now(), invoices = [], payments = []) {
   const orderId = order?.id;
   const related = (Array.isArray(costRecords) ? costRecords : []).filter(record => record.orderId === orderId);
   const plannedCost = roundMoney(related.filter(record => record.kind === 'Planirani trošak').reduce((sum, record) => sum + Number(record.amount || 0), 0));
@@ -25,8 +25,20 @@ export function calculateOrderFinancials(order, costRecords = [], productionReco
       Object.values(record.stages || {}).forEach(stage => { productionMs += calculateStageElapsedMs(stage, now); });
     }
   });
+  const orderInvoices = (Array.isArray(invoices) ? invoices : []).filter(invoice => invoice.orderId === orderId);
+  const invoiceIds = new Set(orderInvoices.map(invoice => invoice.id));
+  const quoteIds = new Set(orderInvoices.map(invoice => invoice.quoteId));
+  const invoiceNet = roundMoney(orderInvoices.reduce((sum, invoice) => sum + Number(invoice.netTotal || 0), 0));
+  const invoiceGross = roundMoney(orderInvoices.reduce((sum, invoice) => sum + Number(invoice.grossTotal || 0), 0));
+  const collected = roundMoney((Array.isArray(payments) ? payments : []).filter(payment => invoiceIds.has(payment.invoiceId) || (!payment.invoiceId && quoteIds.has(payment.quoteId))).reduce((sum, payment) => sum + Math.max(0, Number(payment.amount) || 0), 0));
+  const receivable = Math.max(0, roundMoney(invoiceGross - collected));
   return {
     orderId,
+    invoiceCount: orderInvoices.length,
+    invoiceNet,
+    invoiceGross,
+    collected,
+    receivable,
     plannedCost,
     actualCost,
     laborCost,
@@ -42,7 +54,11 @@ export function summarizeFinancials(rows = []) {
     plannedCost: roundMoney(summary.plannedCost + row.plannedCost),
     actualCost: roundMoney(summary.actualCost + row.actualCost),
     estimatedMaterialCost: roundMoney(summary.estimatedMaterialCost + (row.estimatedMaterialCost ?? 0)),
+    invoiceNet: roundMoney(summary.invoiceNet + Number(row.invoiceNet || 0)),
+    invoiceGross: roundMoney(summary.invoiceGross + Number(row.invoiceGross || 0)),
+    collected: roundMoney(summary.collected + Number(row.collected || 0)),
+    receivable: roundMoney(summary.receivable + Number(row.receivable || 0)),
     productionHours: Math.round((summary.productionHours + row.productionHours) * 100) / 100,
     incompleteMaterialEstimates: summary.incompleteMaterialEstimates + (row.materialEstimateComplete ? 0 : 1)
-  }), { plannedCost: 0, actualCost: 0, estimatedMaterialCost: 0, productionHours: 0, incompleteMaterialEstimates: 0 });
+  }), { plannedCost: 0, actualCost: 0, estimatedMaterialCost: 0, invoiceNet: 0, invoiceGross: 0, collected: 0, receivable: 0, productionHours: 0, incompleteMaterialEstimates: 0 });
 }
