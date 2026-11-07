@@ -12,8 +12,11 @@ const BACKUP_KEYS = [
   'kamen-app-production-stages-v1',
   'kamen-app-stocktakes-v1',
   'kamen-app-schedule-v1',
-  'kamen-app-schedule-equipment-v1'
+  'kamen-app-schedule-equipment-v1',
+  'kamen-app-suppliers-v1',
+  'kamen-app-purchase-orders-v1'
 ];
+const OPTIONAL_BACKUP_KEYS = ['kamen-app-schedule-v1', 'kamen-app-schedule-equipment-v1', 'kamen-app-suppliers-v1', 'kamen-app-purchase-orders-v1'];
 const APP_ID = 'kamen-app-local-data';
 const VERSION = 1;
 
@@ -51,8 +54,9 @@ function validateBackup(value) {
   if (!value || value.app !== APP_ID || value.schemaVersion !== VERSION || !value.data || typeof value.data !== 'object' || Array.isArray(value.data)) {
     throw new Error('Datoteka nije valjana sigurnosna kopija Kamen-appa ili nije podržana verzija.');
   }
-  const missing = BACKUP_KEYS.filter(key => !Object.prototype.hasOwnProperty.call(value.data, key));
+  const missing = BACKUP_KEYS.filter(key => !Object.prototype.hasOwnProperty.call(value.data, key) && !OPTIONAL_BACKUP_KEYS.includes(key));
   if (missing.length) throw new Error('Sigurnosna kopija je nepotpuna. Nedostaju podaci: ' + missing.join(', '));
+  for (const key of OPTIONAL_BACKUP_KEYS) if (!Object.prototype.hasOwnProperty.call(value.data, key)) value.data[key] = [];
   for (const key of BACKUP_KEYS) {
     if (!Array.isArray(value.data[key])) throw new Error('Podatak "' + key + '" nema očekivani format.');
   }
