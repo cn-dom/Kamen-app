@@ -1,75 +1,25 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Factory, Search, ClipboardCheck, Clock3, CheckCircle2, Hammer,
+  Factory, Search, ClipboardCheck, Clock3, CheckCircle2,
   Play, Pause, Check, AlertTriangle, UserRound, Timer, Download,
-  XCircle, RotateCcw, Printer
+  XCircle, RotateCcw, Printer, UserPlus, X
 } from 'lucide-react';
+import {
+  PRODUCTION_STAGES as stages,
+  blankStageRecord as blankStage,
+  blankPieceProductionRecord as blankUnit,
+  buildProductionUnits as unitRows,
+  normalizeProductionRecords as normalizeRecords,
+  calculateStageElapsedMs as elapsedMs,
+  formatProductionDuration as formatDuration,
+  calculatePieceProgress as unitProgress
+} from '../lib/production.js';
 
 const ORDERS_KEY = 'kamen-app-work-orders-v1';
 const PRODUCTION_KEY = 'kamen-app-production-stages-v1';
-const stages = ['Pilanje', 'Kanterica / obrada rubova', 'Poliranje', 'Ostala obrada'];
-const stageStatuses = ['Nije započeto', 'U tijeku', 'Zastoj', 'Završeno', 'Nije potrebno'];
-const qualityStatuses = ['Čeka kontrolu', 'Prošlo', 'Neispravno'];
-
 function readJson(key, fallback) {
   try { const value = window.localStorage.getItem(key); return value ? JSON.parse(value) : fallback; }
   catch { return fallback; }
-}
-function blankStage() {
-  return { status: 'Nije započeto', assignedTo: '', startedAt: null, completedAt: null, sessions: [], blockedReason: '', note: '', history: [] };
-}
-function blankUnit() {
-  return {
-    stages: Object.fromEntries(stages.map(stage => [stage, blankStage()])),
-    quality: { status: 'Čeka kontrolu', checkedBy: '', checkedAt: null, note: '', history: [] },
-    updatedAt: null
-  };
-}
-function unitRows(orders) {
-  return orders.flatMap(order => (Array.isArray(order.pieces) ? order.pieces : []).flatMap((piece, pieceIndex) => {
-    const quantity = Math.max(0, Math.min(1000, Math.floor(Number(piece.quantity) || 0)));
-    return Array.from({ length: quantity }, (_, unitIndex) => ({
-      key: order.id + '::' + pieceIndex + '::' + (unitIndex + 1),
-      order, piece, pieceIndex, unitIndex: unitIndex + 1,
-      label: piece.name || 'Komad ' + (pieceIndex + 1),
-      material: piece.material || order.material || '—'
-    }));
-  }));
-}
-function normalizeRecords(raw, orders) {
-  if (raw && raw.version === 2 && raw.pieces && typeof raw.pieces === 'object') return raw;
-  const pieces = {};
-  unitRows(orders).forEach(row => {
-    const legacy = raw?.[row.order.id] || {};
-    const record = blankUnit();
-    stages.forEach(stage => {
-      const oldStatus = legacy[stage];
-      if (stageStatuses.includes(oldStatus)) record.stages[stage].status = oldStatus;
-    });
-    record.updatedAt = legacy.updatedAt || null;
-    pieces[row.key] = record;
-  });
-  return { version: 2, pieces, migratedAt: new Date().toISOString(), legacyRecordsPreserved: raw || {} };
-}
-function elapsedMs(stage) {
-  const sessions = Array.isArray(stage.sessions) ? stage.sessions : [];
-  return sessions.reduce((sum, session) => {
-    if (!session.startedAt) return sum;
-    return sum + Math.max(0, (session.endedAt ? new Date(session.endedAt) : new Date()).getTime() - new Date(session.startedAt).getTime());
-  }, 0);
-}
-function formatDuration(ms) {
-  const minutes = Math.floor(ms / 60000);
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  return hours ? hours + ' h ' + rest + ' min' : minutes + ' min';
-}
-function formatDate(value) {
-  return value ? new Date(value).toLocaleString('hr-HR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
-}
-function unitProgress(record) {
-  const complete = stages.filter(stage => ['Završeno', 'Nije potrebno'].includes(record.stages?.[stage]?.status)).length;
-  return Math.round(complete / stages.length * 100);
 }
 function csvCell(value) {
   const text = String(value ?? '');
@@ -83,6 +33,7 @@ export default function ProductionModule({ onBack }) {
   const [filter, setFilter] = useState('Aktivni');
   const [expandedOrders, setExpandedOrders] = useState({});
   const [expandedUnits, setExpandedUnits] = useState({});
+  const [newWorker, setNewWorker] = useState('');
 
   useEffect(() => {
     try { window.localStorage.setItem(PRODUCTION_KEY, JSON.stringify(records)); }
@@ -116,7 +67,7 @@ export default function ProductionModule({ onBack }) {
     const previous = unit.stages?.[stageName] || blankStage();
     const next = typeof updater === 'function' ? updater(previous) : updater;
     const history = next.status !== previous.status
-      ? [...(previous.history || []), { from: previous.status, to: next.status, at: new Date().toISOString(), reason: next.blockedReason || '' }]
+      ? [...(previous.history || []), { from: previous.status, to: next.status, at: new Date().toISOString(), reason: next.blockedReason || previous.blockedReason || '' }]
       : (next.history || previous.history || []);
     return { ...unit, stages: { ...unit.stages, [stageName]: { ...next, history } } };
   });
@@ -132,7 +83,8 @@ export default function ProductionModule({ onBack }) {
     updateStage(key, stageName, previous => {
       if (previous.status !== 'U tijeku') return previous;
       const sessions = [...(previous.sessions || [])];
-      const open = sessions.findLastIndex(session => !session.endedAt);
+      let open = sessions.length - 1;
+      while (open >= 0 && sessions[open].endedAt) open -= 1;
       if (open >= 0) sessions[open] = { ...sessions[open], endedAt: new Date().toISOString() };
       return { ...previous, status: 'Zastoj', blockedReason: reason.trim(), sessions };
     });
@@ -171,6 +123,19 @@ export default function ProductionModule({ onBack }) {
     }));
   };
   const updateQualityField = (key, field, value) => updateUnit(key, unit => ({ ...unit, quality: { ...unit.quality, [field]: value } }));
+  const addWorker = event => {
+    event.preventDefault();
+    const name = newWorker.trim();
+    if (!name) return;
+    const exists = (records.workers || []).some(worker => worker.toLocaleLowerCase('hr') === name.toLocaleLowerCase('hr'));
+    if (exists) { setNewWorker(''); return; }
+    setRecords(current => ({ ...current, version: 2, workers: [...(current.workers || []), name] }));
+    setNewWorker('');
+  };
+  const removeWorker = name => {
+    if (!window.confirm('Ukloniti radnika „' + name + '” iz popisa? Već evidentirane dodjele ostaju sačuvane.')) return;
+    setRecords(current => ({ ...current, workers: (current.workers || []).filter(worker => worker !== name) }));
+  };
 
   const rowsWithRecords = useMemo(() => rows.map(row => ({ ...row, record: records.pieces?.[row.key] || blankUnit() })), [rows, records]);
   const visibleRows = useMemo(() => rowsWithRecords.filter(row => {
@@ -241,6 +206,12 @@ export default function ProductionModule({ onBack }) {
     </section>
     <section className="panel warehouse-panel production-workspace">
       <div className="panel-heading"><div><h2>Proizvodnja po komadima</h2><p>Svaka jedinica narudžbe ima vlastite faze, radnika, vremenske zapise i kontrolu.</p></div><span className="demo-label"><span/> LOKALNA EVIDENCIJA</span></div>
+      <section className="production-team">
+        <div className="production-team-heading"><UserRound size={17}/><div><strong>Popis radnika</strong><small>Odabir radnika dostupan je u svakoj fazi obrade.</small></div></div>
+        <form className="production-team-form" onSubmit={addWorker}><input value={newWorker} onChange={event => setNewWorker(event.target.value)} placeholder="Ime i prezime radnika" aria-label="Ime i prezime radnika"/><button className="button button-secondary" type="submit" disabled={!newWorker.trim()}><UserPlus size={14}/> Dodaj radnika</button></form>
+        <div className="production-worker-chips">{(records.workers || []).map(worker => <span key={worker}>{worker}<button type="button" onClick={() => removeWorker(worker)} aria-label={'Ukloni ' + worker}><X size={12}/></button></span>)}{!(records.workers || []).length && <small>Još nema unesenih radnika. Ime se može upisati i izravno u fazi.</small>}</div>
+        <datalist id="production-worker-list">{(records.workers || []).map(worker => <option key={worker} value={worker}/>)}</datalist>
+      </section>
       <div className="warehouse-toolbar production-toolbar">
         <label className="warehouse-search"><Search size={16}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Traži nalog, kupca, projekt ili komad..."/></label>
         <label className="warehouse-filter"><span>Prikaz</span><select value={filter} onChange={event => setFilter(event.target.value)}><option>Aktivni</option><option>U tijeku</option><option>Zastoj</option><option>Kontrola</option><option>Završeni</option><option>Svi</option></select></label>
@@ -273,7 +244,7 @@ export default function ProductionModule({ onBack }) {
                         const duration = elapsedMs(stage);
                         return <section className={'production-stage-card stage-' + stage.status.toLowerCase().replaceAll(' ', '-')} key={stageName}>
                           <div className="production-stage-title"><span>{String(index + 1).padStart(2, '0')}</span><strong>{stageName}</strong><b>{stage.status}</b></div>
-                          <label className="production-worker-field"><UserRound size={14}/><input value={stage.assignedTo || ''} onChange={event => setStageWorker(row.key, stageName, event.target.value)} placeholder="Odgovorni radnik"/></label>
+                          <label className="production-worker-field"><UserRound size={14}/><input list="production-worker-list" value={stage.assignedTo || ''} onChange={event => setStageWorker(row.key, stageName, event.target.value)} placeholder="Odgovorni radnik"/></label>
                           <div className="production-time-row"><Timer size={14}/><span>{formatDuration(duration)}</span>{stage.startedAt && <small>Početak: {formatDate(stage.startedAt)}</small>}</div>
                           {stage.status === 'Zastoj' && <p className="production-block-reason"><AlertTriangle size={13}/>{stage.blockedReason}</p>}
                           {stage.note && <p className="production-stage-note">{stage.note}</p>}
