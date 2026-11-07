@@ -54,10 +54,10 @@ export function summarizeFinancials(rows = []) {
     plannedCost: roundMoney(summary.plannedCost + row.plannedCost),
     actualCost: roundMoney(summary.actualCost + row.actualCost),
     estimatedMaterialCost: roundMoney(summary.estimatedMaterialCost + (row.estimatedMaterialCost ?? 0)),
-    invoiceNet: roundMoney(summary.invoiceNet + row.invoiceNet),
-    invoiceGross: roundMoney(summary.invoiceGross + row.invoiceGross),
-    collected: roundMoney(summary.collected + row.collected),
-    receivable: roundMoney(summary.receivable + row.receivable),
+    invoiceNet: roundMoney(summary.invoiceNet + Number(row.invoiceNet || 0)),
+    invoiceGross: roundMoney(summary.invoiceGross + Number(row.invoiceGross || 0)),
+    collected: roundMoney(summary.collected + Number(row.collected || 0)),
+    receivable: roundMoney(summary.receivable + Number(row.receivable || 0)),
     productionHours: Math.round((summary.productionHours + row.productionHours) * 100) / 100,
     incompleteMaterialEstimates: summary.incompleteMaterialEstimates + (row.materialEstimateComplete ? 0 : 1)
   }), { plannedCost: 0, actualCost: 0, estimatedMaterialCost: 0, invoiceNet: 0, invoiceGross: 0, collected: 0, receivable: 0, productionHours: 0, incompleteMaterialEstimates: 0 });
