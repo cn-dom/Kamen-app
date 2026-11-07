@@ -74,4 +74,6 @@ Modul **Isporuke i naplata** prikazuje prihvaćene ponude, iznos naplaćenih upl
 
 Otpremnica se izrađuje iz prihvaćene ponude, omogućuje djelomičnu isporuku pojedinih stavki i kontrolira da ukupno evidentirana isporuka ne prijeđe ugovorenu količinu. Dokument se može ispisati ili spremiti u PDF. Otpremnice i uplate uključene su u JSON sigurnosnu kopiju.
 
-**Ograničenja:** ovo je interna evidencija, a ne fiskalizirani račun, eRačun ili knjigovodstvena evidencija. Evidentiranje otpremnice trenutačno ne umanjuje automatski zalihu gotovih proizvoda; stvarno izdavanje iz skladišta i povezivanje s fizičkim komadima zahtijeva zasebno usklađivanje zaliha.
+Pri izradi otpremnice svaka stavka može se povezati s odgovarajućim gotovim proizvodom. Za povezane stavke sustav provjerava raspoloživu količinu, umanjuje zalihu gotovih proizvoda i zapisuje transakciju na kartici proizvoda te skladišno kretanje s brojem otpremnice. Stavke bez povezanog proizvoda (npr. rad, montaža ili prijevoz) ne mijenjaju zalihu. Ista otpremnica ne može se dvaput proknjižiti.
+
+**Ograničenja:** ovo je interna evidencija, a ne fiskalizirani račun, eRačun ili knjigovodstvena evidencija. Isporuka ne skida sirovi materijal; umanjuje samo izričito povezanu zalihu gotovih proizvoda. Podaci se spremaju lokalno u preglednik.
