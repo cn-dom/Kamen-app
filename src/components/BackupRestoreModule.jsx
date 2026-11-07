@@ -10,7 +10,9 @@ const BACKUP_KEYS = [
   'kamen-app-customers-v1',
   'kamen-app-cost-records-v1',
   'kamen-app-production-stages-v1',
-  'kamen-app-stocktakes-v1'
+  'kamen-app-stocktakes-v1',
+  'kamen-app-schedule-v1',
+  'kamen-app-schedule-equipment-v1'
 ];
 const APP_ID = 'kamen-app-local-data';
 const VERSION = 1;

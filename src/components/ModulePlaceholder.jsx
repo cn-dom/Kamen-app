@@ -5,6 +5,7 @@ import FieldWorkModule from './FieldWorkModule.jsx';
 import CustomersModule from './CustomersModule.jsx';
 import CostsReportsModule from './CostsReportsModule.jsx';
 import ProductionModule from './ProductionModule.jsx';
+import ScheduleModule from './ScheduleModule.jsx';
 import FinishedProductsModule from './FinishedProductsModule.jsx';
 import BackupRestoreModule from './BackupRestoreModule.jsx';
 import { Boxes, ClipboardList, Factory, Truck, Users, Wallet, Settings2, ArrowRight, Construction } from 'lucide-react';
@@ -64,6 +65,7 @@ const modules = {
 export default function ModulePlaceholder({ name, onBack, openCreate, onCreateOpened }) {
   if (name === 'Skladište') return <WarehouseModule onBack={onBack} mode="warehouse" />;
   if (name === 'Proizvodnja') return <ProductionModule onBack={onBack} />;
+  if (name === 'Raspored') return <ScheduleModule onBack={onBack} />;
   if (name === 'Gotovi proizvodi') return <FinishedProductsModule onBack={onBack} />;
   if (name === 'Radni nalozi') return <WorkOrdersModule onBack={onBack} openCreate={openCreate} onCreateOpened={onCreateOpened} />;
   if (name === 'Terenski rad') return <FieldWorkModule onBack={onBack} />;
