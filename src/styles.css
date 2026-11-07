@@ -1019,3 +1019,22 @@ button:active { transform: translateY(1px); }
 .fulfillment-record-actions .button{white-space:nowrap}
 .fulfillment-status.unpaid{background:#fff0f0;color:#c64d54}
 @media(max-width:640px){.fulfillment-aging-summary{grid-template-columns:1fr}.fulfillment-record-actions{width:100%}.fulfillment-record-actions .button{flex:1;justify-content:center}}
+
+
+/* Customer financial card */
+.customer-financial{margin-top:24px;padding:20px;border:1px solid var(--border,#e5eaf1);border-radius:16px;background:var(--surface-soft,#f8fafc)}
+.customer-financial-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.customer-financial-head h3{margin:0 0 5px}
+.customer-financial-head p{margin:0;color:var(--muted,#718096);font-size:13px}
+.customer-financial-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:18px 0 22px}
+.customer-financial-stats>div{display:flex;flex-direction:column;gap:7px;padding:13px;border:1px solid var(--border,#e5eaf1);border-radius:12px;background:var(--surface,#fff);min-width:0}
+.customer-financial-stats small,.customer-invoice-row small{font-size:11px;color:var(--muted,#718096)}
+.customer-financial-stats strong{font-size:clamp(15px,2vw,20px);overflow-wrap:anywhere}
+.customer-financial-stats .is-overdue strong{color:#c2413b}
+.customer-financial h4{margin:0 0 10px;font-size:13px}
+.customer-invoice-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 0;border-top:1px solid var(--border,#e5eaf1)}
+.customer-invoice-row>div{display:flex;flex-direction:column;gap:5px;min-width:0}
+.customer-invoice-row strong{font-size:13px}
+.customer-invoice-amount{text-align:right;flex-shrink:0}
+.customer-invoice-amount small{color:#64748b}
+@media(max-width:700px){.customer-financial{padding:14px}.customer-financial-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.customer-financial-head .button{width:100%;justify-content:center}}
