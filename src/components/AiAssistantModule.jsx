@@ -127,8 +127,9 @@ export default function AiAssistantModule() {
     setMessages(current => [...current, { role: 'user', content: question }]);
     setBusy(true);
     try {
-      const context = includeContext ? getOperationalContext() : null;
-      const prompt = buildKamenAiPrompt(question, context);
+      const context = includeContext ? getOperationalContext([question, ...messages.map(message => message.content)].join(' ')) : null;
+      // Send prior turns explicitly: Puter chat(prompt) does not retain our React chat history.
+      const prompt = buildKamenAiPrompt(question, context, messages.slice(-16));
       const response = await window.puter.ai.chat(prompt);
       const answer = responseToText(response).trim() || 'AI nije vratio odgovor. Pokušaj ponovno.';
       setMessages(current => [...current, { role: 'assistant', content: answer }]);
