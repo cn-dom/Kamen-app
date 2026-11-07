@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, Plus, Search, Clock3, UserRound, Wrench, AlertTriangle, CheckCircle2, Trash2, Pencil, X, Printer } from 'lucide-react';
 import { PRODUCTION_STAGES, buildProductionUnits } from '../lib/production.js';
+import { findScheduleConflict, scheduleDurationHours } from '../lib/schedule.js';
 
 const KEY = 'kamen-app-schedule-v1';
 const ORDERS_KEY = 'kamen-app-work-orders-v1';
@@ -10,8 +11,7 @@ const read = (key, fallback) => { try { const value = window.localStorage.getIte
 const localDate = date => { const d = new Date(date); return [d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-'); };
 const mondayOf = date => { const d = new Date(date); d.setHours(0,0,0,0); d.setDate(d.getDate() - ((d.getDay()+6)%7)); return d; };
 const addDays = (date, days) => { const d = new Date(date); d.setDate(d.getDate()+days); return d; };
-const hoursBetween = (start,end) => Math.max(0,(new Date(end)-new Date(start))/3600000);
-const overlaps = (a,b,c,d) => new Date(a)<new Date(d) && new Date(c)<new Date(b);
+
 const emptyForm = () => ({ pieceKey:'', stage:PRODUCTION_STAGES[0], worker:'', machine:'', start:'', end:'', priority:'Normalan', status:'Planirano', note:'' });
 const dateTime = (date, hour='08:00') => date + 'T' + hour;
 const formatTime = value => new Date(value).toLocaleTimeString('hr-HR',{hour:'2-digit',minute:'2-digit'});
@@ -41,7 +41,7 @@ export default function ScheduleModule({ onBack }) {
   const visibleTasks = weekTasks.filter(task=>(filter==='Svi'||task.status===filter) && (!query.trim() || [task.orderId,task.project,task.customer,task.pieceLabel,task.worker,task.machine,task.stage].join(' ').toLocaleLowerCase('hr').includes(query.trim().toLocaleLowerCase('hr'))));
   const today = localDate(new Date());
   const todayTasks = tasks.filter(task=>task.start?.slice(0,10)===today && task.status!=='Otkazano');
-  const plannedHours = weekTasks.filter(task=>task.status!=='Otkazano').reduce((sum,task)=>sum+hoursBetween(task.start,task.end),0);
+  const plannedHours = weekTasks.filter(task=>task.status!=='Otkazano').reduce((sum,task)=>sum+scheduleDurationHours(task.start,task.end),0);
   const openForm = task => {
     setError('');
     setEditing(task?.id || null);
@@ -55,7 +55,7 @@ export default function ScheduleModule({ onBack }) {
     if (!form.worker.trim()) { setError('Odaberi odgovornog radnika.'); return; }
     if (!form.machine.trim()) { setError('Odaberi radno mjesto ili stroj.'); return; }
     if (!form.start || !form.end || new Date(form.end)<=new Date(form.start)) { setError('Vrijeme završetka mora biti nakon početka.'); return; }
-    const conflict=tasks.find(task=>task.id!==editing && task.status!=='Otkazano' && overlaps(form.start,form.end,task.start,task.end) && ((task.worker && task.worker===form.worker.trim()) || (task.machine && task.machine===form.machine.trim())));
+    const conflict=findScheduleConflict(tasks,{start:form.start,end:form.end,worker:form.worker.trim(),machine:form.machine.trim()},editing);
     if (conflict) { setError('Sukob rasporeda: '+(conflict.worker===form.worker.trim()?'radnik '+form.worker:'stroj '+form.machine)+' već je zauzet u terminu '+formatTime(conflict.start)+'–'+formatTime(conflict.end)+'.'); return; }
     const task={id:editing||('RAS-'+Date.now()),pieceKey:unit.key,orderId:unit.order.id,project:unit.order.project||unit.order.title||'Radni nalog',customer:unit.order.customer||'',pieceLabel:unit.label+' · komad '+unit.unitIndex,material:unit.material,stage:form.stage,worker:form.worker.trim(),machine:form.machine.trim(),start:new Date(form.start).toISOString(),end:new Date(form.end).toISOString(),priority:form.priority,status:form.status,note:form.note.trim(),updatedAt:new Date().toISOString()};
     saveTasks(editing?tasks.map(item=>item.id===editing?task:item):[...tasks,task]);
