@@ -19,7 +19,11 @@ function getOperationalContext(searchText = '') {
   const lowStock = materials.filter(item => Number(item.min || 0) > 0 && Number(item.quantity || 0) <= Number(item.min || 0));
   const activeOrders = orders.filter(order => !['Završen', 'Otkazan'].includes(order.status));
   const searchTerms = String(searchText).toLocaleLowerCase('hr').split(/[^\p{L}\p{N}]+/u).filter(term => term.length >= 3);
-  const prioritizedMaterials = [...materials].sort((a, b) => {\n    const score = item => searchTerms.reduce((total, term) => total + (String(item.name || '').toLocaleLowerCase('hr').includes(term) ? 10 : 0), 0);\n    return score(b) - score(a);\n  });\n  const materialRows = prioritizedMaterials.slice(0, 100).map(item => ({
+  const prioritizedMaterials = [...materials].sort((a, b) => {
+    const score = item => searchTerms.reduce((total, term) => total + (String(item.name || '').toLocaleLowerCase('hr').includes(term) ? 10 : 0), 0);
+    return score(b) - score(a);
+  });
+  const materialRows = prioritizedMaterials.slice(0, 100).map(item => ({
     materijal: item.name || 'Bez naziva',
     vrsta: item.type || item.materialType || 'Nije navedeno',
     dimenzije: [item.length, item.width, item.thickness].filter(value => value !== undefined && value !== null && value !== '').join(' × ') || 'Nisu navedene',
