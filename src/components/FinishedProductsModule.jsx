@@ -24,6 +24,9 @@ export default function FinishedProductsModule({ onBack }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState('');
+  const [stockAction, setStockAction] = useState(null);
+  const [actionQuantity, setActionQuantity] = useState('1');
+  const [actionError, setActionError] = useState('');
 
   useEffect(() => { try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items)); } catch { /* Storage unavailable. */ } }, [items]);
   useEffect(() => {
@@ -71,22 +74,49 @@ export default function FinishedProductsModule({ onBack }) {
 
   const updateStatus = (id, status) => {
     const item = items.find(row => row.id === id);
-    if (!item || item.status === status) return;
-    const previousStock = Number(item.stockQuantity ?? item.quantity);
-    const terminal = status === 'Ugrađen' || status === 'Prodano';
-    const nextStock = terminal ? 0 : Number(item.quantity);
-    const delta = nextStock - previousStock;
-    setItems(current => current.map(row => row.id === id ? { ...row, status, stockQuantity: nextStock, updatedAt: new Date().toISOString() } : row));
-    if (delta !== 0) {
-      try {
-        const movements = readJson(MOVEMENTS_KEY, []);
-        const kind = status === 'Ugrađen' ? 'Ugradnja' : status === 'Prodano' ? 'Prodaja' : 'Povrat gotovog proizvoda na zalihu';
-        window.localStorage.setItem(MOVEMENTS_KEY, JSON.stringify([{
-          id: Date.now(), material: item.name, kind, quantity: Math.abs(delta), location: item.location || '',
-          date: new Date().toLocaleDateString('hr-HR'), productId: item.id, orderId: item.orderId || ''
-        }, ...movements].slice(0, 100)));
-      } catch { /* Product status is still saved if the movement log is unavailable. */ }
+    if (!item || item.status === status || ['Ugrađen', 'Prodano'].includes(item.status) || ['Ugrađen', 'Prodano'].includes(status)) return;
+    setItems(current => current.map(row => row.id === id ? { ...row, status, updatedAt: new Date().toISOString() } : row));
+  };
+
+  const openStockAction = (item, kind) => {
+    setStockAction({ id: item.id, kind });
+    setActionQuantity('1');
+    setActionError('');
+  };
+
+  const confirmStockAction = event => {
+    event.preventDefault();
+    const item = items.find(row => row.id === stockAction?.id);
+    const quantity = Number(actionQuantity);
+    const available = item ? Number(item.stockQuantity ?? item.quantity) : 0;
+    const wholeUnit = item && ['kom', 'par', 'set'].includes(item.unit);
+    if (!item || !Number.isFinite(quantity) || quantity <= 0 || quantity > available || (wholeUnit && !Number.isInteger(quantity))) {
+      setActionError(wholeUnit ? 'Unesi cijeli broj koji nije veći od raspoložive količine.' : 'Unesi količinu veću od nule i ne veću od raspoložive zalihe.');
+      return;
     }
+    const remaining = Math.max(0, Number((available - quantity).toFixed(4)));
+    const timestamp = new Date().toISOString();
+    const isInstall = stockAction.kind === 'Ugradnja';
+    const transaction = { id: item.id + '-' + timestamp, kind: stockAction.kind, quantity, date: timestamp };
+    setItems(current => current.map(row => row.id !== item.id ? row : {
+      ...row,
+      stockQuantity: remaining,
+      status: remaining === 0 ? (isInstall ? 'Ugrađen' : 'Prodano') : row.status,
+      installedQuantity: Number(row.installedQuantity || 0) + (isInstall ? quantity : 0),
+      soldQuantity: Number(row.soldQuantity || 0) + (isInstall ? 0 : quantity),
+      transactions: [...(row.transactions || []), transaction],
+      updatedAt: timestamp
+    }));
+    try {
+      const movements = readJson(MOVEMENTS_KEY, []);
+      window.localStorage.setItem(MOVEMENTS_KEY, JSON.stringify([{
+        id: transaction.id, material: item.name, kind: isInstall ? 'Ugradnja' : 'Prodaja', quantity,
+        location: item.location || '', date: new Date(timestamp).toLocaleDateString('hr-HR'),
+        productId: item.id, orderId: item.orderId || ''
+      }, ...movements].slice(0, 100)));
+    } catch { /* The product balance is saved independently; local movement history may be unavailable. */ }
+    setStockAction(null);
+    setActionError('');
   };
   const availableQuantity = item => Number(item.stockQuantity ?? ((item.status === 'Ugrađen' || item.status === 'Prodano') ? 0 : item.quantity));
   const count = status => items.filter(item => item.status === status).reduce((sum, item) => sum + availableQuantity(item), 0);
@@ -121,14 +151,21 @@ export default function FinishedProductsModule({ onBack }) {
             {item.processes?.length > 0 && <div className="finished-process-list">{item.processes.map(p => <span key={p}>{p}</span>)}</div>}
             <div className="finished-product-meta">{item.orderId && <span>Nalog: {item.orderId}</span>}{item.customer && <span>Kupac: {item.customer}</span>}<span>Lokacija: {item.location}</span></div>
             {item.note && <p className="finished-product-note">{item.note}</p>}
-            <label className="finished-status-control">Promijeni status<select value={item.status} onChange={e => updateStatus(item.id, e.target.value)}>{statuses.map(status => <option key={status}>{status}</option>)}</select></label>
+            <div className="finished-stock-actions">
+              {['Ugrađen', 'Prodano'].includes(item.status) ? <span className="finished-status-control">Stavka je zatvorena · preostalo 0</span> : <label className="finished-status-control">Status<select value={item.status} onChange={e => updateStatus(item.id, e.target.value)}>{statuses.filter(status => !['Ugrađen', 'Prodano'].includes(status)).map(status => <option key={status}>{status}</option>)}</select></label>}
+              <div className="finished-stock-action-buttons">
+                <button type="button" className="button button-secondary" disabled={availableQuantity(item) <= 0} onClick={() => openStockAction(item, 'Prodaja')}>Evidentiraj prodaju</button>
+                <button type="button" className="button button-primary" disabled={availableQuantity(item) <= 0} onClick={() => openStockAction(item, 'Ugradnja')}>Evidentiraj ugradnju</button>
+              </div>
+              {(Number(item.soldQuantity || 0) > 0 || Number(item.installedQuantity || 0) > 0) && <small className="finished-product-note">Prodano: {Number(item.soldQuantity || 0)} · Ugrađeno: {Number(item.installedQuantity || 0)}</small>}
+            </div>
           </div>
         </article>)}
         {!visible.length && <div className="workorders-empty finished-empty"><PackageCheck size={28}/><strong>{items.length ? 'Nema proizvoda za odabrani prikaz' : 'Još nema evidentiranih gotovih proizvoda'}</strong><span>{items.length ? 'Promijeni pretragu ili status.' : 'Ovdje ručno unesi već izrađene spomenike, vaze, stepenice, klupice i svaki drugi gotovi kameni element.'}</span><button className="button button-primary" onClick={() => setShowForm(true)}><Plus size={15}/> Dodaj prvi proizvod</button></div>}
       </div>
       <div className="panel-foot"><span>Prikazano {visible.length} od {items.length} stavki</span><span>Podaci se spremaju lokalno u ovaj preglednik.</span></div>
     </section>
-    <div className="module-notice"><PackageCheck size={17}/><span>Ručni unos služi za popis postojeće gotove robe. Materijal se upisuje prema stvarnoj zalihi. Status Ugrađen ili Prodano automatski skida cijelu količinu proizvoda s raspoložive zalihe. Podaci su lokalni u ovom pregledniku.</span></div>
+    <div className="module-notice"><PackageCheck size={17}/><span>Ručni unos služi za popis postojeće gotove robe. Materijal se upisuje prema stvarnoj zalihi. Prodaja i ugradnja evidentiraju se zasebno, uz unos stvarno potrošene količine; preostala količina ostaje na zalihi. Podaci su lokalni u ovom pregledniku.</span></div>
 
     {showForm && <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setShowForm(false); }}><section className="modal finished-product-modal" role="dialog" aria-modal="true" aria-labelledby="finished-form-title">
       <div className="modal-head"><div><span className="modal-kicker">GOTOVI PROIZVODI · RUČNI UNOS</span><h2 id="finished-form-title">Dodaj gotovi element</h2><p>Unesi jedan element ili komad. Za različite dijelove koristi zasebne stavke.</p></div><button className="icon-button" onClick={() => setShowForm(false)} aria-label="Zatvori"><X size={19}/></button></div>
@@ -148,5 +185,18 @@ export default function FinishedProductsModule({ onBack }) {
         <div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setShowForm(false)}>Odustani</button><button type="submit" className="button button-primary"><Plus size={16}/> Spremi proizvod</button></div>
       </form>
     </section></div>}
+    {stockAction && <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setStockAction(null); }}>
+      <section className="modal finished-product-modal stock-action-modal" role="dialog" aria-modal="true" aria-labelledby="stock-action-title">
+        <div className="modal-head"><div><span className="modal-kicker">PROMJENA ZALIHE</span><h2 id="stock-action-title">{stockAction.kind === 'Ugradnja' ? 'Evidentiraj ugradnju' : 'Evidentiraj prodaju'}</h2><p>{items.find(item => item.id === stockAction.id)?.name} · raspoloživo {availableQuantity(items.find(item => item.id === stockAction.id) || {})}</p></div><button className="icon-button" type="button" onClick={() => setStockAction(null)} aria-label="Zatvori"><X size={19}/></button></div>
+        <form onSubmit={confirmStockAction}>
+          <label>Količina {items.find(item => item.id === stockAction.id)?.unit || ''} *
+            <input autoFocus type="number" min="0.01" step={['kom', 'par', 'set'].includes(items.find(item => item.id === stockAction.id)?.unit) ? '1' : '0.01'} max={availableQuantity(items.find(item => item.id === stockAction.id) || {})} value={actionQuantity} onChange={e => setActionQuantity(e.target.value)} required/>
+          </label>
+          <p className="field-hint">Skida se samo unesena količina. Ostatak ostaje na zalihi; status se zatvara tek kada raspoloživa količina dosegne nulu.</p>
+          {actionError && <p className="workorders-error">{actionError}</p>}
+          <div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setStockAction(null)}>Odustani</button><button type="submit" className="button button-primary">Potvrdi {stockAction.kind === 'Ugradnja' ? 'ugradnju' : 'prodaju'}</button></div>
+        </form>
+      </section>
+    </div>}
   </div>;
 }
