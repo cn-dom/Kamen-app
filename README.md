@@ -84,3 +84,10 @@ Pri izradi otpremnice svaka stavka može se povezati s odgovarajućim gotovim pr
 Modul **Servis i reklamacije** vodi reklamacije, jamstvene i plaćene servise te redovne preglede. Servisni nalog može se povezati s kupcem iz imenika ili ručno unesenim kupcem te s izvornim radnim nalogom. Evidentiraju se datum prijave, rok, rok jamstva, prioritet, odgovorna osoba, opis problema, rezultat zahvata i kronološka povijest promjena. Fotografije prije i poslije mogu se dodavati i nakon otvaranja naloga (do 1,5 MB po fotografiji). Trošak se računa iz dijelova, sati rada i cijene sata, puta i ostalih troškova. Završetak zahtijeva evidentiran rezultat servisa. Podaci i fotografije uključeni su u JSON sigurnosnu kopiju.
 
 **Ograničenja:** evidencija se sprema lokalno u preglednik; nije sustav za automatsku naplatu jamstvenih zahtjeva ni službeno izdavanje računa. Fotografije povećavaju veličinu lokalne pohrane i sigurnosne kopije.
+
+
+## Održavanje strojeva i opreme
+
+Modul **Održavanje strojeva** vodi registar strojeva i opreme s inventarnim i serijskim brojem, proizvođačem, lokacijom, radnim satima te intervalima redovnog servisa po danima i radnim satima. Dodavanje opreme sinkronizira naziv s popisom strojeva u modulu Raspored. Servisni zapisi obuhvaćaju preventivne preglede, kvarove, jamstvene zahvate, odgovornu osobu, zastoj, utrošene dijelove, sate rada i ostale troškove. Završetak zapisa zahtijeva opis rješenja, a servisna povijest sprječava slučajno brisanje stroja.
+
+**Ograničenja:** radni sati unose se ručno; aplikacija ih ne očitava iz strojeva. Rokovi održavanja su podsjetnici na temelju ručno unesenih intervala. Podaci se spremaju lokalno u preglednik i uključeni su u JSON sigurnosnu kopiju.
