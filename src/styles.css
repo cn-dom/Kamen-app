@@ -984,3 +984,18 @@ button:active { transform: translateY(1px); }
 .low-stock-footnote{margin:13px 2px 0;color:#8995a5;font-size:9px;line-height:1.55}
 @media(max-width:900px){.low-stock-row{grid-template-columns:minmax(0,1fr) auto}.low-stock-quantities{grid-column:1/-1;grid-row:2}.low-stock-row>.button{grid-column:2;grid-row:1}}
 @media(max-width:560px){.low-stock-row{grid-template-columns:1fr;gap:10px}.low-stock-quantities{grid-column:1;grid-row:auto;justify-content:space-between;gap:8px}.low-stock-row>.button{grid-column:1;grid-row:auto;justify-content:center}.low-stock-quantities>span{min-width:0}.low-stock-quantities strong{font-size:10px}}
+
+
+/* Live stock alerts in the dashboard and notification menu */
+.alert-popover{max-height:min(70vh,520px);overflow:auto}
+.alert-popover .popover-head{gap:12px}
+.alert-total{display:inline-grid;place-items:center;min-width:19px;height:19px;margin-left:5px;padding:0 5px;border-radius:20px;background:#fff0f0;color:#ce4e57;font:800 10px 'DM Sans',sans-serif;vertical-align:middle}
+.alert-list{max-height:340px;overflow:auto}
+.alert-popover .alert-row{align-items:flex-start;gap:9px}
+.alert-popover .alert-row>div{min-width:0}
+.alert-popover .alert-row strong{display:block;overflow-wrap:anywhere}
+.alert-more{display:block;padding:8px 0;color:#8a95a4;font-size:9px}
+.alert-action{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;margin-top:10px;padding:10px 12px;border:1px solid #dce5fb;border-radius:8px;background:#f4f7ff;color:#315fc9;font-size:10px;font-weight:800}
+.alert-action:hover{background:#eaf0ff}
+.notification-button i{box-shadow:0 0 0 2px #fff}
+@media(max-width:640px){.alert-popover{left:12px;right:12px;top:60px;width:auto;max-width:none}.alert-list{max-height:45vh}}
