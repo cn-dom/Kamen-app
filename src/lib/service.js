@@ -17,6 +17,7 @@ export function validateService(record, existing = []) {
   if (!SERVICE_TYPES.includes(record.type)) return 'Odaberi vrstu servisnog naloga.';
   if (record.dueDate && record.dueDate < record.reportedAt) return 'Rok ne može biti prije datuma prijave.';
   if (record.warrantyUntil && record.reportedAt > record.warrantyUntil && record.type === 'Jamstveni servis') return 'Datum prijave je nakon isteka evidentiranog jamstva.';
+  for (const key of ['partsCost','laborHours','hourlyRate','travelCost','otherCost']) if (record[key] !== '' && record[key] !== undefined && (!Number.isFinite(Number(record[key])) || Number(record[key]) < 0)) return 'Troškovi i sati rada ne mogu biti negativni.';
   if (record.id && existing.some(item => item.id === record.id && item.closedAt)) return 'Zatvoreni servisni nalog nije moguće mijenjati.';
   return '';
 }
