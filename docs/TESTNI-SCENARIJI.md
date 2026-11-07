@@ -165,3 +165,18 @@ Svi scenariji su kriteriji koje će aplikacija morati zadovoljiti. Njihovo navo�
 Modul se ne smatra spremnim samo zato što se ekran otvara. Mora proći odgovarajuće funkcionalne, ovlastne i regresijske testove. Testovi izolacije tvrtki i zaštite financijskih podataka blokiraju objavu ako padnu.
 
 Testovi sadrže izmišljene testne podatke. Ne koristiti stvarne podatke klijenata za razvojne ili demonstracijske testove.
+
+
+## H. Profesionalizacija radnih naloga i arhiva
+
+### WO-001 — jedinstven obrazac iz svih ulaza
+**Koraci:** Na nadzornoj ploči odabrati „Novi radni nalog” i ponoviti iz brze radnje. Unijeti kupca, projekt i više komada s različitim dimenzijama i materijalima.
+**Očekivano:** Oba ulaza otvaraju isti puni obrazac. Nalog se ne može spremiti bez stavki, mjera, količina i odabranog materijala; rezervacija se računa po grupi materijala.
+
+### WO-002 — nema prečaca za zatvaranje naloga
+**Koraci:** Na nadzornoj ploči pokušati otvoriti nalog kroz akciju u retku.
+**Očekivano:** Akcija vodi na modul radnih naloga. Ne mijenja status u „Završen” niti zaobilazi proizvodnju i kontrolu.
+
+### INV-015 — arhiviranje bez brisanja povijesti
+**Koraci:** Pokušati arhivirati stavku s raspoloživom zalihom, zatim stavku povezanu s aktivnim nalogom. Nakon toga arhivirati stavku s nulom zalihe i bez aktivnih veza. Otvoriti arhivu i vratiti stavku.
+**Očekivano:** Prva dva pokušaja su blokirana. Uspješno arhivirana stavka ostaje u lokalnim podacima, ne nudi se za nove naloge i pilanje, može se pronaći u arhivi i vratiti u aktivno skladište. Nijedan povijesni zapis ne briše se.
