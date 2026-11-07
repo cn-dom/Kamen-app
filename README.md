@@ -96,3 +96,8 @@ Modul **Održavanje strojeva** vodi registar strojeva i opreme s inventarnim i s
 ### Izdavanje rezervnih dijelova za održavanje
 
 U modulu **Održavanje strojeva** servisni nalog može sadržavati više rezervnih dijelova odabranih iz aktivnog skladišta. Pri spremanju naloga sustav provjerava raspoloživu količinu, umanjuje zalihu, sprema izdavanje u skladišna kretanja s referencom na servisni nalog te čuva naziv, količinu, jedinicu i lokaciju iz trenutka izdavanja. Izdani dijelovi ostaju zaključani pri naknadnom uređivanju kako se ista stavka ne bi dvaput skinula sa zalihe. Ako spremanje povezane evidencije ne uspije, sustav pokušava vratiti prethodne lokalne vrijednosti. Trošak dijelova u servisnom nalogu i dalje se unosi zasebno kao novčani iznos.
+
+
+### Minimalne zalihe i prijedlozi nabave
+
+Na kartici materijala u skladištu postavi minimalnu količinu veću od nule. Modul **Nabava → Niske zalihe** prikazuje aktivne materijale koji su na ili ispod minimuma, trenutačno stanje, prag i predloženu količinu za dopunu do dvostrukog minimuma. Gumb **Pripremi narudžbu** otvara nacrt nabave s unaprijed popunjenim podacima materijala; povezani dobavljač predlaže se ako je spremljen na skladišnoj stavci. Prije spremanja korisnik mora provjeriti dobavljača, količinu i cijenu. Sustav ne šalje narudžbe automatski. Prijedlozi se računaju iz trenutačnog stanja skladišta, pa obuhvaćaju i potrošnju kroz proizvodnju, servis, prodaju i ručna kretanja.

@@ -32,3 +32,26 @@ export function receivePurchaseLine(item = {}, received) {
   }
   return { ...item, receivedQty: Math.round((already + amount) * 10000) / 10000 };
 }
+
+
+/**
+ * Returns active stock items at or below their configured minimum.
+ * Suggested order quantity restores the stock to twice the minimum level.
+ */
+export function lowStockSuggestions(materials = []) {
+  if (!Array.isArray(materials)) return [];
+  return materials
+    .filter(item => !item.archived && item.form !== 'Otpad' && Number(item.min) > 0 && Number(item.quantity || 0) <= Number(item.min))
+    .map(item => {
+      const quantity = Math.max(0, Number(item.quantity) || 0);
+      const minimum = Math.max(0, Number(item.min) || 0);
+      return {
+        ...item,
+        currentQuantity: quantity,
+        minimumQuantity: minimum,
+        shortage: Math.round(Math.max(0, minimum - quantity) * 100) / 100,
+        suggestedQuantity: Math.round(Math.max(0, minimum * 2 - quantity) * 100) / 100
+      };
+    })
+    .sort((a, b) => (a.currentQuantity / a.minimumQuantity) - (b.currentQuantity / b.minimumQuantity));
+}
