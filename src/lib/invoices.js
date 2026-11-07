@@ -40,3 +40,25 @@ export function summarizeInvoice(invoice, payments = []) {
   const total = round(invoice?.grossTotal || 0);
   return { total, paid, due: Math.max(0, round(total - paid)), status: paid >= total ? 'Plaćeno' : paid > 0 ? 'Djelomično plaćeno' : 'Neplaćeno' };
 }
+
+export function getInvoiceReceivables(invoices = [], payments = [], today = new Date().toISOString().slice(0, 10)) {
+  return (Array.isArray(invoices) ? invoices : []).map(invoice => {
+    const balance = summarizeInvoice(invoice, payments);
+    const dueDate = invoice.dueDate || invoice.date || '';
+    const todayMs = Date.parse(String(today).slice(0, 10) + 'T00:00:00Z');
+    const dueMs = dueDate ? Date.parse(String(dueDate).slice(0, 10) + 'T00:00:00Z') : NaN;
+    const daysOverdue = balance.due > 0 && Number.isFinite(todayMs) && Number.isFinite(dueMs) && dueMs < todayMs
+      ? Math.floor((todayMs - dueMs) / 86400000) : 0;
+    return { invoice, ...balance, dueDate, daysOverdue, isOverdue: daysOverdue > 0 };
+  }).filter(row => row.due > 0);
+}
+
+export function summarizeReceivables(invoices = [], payments = [], today) {
+  const rows = getInvoiceReceivables(invoices, payments, today);
+  return {
+    outstanding: round(rows.reduce((sum, row) => sum + row.due, 0)),
+    overdue: round(rows.filter(row => row.isOverdue).reduce((sum, row) => sum + row.due, 0)),
+    overdueCount: rows.filter(row => row.isOverdue).length,
+    openCount: rows.length
+  };
+}
