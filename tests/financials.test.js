@@ -47,7 +47,7 @@ test('sažima financijske pokazatelje više projekata', () => {
     { plannedCost: 100, actualCost: 80, estimatedMaterialCost: 40, productionHours: 2, materialEstimateComplete: true },
     { plannedCost: 50, actualCost: 60, estimatedMaterialCost: null, productionHours: 1.5, materialEstimateComplete: false }
   ]);
-  assert.deepEqual(summary, { plannedCost: 150, actualCost: 140, totalActualCost: 140, consumedMaterialCost: 0, consumedMaterialAreaM2: 0, unpricedMaterialConsumptionCount: 0, estimatedMaterialCost: 40, invoiceNet: 0, invoiceGross: 0, collected: 0, receivable: 0, netDifference: 0, projectsWithInvoices: 0, productionHours: 3.5, incompleteMaterialEstimates: 1 });
+  assert.deepEqual(summary, { plannedCost: 150, actualCost: 140, totalActualCost: 140, consumedMaterialCost: 0, consumedMaterialAreaM2: 0, remnantMaterialValue: 0, wasteMaterialCost: 0, jobMaterialCost: 0, finishedMaterialAreaM2: 0, remnantMaterialAreaM2: 0, wasteMaterialAreaM2: 0, processLossAreaM2: 0, unpricedMaterialConsumptionCount: 0, estimatedMaterialCost: 40, invoiceNet: 0, invoiceGross: 0, collected: 0, receivable: 0, netDifference: 0, projectsWithInvoices: 0, productionHours: 3.5, incompleteMaterialEstimates: 1 });
 });
 
 test('prepoznaje kategoriju rada i u starijem zapisu', () => {
@@ -154,4 +154,57 @@ test('bilježi pilanje bez cijene kao nepotpun trošak, bez izmišljanja iznosa'
   assert.equal(result.unpricedMaterialConsumptionCount, 1);
   assert.equal(result.totalActualCost, 0);
   assert.equal(result.netDifference, 300);
+});
+
+
+test('raspoređuje nabavnu vrijednost na gotove komade, ostatke i otpad te računa iskoristivost', () => {
+  const record = createMaterialConsumptionRecord({
+    id: 'UT-YIELD-1', orderId: 'RN-YIELD', materialId: 'MAT-YIELD', materialName: 'Granit',
+    usedQuantity: 1, boardLengthCm: 300, boardWidthCm: 150, pricePerM2: 40,
+    outputs: [
+      { id: 'A', name: 'Grobna ploča', form: 'Komad', length: 200, width: 100, quantity: 1 },
+      { id: 'B', name: 'Ostatak', form: 'Ostatak', length: 100, width: 100, quantity: 1 },
+      { id: 'C', name: 'Otpad', form: 'Otpad', length: 100, width: 50, quantity: 1 }
+    ]
+  });
+  assert.equal(record.consumedAreaM2, 4.5);
+  assert.equal(record.finishedAreaM2, 2);
+  assert.equal(record.remnantAreaM2, 1);
+  assert.equal(record.wasteAreaM2, 0.5);
+  assert.equal(record.processLossAreaM2, 1);
+  assert.equal(record.finishedYieldPercent, 44.44);
+  assert.equal(record.reusableYieldPercent, 66.67);
+  assert.equal(record.wastePercent, 33.33);
+  assert.equal(record.materialCost, 180);
+  assert.equal(record.remnantValue, 40);
+  assert.equal(record.wasteCost, 60);
+  assert.equal(record.jobMaterialCost, 140);
+});
+
+test('ne dopušta da izlazna površina pilanja premaši ulaznu površinu ploče', () => {
+  assert.throws(() => createMaterialConsumptionRecord({
+    id: 'UT-YIELD-2', orderId: 'RN-YIELD', materialId: 'MAT-YIELD', usedQuantity: 1,
+    boardLengthCm: 100, boardWidthCm: 100, pricePerM2: 25,
+    outputs: [{ id: 'X', form: 'Komad', length: 120, width: 100, quantity: 1 }]
+  }), /veći je od potrošene površine/);
+});
+
+test('umanjuje stvarni trošak radnog naloga za vrijednost uporabnog ostatka', () => {
+  const consumption = createMaterialConsumptionRecord({
+    id: 'UT-YIELD-3', orderId: 'RN-YIELD-3', materialId: 'MAT-YIELD-3', usedQuantity: 1,
+    boardLengthCm: 300, boardWidthCm: 150, pricePerM2: 40,
+    outputs: [
+      { id: 'A', form: 'Komad', length: 200, width: 100, quantity: 1 },
+      { id: 'B', form: 'Ostatak', length: 100, width: 100, quantity: 1 }
+    ]
+  });
+  const result = calculateOrderFinancials(
+    { id: 'RN-YIELD-3', pieces: [] }, [], { pieces: {} }, Date.now(),
+    [{ id: 'R-Y3', orderId: 'RN-YIELD-3', netTotal: 500, grossTotal: 625 }], [], [consumption]
+  );
+  assert.equal(result.consumedMaterialCost, 180);
+  assert.equal(result.remnantMaterialValue, 40);
+  assert.equal(result.jobMaterialCost, 140);
+  assert.equal(result.totalActualCost, 140);
+  assert.equal(result.netDifference, 360);
 });
