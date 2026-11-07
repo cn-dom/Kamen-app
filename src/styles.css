@@ -1008,3 +1008,14 @@ button:active { transform: translateY(1px); }
 .costs-financial-summary span{font-size:9px;color:#8995a6}
 @media(max-width:900px){.costs-financial-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:520px){.costs-financial-summary{gap:7px}.costs-financial-summary>div{padding:11px}.costs-financial-summary strong{font-size:16px}}
+
+/* Invoice aging and receivables */
+.fulfillment-receivables{display:flex;flex-direction:column;gap:11px;padding:15px}
+.fulfillment-aging-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:3px}
+.fulfillment-aging-summary>span{display:flex;flex-direction:column;gap:5px;padding:13px;border:1px solid #e7ecf3;border-radius:9px;background:#f9fbfe;color:#8290a3;font-size:9px}
+.fulfillment-aging-summary strong{font-size:16px;color:#304158}
+.fulfillment-aging-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}
+.fulfillment-record-actions{display:flex;gap:7px;flex-wrap:wrap}
+.fulfillment-record-actions .button{white-space:nowrap}
+.fulfillment-status.unpaid{background:#fff0f0;color:#c64d54}
+@media(max-width:640px){.fulfillment-aging-summary{grid-template-columns:1fr}.fulfillment-record-actions{width:100%}.fulfillment-record-actions .button{flex:1;justify-content:center}}
