@@ -512,3 +512,24 @@ button:active { transform: translateY(1px); }
 .stocktake-empty .button{margin-top:12px}
 @media(max-width:900px){.stocktake-layout{grid-template-columns:1fr}.stocktake-history{order:2}.stocktake-detail{order:1}}
 @media(max-width:620px){.stocktake-summary{grid-template-columns:repeat(2,minmax(0,1fr));padding-inline:12px}.stocktake-footer{align-items:stretch;flex-direction:column;padding:14px}.stocktake-footer .button{width:100%;justify-content:center}.stocktake-session{padding:12px}.stocktake-welcome{align-items:flex-start}}
+
+
+/* Ispis skladišne inventure */
+@media print {
+  body { background:#fff!important; color:#111!important; }
+  .sidebar,.topbar,.warehouse-subnav,.stocktake-history,.stocktake-welcome .welcome-actions,.stocktake-footer button,.toast { display:none!important; }
+  .main-area,.page-content,.warehouse-page,.stocktake-page { display:block!important; width:100%!important; max-width:none!important; margin:0!important; padding:0!important; background:#fff!important; }
+  .stocktake-layout { display:block!important; }
+  .stocktake-detail { display:block!important; width:100%!important; border:0!important; box-shadow:none!important; overflow:visible!important; }
+  .stocktake-detail .panel-heading { padding:0 0 12px!important; }
+  .stocktake-summary { padding:0 0 12px!important; }
+  .orders-table-wrap { overflow:visible!important; border:1px solid #bbb!important; }
+  .stocktake-table { width:100%!important; min-width:0!important; border-collapse:collapse!important; }
+  .stocktake-table th,.stocktake-table td { padding:7px 5px!important; font-size:9px!important; color:#111!important; border:1px solid #ddd!important; }
+  .stocktake-table th { background:#f0f0f0!important; }
+  .stocktake-count-input,.stocktake-reason-input { border:0!important; padding:0!important; min-width:0!important; color:#111!important; background:transparent!important; font-size:9px!important; }
+  .stocktake-difference.positive,.stocktake-difference.negative { color:#111!important; }
+  .stocktake-footer { border-top:1px solid #bbb!important; padding:10px 0!important; }
+  .stocktake-footer>span { color:#333!important; font-size:9px!important; }
+  .stocktake-page:before { content:"KAMEN-APP · INVENTURNI ZAPISNIK"; display:block; margin-bottom:12px; font-size:12px; font-weight:800; letter-spacing:.08em; }
+}
