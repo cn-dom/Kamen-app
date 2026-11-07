@@ -34,6 +34,10 @@ export function normalizeProductionRecords(raw, orders) {
       const oldStatus = legacy[stage];
       if (PRODUCTION_STAGE_STATUSES.includes(oldStatus)) record.stages[stage].status = oldStatus;
     });
+    if (legacy['Završna kontrola'] === 'Završeno') {
+      record.quality.status = 'Prošlo';
+      record.quality.checkedAt = legacy.updatedAt || null;
+    }
     record.updatedAt = legacy.updatedAt || null;
     pieces[row.key] = record;
   });
