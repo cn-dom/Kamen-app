@@ -10,6 +10,7 @@ import PurchasingModule from './PurchasingModule.jsx';
 import QuotesModule from './QuotesModule.jsx';
 import FulfillmentModule from './FulfillmentModule.jsx';
 import ServiceModule from './ServiceModule.jsx';
+import MaintenanceModule from './MaintenanceModule.jsx';
 import FinishedProductsModule from './FinishedProductsModule.jsx';
 import BackupRestoreModule from './BackupRestoreModule.jsx';
 import { Boxes, ClipboardList, Factory, Truck, Users, Wallet, Settings2, ArrowRight, Construction } from 'lucide-react';
@@ -74,6 +75,7 @@ export default function ModulePlaceholder({ name, onBack, openCreate, onCreateOp
   if (name === 'Ponude') return <QuotesModule onBack={onBack} />;
   if (name === 'Isporuke i naplata') return <FulfillmentModule onBack={onBack} />;
   if (name === 'Servis i reklamacije') return <ServiceModule onBack={onBack} />;
+  if (name === 'Održavanje strojeva') return <MaintenanceModule onBack={onBack} />;
   if (name === 'Gotovi proizvodi') return <FinishedProductsModule onBack={onBack} />;
   if (name === 'Radni nalozi') return <WorkOrdersModule onBack={onBack} openCreate={openCreate} onCreateOpened={onCreateOpened} />;
   if (name === 'Terenski rad') return <FieldWorkModule onBack={onBack} />;
