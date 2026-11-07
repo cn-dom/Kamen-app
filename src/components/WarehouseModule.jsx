@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import FinishedProductsModule from './FinishedProductsModule.jsx';
 import StocktakeModule from './StocktakeModule.jsx';
+import { createMaterialConsumptionRecord } from '../lib/materialConsumption.js';
 import { ArrowDownToLine, ArrowUpFromLine, Boxes, Check, ChevronDown, ClipboardCheck, Layers3, Plus, Search, Scissors, X, Pencil, Archive, RotateCcw } from 'lucide-react';
 
 const seedMaterials = [];
@@ -8,6 +9,7 @@ const seedMaterials = [];
 const MATERIALS_KEY = 'kamen-app-materials-v1';
 const MOVEMENTS_KEY = 'kamen-app-movements-v1';
 const WORK_ORDERS_KEY = 'kamen-app-work-orders-v1';
+const MATERIAL_CONSUMPTION_KEY = 'kamen-app-material-consumption-v1';
 function readStored(key, fallback) {
   try { const saved = window.localStorage.getItem(key); return saved ? JSON.parse(saved) : fallback; }
   catch { return fallback; }
@@ -254,6 +256,26 @@ function buildCuttingPlan(boardLength, boardWidth, pieces, kerf, trim, allowRota
     }
     const timestamp = Date.now();
     const date = new Date().toLocaleDateString('hr-HR');
+    if (linkedOrder) {
+      try {
+        const consumption = createMaterialConsumptionRecord({
+          id: 'UT-' + timestamp,
+          orderId: linkedOrder.id,
+          materialId: source.id,
+          materialName: source.name,
+          usedQuantity: usedQty,
+          boardLengthCm: source.length,
+          boardWidthCm: source.width,
+          pricePerM2: source.pricePerM2,
+          date: new Date(timestamp).toISOString()
+        });
+        const currentLedger = readStored(MATERIAL_CONSUMPTION_KEY, []);
+        window.localStorage.setItem(MATERIAL_CONSUMPTION_KEY, JSON.stringify([consumption, ...currentLedger]));
+      } catch (error) {
+        flash(error?.message || 'Nije moguće spremiti stvarni utrošak materijala. Pilanje nije evidentirano.');
+        return;
+      }
+    }
     const outputMaterials = cutForm.outputs.map((output, index) => {
       const kind = output.type;
       const formType = kind === 'Ostatak' ? 'Ostatak' : kind === 'Otpad' ? 'Otpad' : 'Komad';
