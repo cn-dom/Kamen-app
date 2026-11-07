@@ -12,6 +12,7 @@ test('provjerava obvezne podatke i datume', () => {
   assert.equal(validateService(valid), '');
   assert.match(validateService({ ...valid, customerName:'' }), /kupca/i);
   assert.match(validateService({ ...valid, dueDate:'2026-11-06' }), /Rok/i);
+  assert.match(validateService({ ...valid, partsCost:-1 }), /negativni/i);
 });
 
 test('dodaje neizbrisiv događaj u povijest naloga', () => {
