@@ -91,3 +91,8 @@ Modul **Servis i reklamacije** vodi reklamacije, jamstvene i plaćene servise te
 Modul **Održavanje strojeva** vodi registar strojeva i opreme s inventarnim i serijskim brojem, proizvođačem, lokacijom, radnim satima te intervalima redovnog servisa po danima i radnim satima. Dodavanje opreme sinkronizira naziv s popisom strojeva u modulu Raspored. Servisni zapisi obuhvaćaju preventivne preglede, kvarove, jamstvene zahvate, odgovornu osobu, zastoj, utrošene dijelove, sate rada i ostale troškove. Završetak zapisa zahtijeva opis rješenja, a servisna povijest sprječava slučajno brisanje stroja.
 
 **Ograničenja:** radni sati unose se ručno; aplikacija ih ne očitava iz strojeva. Rokovi održavanja su podsjetnici na temelju ručno unesenih intervala. Podaci se spremaju lokalno u preglednik i uključeni su u JSON sigurnosnu kopiju.
+
+
+### Izdavanje rezervnih dijelova za održavanje
+
+U modulu **Održavanje strojeva** servisni nalog može sadržavati više rezervnih dijelova odabranih iz aktivnog skladišta. Pri spremanju naloga sustav provjerava raspoloživu količinu, umanjuje zalihu, sprema izdavanje u skladišna kretanja s referencom na servisni nalog te čuva naziv, količinu, jedinicu i lokaciju iz trenutka izdavanja. Izdani dijelovi ostaju zaključani pri naknadnom uređivanju kako se ista stavka ne bi dvaput skinula sa zalihe. Ako spremanje povezane evidencije ne uspije, sustav pokušava vratiti prethodne lokalne vrijednosti. Trošak dijelova u servisnom nalogu i dalje se unosi zasebno kao novčani iznos.
