@@ -17,6 +17,44 @@ export function maintenanceDue(machine = {}, today = new Date().toISOString().sl
  return due?'Dospjelo':soon?'Uskoro':'U redu';
 }
 
+
+const validDate = value => typeof value === 'string' && /^\\d{4}-\\d{2}-\\d{2}$/.test(value) && !Number.isNaN(new Date(value + 'T12:00:00').getTime());
+
+export function dashboardOperationalAlerts(machines = [], orders = [], today = new Date().toISOString().slice(0, 10)) {
+  const alerts = [];
+  for (const machine of Array.isArray(machines) ? machines : []) {
+    if (!machine || machine.archived) continue;
+    const status = maintenanceDue(machine, today);
+    if (status === 'U redu') continue;
+    alerts.push({
+      id: 'machine-' + (machine.id || machine.name),
+      type: 'maintenance',
+      title: machine.name || 'Stroj bez naziva',
+      description: status === 'Dospjelo' ? 'Servis je dospio ili je stroj izvan pogona.' : 'Preventivni servis dospijeva u sljedećih 14 dana ili se približava satni interval.',
+      severity: status === 'Dospjelo' ? 'high' : 'medium',
+      destination: 'Održavanje strojeva'
+    });
+  }
+  for (const order of Array.isArray(orders) ? orders : []) {
+    if (!order || ['Završen', 'Otkazan'].includes(order.status) || !validDate(order.due)) continue;
+    const due = new Date(order.due + 'T12:00:00');
+    const base = new Date(today + 'T12:00:00');
+    const days = Math.round((due - base) / 86400000);
+    if (days > 3) continue;
+    alerts.push({
+      id: 'order-' + (order.id || order.project),
+      type: 'order',
+      title: order.project || order.title || order.id || 'Radni nalog',
+      description: days < 0 ? 'Rok je prošao ' + Math.abs(days) + (Math.abs(days) === 1 ? ' dan.' : ' dana.') : days === 0 ? 'Rok je danas.' : 'Rok je za ' + days + (days === 1 ? ' dan.' : ' dana.'),
+      severity: days < 0 ? 'high' : 'medium',
+      destination: 'Radni nalozi',
+      due: order.due
+    });
+  }
+  const priority = { high: 0, medium: 1 };
+  return alerts.sort((a, b) => priority[a.severity] - priority[b.severity] || (a.due || '').localeCompare(b.due || '') || a.title.localeCompare(b.title, 'hr'));
+}
+
 export function prepareSparePartIssue(materials = [], parts = [], record = {}, now = Date.now()) {
   if (!Array.isArray(parts) || !parts.length) return { ok: true, materials, movements: [], parts: [] };
   const totals = new Map();
