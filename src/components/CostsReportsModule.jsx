@@ -41,7 +41,6 @@ export default function CostsReportsModule({ onBack }) {
   }), [projectRecords, query, orders]);
   const actual = projectRecords.filter(r => r.kind === 'Stvarni trošak');
   const planned = projectRecords.filter(r => r.kind === 'Planirani trošak');
-  const manualActualTotal = actual.reduce((sum, r) => sum + Number(r.amount || 0), 0);
   const plannedTotal = planned.reduce((sum, r) => sum + Number(r.amount || 0), 0);
   const hoursTotal = actual.reduce((sum, r) => sum + Number(r.hours || 0), 0);
   const formatDate = value => value ? new Date(value + 'T12:00:00').toLocaleDateString('hr-HR') : '—';
@@ -82,7 +81,7 @@ export default function CostsReportsModule({ onBack }) {
 
   const projects = orders.map(order => ({ ...order, financial: calculateOrderFinancials(order, records, productionRecords, Date.now(), invoices, payments, materialConsumption) }));
   const financialSummary = summarizeFinancials(projects.map(project => project.financial));
-  const actualTotal = financialSummary.totalActualCost;
+  const actualTotal = summarizeFinancials(projects.filter(project => selectedOrder === 'Svi projekti' || project.id === selectedOrder).map(project => project.financial)).totalActualCost;
   const movementData = read('kamen-app-movements-v1', []);
   const linkedMovements = movementData.filter(m => m.orderId && (selectedOrder === 'Svi projekti' || m.orderId === selectedOrder));
   const legacyUnpricedCuts = linkedMovements.filter(m => m.kind === 'Potrošnja za pilanje' && !materialConsumption.some(record => record.orderId === m.orderId));
