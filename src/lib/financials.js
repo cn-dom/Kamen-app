@@ -78,7 +78,7 @@ export function summarizeFinancials(rows = []) {
     invoiceGross: roundMoney(summary.invoiceGross + Number(row.invoiceGross || 0)),
     collected: roundMoney(summary.collected + Number(row.collected || 0)),
     receivable: roundMoney(summary.receivable + Number(row.receivable || 0)),
-    netDifference: roundMoney(summary.netDifference + Number(row.netDifference ?? (Number(row.invoiceCount || 0) > 0 ? Number(row.invoiceNet || 0) - Number(row.actualCost || 0) : 0))),
+    netDifference: roundMoney(summary.netDifference + Number(row.netDifference ?? (Number(row.invoiceCount || 0) > 0 ? Number(row.invoiceNet || 0) - Number(row.totalActualCost ?? row.actualCost ?? 0) : 0))),
     projectsWithInvoices: summary.projectsWithInvoices + (Number(row.invoiceCount || 0) > 0 ? 1 : 0),
     productionHours: Math.round((summary.productionHours + row.productionHours) * 100) / 100,
     incompleteMaterialEstimates: summary.incompleteMaterialEstimates + (row.materialEstimateComplete ? 0 : 1)
