@@ -23,6 +23,7 @@ const nav = [
   {label:'Ponude', icon:FileText, section:'POSLOVANJE'},
   {label:'Isporuke i naplata', icon:PackageCheck},
   {label:'Servis i reklamacije', icon:Wrench, section:'PODRŠKA I JAMSTVA'},
+  {label:'Održavanje strojeva', icon:Settings2, section:'RADIONICA I OPREMA'},
   {label:'Skladište', icon:Boxes},
   {label:'Terenski rad', icon:Truck},
   {label:'Kupci', icon:Users},
