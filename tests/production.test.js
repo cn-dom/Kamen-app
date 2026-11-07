@@ -64,3 +64,17 @@ test('migracija prenosi završenu staru fazu završne kontrole', () => {
   assert.equal(migrated.pieces['RN-004::0::1'].quality.status, 'Prošlo');
   assert.equal(migrated.pieces['RN-004::0::1'].quality.checkedAt, '2026-01-02T12:00:00.000Z');
 });
+
+test('svaki komad prikazuje vlastiti odabrani materijal iz višematerijalnog naloga', () => {
+  const rows = buildProductionUnits([
+    { id: 'RN-005', material: 'Granit, Mramor', materialAllocations: [
+      { materialId: 'g1', material: 'Granit' },
+      { materialId: 'm1', material: 'Mramor' }
+    ], pieces: [
+      { name: 'Postolje', materialId: 'g1', quantity: 1 },
+      { name: 'Ploča', materialId: 'm1', quantity: 1 }
+    ] }
+  ], [{ id: 'g1', name: 'Granit iz skladišta' }]);
+  assert.equal(rows[0].material, 'Granit iz skladišta');
+  assert.equal(rows[1].material, 'Mramor');
+});
