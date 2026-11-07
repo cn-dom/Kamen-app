@@ -67,11 +67,11 @@ const modules = {
   }
 };
 
-export default function ModulePlaceholder({ name, onBack, openCreate, onCreateOpened }) {
+export default function ModulePlaceholder({ name, onBack, openCreate, onCreateOpened, initialTab }) {
   if (name === 'Skladište') return <WarehouseModule onBack={onBack} mode="warehouse" />;
   if (name === 'Proizvodnja') return <ProductionModule onBack={onBack} />;
   if (name === 'Raspored') return <ScheduleModule onBack={onBack} />;
-  if (name === 'Nabava') return <PurchasingModule onBack={onBack} />;
+  if (name === 'Nabava') return <PurchasingModule onBack={onBack} initialTab={initialTab} />;
   if (name === 'Ponude') return <QuotesModule onBack={onBack} />;
   if (name === 'Isporuke i naplata') return <FulfillmentModule onBack={onBack} />;
   if (name === 'Servis i reklamacije') return <ServiceModule onBack={onBack} />;
