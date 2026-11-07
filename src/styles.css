@@ -467,3 +467,14 @@ button:active { transform: translateY(1px); }
   .finished-stock-action-buttons { display: grid; grid-template-columns: 1fr; }
   .finished-stock-action-buttons .button { width: 100%; }
 }
+
+
+/* Povrat i kontrolirana korekcija gotovih proizvoda */
+.finished-stock-action-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.finished-stock-action-buttons .button { flex: 1 1 132px; justify-content: center; }
+.finished-stock-action-buttons .button:disabled { opacity: .45; cursor: not-allowed; }
+.stock-action-modal textarea { min-height: 76px; resize: vertical; }
+@media (max-width: 560px) {
+  .finished-stock-action-buttons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .finished-stock-action-buttons .button { width: 100%; min-width: 0; padding-inline: 8px; }
+}
