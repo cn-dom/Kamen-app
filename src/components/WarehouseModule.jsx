@@ -256,26 +256,6 @@ function buildCuttingPlan(boardLength, boardWidth, pieces, kerf, trim, allowRota
     }
     const timestamp = Date.now();
     const date = new Date().toLocaleDateString('hr-HR');
-    if (linkedOrder) {
-      try {
-        const consumption = createMaterialConsumptionRecord({
-          id: 'UT-' + timestamp,
-          orderId: linkedOrder.id,
-          materialId: source.id,
-          materialName: source.name,
-          usedQuantity: usedQty,
-          boardLengthCm: source.length,
-          boardWidthCm: source.width,
-          pricePerM2: source.pricePerM2,
-          date: new Date(timestamp).toISOString()
-        });
-        const currentLedger = readStored(MATERIAL_CONSUMPTION_KEY, []);
-        window.localStorage.setItem(MATERIAL_CONSUMPTION_KEY, JSON.stringify([consumption, ...currentLedger]));
-      } catch (error) {
-        flash(error?.message || 'Nije moguće spremiti stvarni utrošak materijala. Pilanje nije evidentirano.');
-        return;
-      }
-    }
     const outputMaterials = cutForm.outputs.map((output, index) => {
       const kind = output.type;
       const formType = kind === 'Ostatak' ? 'Ostatak' : kind === 'Otpad' ? 'Otpad' : 'Komad';
@@ -299,6 +279,27 @@ function buildCuttingPlan(boardLength, boardWidth, pieces, kerf, trim, allowRota
         note: [cutForm.note.trim(), output.note.trim(), linkedOrder ? 'Radni nalog ' + linkedOrder.id : '', linkedOrder && output.type === 'Gotov komad' ? 'Komad: ' + (linkedOrder.pieces[Number(output.orderPieceIndex)]?.name || '') : '', 'Nastalo pilanjem materijala ' + source.id].filter(Boolean).join(' · ')
       };
     });
+    if (linkedOrder) {
+      try {
+        const consumption = createMaterialConsumptionRecord({
+          id: 'UT-' + timestamp,
+          orderId: linkedOrder.id,
+          materialId: source.id,
+          materialName: source.name,
+          usedQuantity: usedQty,
+          boardLengthCm: source.length,
+          boardWidthCm: source.width,
+          pricePerM2: source.pricePerM2,
+          outputs: outputMaterials,
+          date: new Date(timestamp).toISOString()
+        });
+        const currentLedger = readStored(MATERIAL_CONSUMPTION_KEY, []);
+        window.localStorage.setItem(MATERIAL_CONSUMPTION_KEY, JSON.stringify([consumption, ...currentLedger]));
+      } catch (error) {
+        flash(error?.message || 'Nije moguće spremiti obračun pilanja. Pilanje nije evidentirano.');
+        return;
+      }
+    }
     const finishedOutputs = outputMaterials.filter(item => item.form === 'Komad').map(item => ({
       id: 'GP-' + item.id,
       name: item.name,
