@@ -15,12 +15,12 @@ const itemBlank=()=>({name:'',type:'Granit',form:'Ploča',thickness:'3',length:'
 const orderBlank=()=>({supplierId:'',date:today(),expectedDate:'',reference:'',note:'',items:[itemBlank()]});
 const newId=prefix=>prefix+'-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,5).toUpperCase();
 
-export default function PurchasingModule({onBack}){
+export default function PurchasingModule({onBack,initialTab='Narudžbe'}){
  const [suppliers,setSuppliers]=useState(()=>read(SUPPLIERS,[]));
  const [orders,setOrders]=useState(()=>read(PURCHASES,[]));
  const [materials,setMaterials]=useState(()=>read(MATERIALS,[]));
  const [movements,setMovements]=useState(()=>read(MOVEMENTS,[]));
- const [tab,setTab]=useState('Narudžbe');
+ const [tab,setTab]=useState(initialTab||'Narudžbe');
  const [search,setSearch]=useState('');
  const [showSupplier,setShowSupplier]=useState(false);
  const [supplierForm,setSupplierForm]=useState(supplierBlank);
