@@ -49,3 +49,10 @@ Supabase nije povezan niti se smije konfigurirati dok vlasnik projekta to izrič
 ## Razvoj i objava
 
 Promjene se rade u zasebnim granama i kroz pull request prema `main`. Prije spajanja mora proći build; nakon spajanja provjerava se objava na GitHub Pages.
+
+
+## Raspored radionice
+
+Modul **Raspored** povezuje planiranje s postojećim radnim nalozima i fizičkim komadima iz proizvodnje. Aktivnosti imaju fazu obrade, radnika, stroj/radno mjesto, prioritet, termin i status. Tjedni pregled prikazuje opterećenje, a provjera prije spremanja sprječava preklapanje termina istog radnika ili stroja. Popis opreme može se prilagoditi radionici. Raspored i oprema uključeni su u JSON sigurnosnu kopiju.
+
+Planirani termini odvojeni su od stvarnih radnih intervala u modulu Proizvodnja: promjena rasporeda ne pokreće automatski štopericu. Podaci se i dalje spremaju lokalno u preglednik.
