@@ -56,3 +56,8 @@ Promjene se rade u zasebnim granama i kroz pull request prema `main`. Prije spaj
 Modul **Raspored** povezuje planiranje s postojećim radnim nalozima i fizičkim komadima iz proizvodnje. Aktivnosti imaju fazu obrade, radnika, stroj/radno mjesto, prioritet, termin i status. Tjedni pregled prikazuje opterećenje, a provjera prije spremanja sprječava preklapanje termina istog radnika ili stroja. Popis opreme može se prilagoditi radionici. Raspored i oprema uključeni su u JSON sigurnosnu kopiju.
 
 Planirani termini odvojeni su od stvarnih radnih intervala u modulu Proizvodnja: promjena rasporeda ne pokreće automatski štopericu. Podaci se i dalje spremaju lokalno u preglednik.
+
+
+## Nabava i dobavljači
+
+Modul **Nabava** vodi adresar dobavljača, narudžbe s više stavki, količine, ulazne cijene, PDV i očekivane datume. Podržano je djelomično zaprimanje: svako zaprimanje stvara novu skladišnu stavku s vezom na dobavljača i narudžbu te evidentira skladišno kretanje. Povijest nabave i CSV izvoz omogućuju pregled naručenih i zaprimljenih količina. Podaci su lokalni i uključeni u JSON sigurnosnu kopiju; modul nije zamjena za računovodstvo ili eRačun.
