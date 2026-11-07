@@ -9,7 +9,7 @@ export function createMaterialConsumptionRecord({ id, orderId, materialId, mater
     throw new Error('Nedostaju valjani podaci o potrošnji materijala.');
   }
   if (price !== null && (!Number.isFinite(price) || price < 0)) throw new Error('Nabavna cijena po m² nije valjana.');
-  const boardAreaM2 = roundMoney(length * width / 10000);
+  const boardAreaM2 = Math.round((length * width / 10000) * 10000) / 10000;
   const consumedAreaM2 = Math.round(boardAreaM2 * used * 10000) / 10000;
   return {
     id, orderId, materialId, materialName: String(materialName || 'Materijal'),
