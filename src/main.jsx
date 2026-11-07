@@ -4,7 +4,7 @@ import {
   Activity, AlertTriangle, ArrowDownRight, ArrowRight, ArrowUpRight,
   Bell, Boxes, CalendarDays, Check, CheckCircle2, ChevronDown, ChevronRight,
   CircleHelp, Clock3, Command, Factory, FileText, Filter, Hammer, LayoutDashboard,
-  Menu, MoreHorizontal, Package, Plus, Search, Settings2, ShieldCheck,
+  Menu, MoreHorizontal, Package, Plus, Search, Settings2, ShieldCheck, Wrench,
   Truck, Users, Wallet, X, HardHat, ShoppingCart, ClipboardList, Layers3, PackageCheck
 } from 'lucide-react';
 import './styles.css';
@@ -22,6 +22,7 @@ const nav = [
   {label:'Nabava', icon:ShoppingCart},
   {label:'Ponude', icon:FileText, section:'POSLOVANJE'},
   {label:'Isporuke i naplata', icon:PackageCheck},
+  {label:'Servis i reklamacije', icon:Wrench, section:'PODRŠKA I JAMSTVA'},
   {label:'Skladište', icon:Boxes},
   {label:'Terenski rad', icon:Truck},
   {label:'Kupci', icon:Users},
