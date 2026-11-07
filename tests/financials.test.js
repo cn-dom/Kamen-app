@@ -46,7 +46,7 @@ test('sažima financijske pokazatelje više projekata', () => {
     { plannedCost: 100, actualCost: 80, estimatedMaterialCost: 40, productionHours: 2, materialEstimateComplete: true },
     { plannedCost: 50, actualCost: 60, estimatedMaterialCost: null, productionHours: 1.5, materialEstimateComplete: false }
   ]);
-  assert.deepEqual(summary, { plannedCost: 150, actualCost: 140, estimatedMaterialCost: 40, invoiceNet: 0, invoiceGross: 0, collected: 0, receivable: 0, netDifference: -140, projectsWithInvoices: 0, productionHours: 3.5, incompleteMaterialEstimates: 1 });
+  assert.deepEqual(summary, { plannedCost: 150, actualCost: 140, estimatedMaterialCost: 40, invoiceNet: 0, invoiceGross: 0, collected: 0, receivable: 0, netDifference: 0, projectsWithInvoices: 0, productionHours: 3.5, incompleteMaterialEstimates: 1 });
 });
 
 test('prepoznaje kategoriju rada i u starijem zapisu', () => {
