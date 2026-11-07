@@ -116,6 +116,14 @@ Svi scenariji su kriteriji koje će aplikacija morati zadovoljiti. Njihovo navo�
 **Koraci:** Otvoriti inventuru, zatim promijeniti količinu jedne obuhvaćene stavke kroz zaprimanje, izdavanje ili drugu skladišnu radnju. Pokušati potvrditi staru inventuru.
 **Očekivano:** Potvrda se blokira za cijelu inventuru; sustav ne prepisuje novije skladišno stanje starim snimkom. Korisnik otvara novu inventuru i ponovno prebrojava.
 
+### INV-013 — inventura gotovih proizvoda
+**Koraci:** U skladištu evidentirati više gotovih proizvoda s različitim jedinicama (kom, par, m²), zatim otvoriti novu inventuru. Prebrojati količine, unijeti razliku za barem jedan proizvod i obvezan razlog. Provesti inventuru pa otvoriti Gotovi proizvodi.
+**Očekivano:** Inventura uključuje sve gotove proizvode i koristi raspoloživu količinu (ne početnu proizvedenu količinu). Za kom/par/set prihvaćaju se samo cijeli brojevi. Nakon potvrde raspoloživa količina usklađena je s fizičkim brojem, zatvoreni proizvod s pozitivnim stanjem ponovno dobiva status Na zalihi, a korekcija se bilježi u povijesti proizvoda i skladišnim kretanjima.
+
+### INV-014 — ispis inventurnog zapisnika
+**Koraci:** Otvoriti inventuru s unesenim količinama i razlikama, odabrati Ispiši zapisnik te pregledati ispis ili spremiti u PDF.
+**Očekivano:** Ispis prikazuje identifikaciju inventure, datum, status, sažetak, sve stavke, knjižne i fizičke količine, razlike i razloge. Navigacija, bočni izbornik i akcijske tipke ne pojavljuju se u ispisu.
+
 ### INV-010 — korekcija zalihe s razlogom
 **Koraci:** Povećati pa umanjiti zalihu gotovog proizvoda korekcijom. Pokušati potvrditi korekciju bez razloga i umanjiti zalihu ispod nule.
 **Očekivano:** Korekcija bez razloga i umanjenje veće od raspoložive količine odbijaju se. Potvrđena korekcija mijenja samo unesenu količinu i bilježi predznak, razlog, proizvod i vrijeme.
