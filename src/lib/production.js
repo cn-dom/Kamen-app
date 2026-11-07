@@ -11,7 +11,7 @@ export function blankPieceProductionRecord() {
     updatedAt: null
   };
 }
-export function buildProductionUnits(orders) {
+export function buildProductionUnits(orders, materials = []) {
   return (Array.isArray(orders) ? orders : []).flatMap(order =>
     (Array.isArray(order.pieces) ? order.pieces : []).flatMap((piece, pieceIndex) => {
       const quantity = Math.max(0, Math.min(1000, Math.floor(Number(piece.quantity) || 0)));
@@ -19,7 +19,7 @@ export function buildProductionUnits(orders) {
         key: order.id + '::' + pieceIndex + '::' + (unitIndex + 1),
         order, piece, pieceIndex, unitIndex: unitIndex + 1,
         label: piece.name || 'Komad ' + (pieceIndex + 1),
-        material: piece.material || order.material || '—'
+        material: piece.material || materials.find(item => item.id === piece.materialId)?.name || order.materialAllocations?.find(allocation => allocation.materialId === piece.materialId)?.material || order.material || '—'
       }));
     })
   );
