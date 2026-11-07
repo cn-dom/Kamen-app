@@ -85,4 +85,9 @@ Modul **Servis i reklamacije** vodi reklamacije, jamstvene i plaćene servise te
 
 **Ograničenja:** evidencija se sprema lokalno u preglednik; nije sustav za automatsku naplatu jamstvenih zahtjeva ni službeno izdavanje računa. Fotografije povećavaju veličinu lokalne pohrane i sigurnosne kopije.
 
-\n## Održavanje strojeva i opreme\n\nModul **Održavanje strojeva** vodi registar strojeva i opreme s inventarnim i serijskim brojem, proizvođačem, lokacijom, radnim satima te intervalima redovnog servisa po danima i radnim satima. Dodavanje opreme sinkronizira naziv s popisom strojeva u modulu Raspored. Servisni zapisi obuhvaćaju preventivne preglede, kvarove, jamstvene zahvate, odgovornu osobu, zastoj, utrošene dijelove, sate rada i ostale troškove. Završetak zapisa zahtijeva opis rješenja, a servisna povijest sprječava slučajno brisanje stroja.\n\n**Ograničenja:** radni sati unose se ručno; aplikacija ih ne očitava iz strojeva. Rokovi održavanja su podsjetnici na temelju ručno unesenih intervala. Podaci se spremaju lokalno u preglednik i uključeni su u JSON sigurnosnu kopiju.\n
+
+## Održavanje strojeva i opreme
+
+Modul **Održavanje strojeva** vodi registar strojeva i opreme s inventarnim i serijskim brojem, proizvođačem, lokacijom, radnim satima te intervalima redovnog servisa po danima i radnim satima. Dodavanje opreme sinkronizira naziv s popisom strojeva u modulu Raspored. Servisni zapisi obuhvaćaju preventivne preglede, kvarove, jamstvene zahvate, odgovornu osobu, zastoj, utrošene dijelove, sate rada i ostale troškove. Završetak zapisa zahtijeva opis rješenja, a servisna povijest sprječava slučajno brisanje stroja.
+
+**Ograničenja:** radni sati unose se ručno; aplikacija ih ne očitava iz strojeva. Rokovi održavanja su podsjetnici na temelju ručno unesenih intervala. Podaci se spremaju lokalno u preglednik i uključeni su u JSON sigurnosnu kopiju.
