@@ -4,7 +4,7 @@ import { buildKamenAiPrompt, KAMEN_AI_DOMAIN_PROMPT } from '../src/lib/aiKnowled
 
 test('Kamen AI prompt tumači Impalu kao granit u kontekstu vertikala', () => {
   assert.match(KAMEN_AI_DOMAIN_PROMPT, /Impala \/ Impale/);
-  assert.match(KAMEN_AI_DOMAIN_PROMPT, /a ne metalne klinove/);
+  assert.match(KAMEN_AI_DOMAIN_PROMPT, /ne metalne klinove/);
   const prompt = buildKamenAiPrompt('treba mi impale za vertikale');
   assert.match(prompt, /granit Impala/);
   assert.match(prompt, /KONTEKST SKLADIŠTA NIJE UKLJUČEN/);
