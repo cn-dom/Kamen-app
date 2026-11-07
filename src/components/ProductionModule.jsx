@@ -125,7 +125,7 @@ export default function ProductionModule({ onBack }) {
     updateUnit(key, unit => {
       const previous = unit.stages?.[stageName] || blankStage();
       const nextStage = { ...blankStage(), assignedTo: previous.assignedTo, history: [...(previous.history || []), { from: previous.status, to: 'Nije započeto', at: new Date().toISOString(), reason: 'Ručno vraćanje faze' }] };
-      const quality = unit.quality?.status === 'Prošlo'
+      const quality = unit.quality?.status !== 'Čeka kontrolu'
         ? { ...unit.quality, status: 'Čeka kontrolu', checkedAt: null, history: [...(unit.quality.history || []), { status: 'Čeka kontrolu', at: new Date().toISOString(), note: 'Ponovno otvorena nakon vraćanja faze na doradu' }] }
         : unit.quality;
       return { ...unit, stages: { ...unit.stages, [stageName]: nextStage }, quality };
@@ -145,7 +145,7 @@ export default function ProductionModule({ onBack }) {
     updateUnit(key, unit => ({
       ...unit,
       quality: {
-        ...unit.quality, status, checkedAt: new Date().toISOString(),
+        ...unit.quality, status, checkedAt: status === 'Čeka kontrolu' ? null : new Date().toISOString(),
         note: status === 'Neispravno' ? reason.trim() : (status === 'Prošlo' ? '' : unit.quality.note),
         history: [...(unit.quality.history || []), { status, at: new Date().toISOString(), note: reason.trim() }]
       }
