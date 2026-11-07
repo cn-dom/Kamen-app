@@ -858,3 +858,26 @@ button:active { transform: translateY(1px); }
 .quote-totals span{font-size:9px}.quote-totals strong{font-size:12px;overflow-wrap:anywhere}
 @media(max-width:850px){.quotes-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.quotes-list{grid-template-columns:1fr}.quotes-toolbar{align-items:flex-start;flex-direction:column}.quotes-search{width:100%}.quotes-search input{flex:1}}
 @media(max-width:640px){.quotes-actions{width:100%}.quotes-actions .button{flex:1;justify-content:center}.quote-totals{grid-template-columns:repeat(2,minmax(0,1fr))}.quote-totals span:last-child{grid-column:1/-1}.quotes-list{padding:10px}.quotes-card-actions{gap:5px}.quote-modal{padding:15px}}
+
+
+/* Delivery and receivables */
+.fulfillment-page{display:flex;flex-direction:column;gap:17px}
+.fulfillment-actions{display:flex;gap:8px;flex-wrap:wrap}
+.fulfillment-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.fulfillment-stats>.panel{display:flex;flex-direction:column;gap:7px;padding:16px}
+.fulfillment-stats small{font-size:10px;color:#8995a5}.fulfillment-stats strong{font-size:20px;color:#304158;overflow-wrap:anywhere}
+.fulfillment-workspace{overflow:hidden}
+.fulfillment-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 17px;border-bottom:1px solid #edf0f5}
+.fulfillment-tabs{display:flex;gap:5px}.fulfillment-tabs button{border:0;background:transparent;padding:9px 12px;border-radius:7px;color:#7b8798;font-size:10px;font-weight:700}.fulfillment-tabs button.active{background:#edf2ff;color:#4169c2}
+.fulfillment-search{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid #e3e8ef;border-radius:8px;color:#8995a5}.fulfillment-search input{border:0;outline:0;min-width:180px;font-size:10px}
+.fulfillment-table-wrap{overflow-x:auto}.fulfillment-table{width:100%;border-collapse:collapse;min-width:880px}.fulfillment-table th{text-align:left;padding:13px 12px;background:#f8fafc;color:#8290a3;font-size:9px;letter-spacing:.5px}.fulfillment-table td{padding:13px 12px;border-top:1px solid #edf0f4;color:#536278;font-size:10px;vertical-align:middle}.fulfillment-table td strong{display:block;color:#34445b}.fulfillment-table td small{display:block;margin-top:4px;color:#8995a5}.fulfillment-table input[type=date]{max-width:135px;padding:6px;border:1px solid #e2e8f0;border-radius:6px;font-size:9px;color:#536278}.fulfillment-table td .button{padding:7px 9px;margin:2px;font-size:9px;white-space:nowrap}
+.fulfillment-status{display:inline-block;padding:5px 8px;border-radius:20px;font-size:9px;font-weight:700;white-space:nowrap;background:#fff5e5;color:#a87825}.fulfillment-status.paid{background:#eaf7f0;color:#27845f}.fulfillment-status.partial{background:#edf2ff;color:#4d6fb8}.fulfillment-overdue{color:#bd4d4d!important;font-weight:700}
+.fulfillment-empty{padding:32px;text-align:center;color:#8995a5;font-size:11px}
+.fulfillment-records{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:16px}
+.fulfillment-record{display:flex;justify-content:space-between;align-items:center;gap:15px;padding:15px;border:1px solid #e7ecf3;border-radius:10px}
+.fulfillment-record small{font-size:9px;color:#8290a3}.fulfillment-record h3{margin:5px 0;font-size:13px;color:#34445b}.fulfillment-record p{margin:0 0 7px;font-size:9px;color:#8995a5}.fulfillment-record strong{font-size:13px;color:#304158}
+.fulfillment-delivery-line{display:grid;grid-template-columns:minmax(0,1fr) 125px auto;align-items:center;gap:12px;padding:11px 12px;margin:9px 0;border:1px solid #e8edf3;border-radius:8px;font-size:10px;color:#536278}
+.fulfillment-delivery-line label{display:flex;flex-direction:column;gap:5px;font-size:9px;color:#8290a3}
+.fulfillment-delivery-line input{width:100%;padding:8px;border:1px solid #dfe6ef;border-radius:7px;font-size:10px}
+@media(max-width:850px){.fulfillment-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.fulfillment-toolbar{align-items:flex-start;flex-direction:column}.fulfillment-search{width:100%}.fulfillment-search input{flex:1}.fulfillment-records{grid-template-columns:1fr}}
+@media(max-width:640px){.fulfillment-actions{width:100%}.fulfillment-actions .button{flex:1;justify-content:center}.fulfillment-record{align-items:flex-start;flex-direction:column}.fulfillment-delivery-line{grid-template-columns:minmax(0,1fr) 100px}.fulfillment-delivery-line>span{grid-column:1/-1}}
