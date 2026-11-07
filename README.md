@@ -101,3 +101,8 @@ U modulu **Održavanje strojeva** servisni nalog može sadržavati više rezervn
 ### Minimalne zalihe i prijedlozi nabave
 
 Na kartici materijala u skladištu postavi minimalnu količinu veću od nule. Modul **Nabava → Niske zalihe** prikazuje aktivne materijale koji su na ili ispod minimuma, trenutačno stanje, prag i predloženu količinu za dopunu do dvostrukog minimuma. Gumb **Pripremi narudžbu** otvara nacrt nabave s unaprijed popunjenim podacima materijala; povezani dobavljač predlaže se ako je spremljen na skladišnoj stavci. Prije spremanja korisnik mora provjeriti dobavljača, količinu i cijenu. Sustav ne šalje narudžbe automatski. Prijedlozi se računaju iz trenutačnog stanja skladišta, pa obuhvaćaju i potrošnju kroz proizvodnju, servis, prodaju i ručna kretanja.
+
+
+### Upozorenja minimalne zalihe na nadzornoj ploči
+
+Početna nadzorna ploča koristi isti izračun minimalne zalihe kao modul Nabava. Brojač prikazuje samo aktivne materijale s postavljenim minimumom koji su na ili ispod praga; materijali bez minimuma ne stvaraju lažna upozorenja. Zvonce u gornjoj traci otvara popis materijala sa stanjem i minimumom, a bočna navigacija prikazuje broj upozorenja uz Nabavu. Odabir **Otvori nabavu** vodi izravno u modul nabave. Podaci se osvježavaju pri povratku iz modula na pregled.
