@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { calculateOrderFinancials, summarizeFinancials } from '../src/lib/financials.js';
+import { createMaterialConsumptionRecord } from '../src/lib/materialConsumption.js';
 
 test('izračunava plan, stvarne troškove i procjenu materijala odvojeno', () => {
   const result = calculateOrderFinancials(
@@ -46,7 +47,7 @@ test('sažima financijske pokazatelje više projekata', () => {
     { plannedCost: 100, actualCost: 80, estimatedMaterialCost: 40, productionHours: 2, materialEstimateComplete: true },
     { plannedCost: 50, actualCost: 60, estimatedMaterialCost: null, productionHours: 1.5, materialEstimateComplete: false }
   ]);
-  assert.deepEqual(summary, { plannedCost: 150, actualCost: 140, estimatedMaterialCost: 40, invoiceNet: 0, invoiceGross: 0, collected: 0, receivable: 0, netDifference: 0, projectsWithInvoices: 0, productionHours: 3.5, incompleteMaterialEstimates: 1 });
+  assert.deepEqual(summary, { plannedCost: 150, actualCost: 140, totalActualCost: 140, consumedMaterialCost: 0, consumedMaterialAreaM2: 0, unpricedMaterialConsumptionCount: 0, estimatedMaterialCost: 40, invoiceNet: 0, invoiceGross: 0, collected: 0, receivable: 0, netDifference: 0, projectsWithInvoices: 0, productionHours: 3.5, incompleteMaterialEstimates: 1 });
 });
 
 test('prepoznaje kategoriju rada i u starijem zapisu', () => {
@@ -104,4 +105,53 @@ test('neto razlika može biti negativna kada su evidentirani troškovi veći od 
     []
   );
   assert.equal(result.netDifference, -150);
+});
+
+
+test('obračunava trošak potrošene ploče prema nabavnoj cijeni zabilježenoj pri pilanju', () => {
+  const consumption = createMaterialConsumptionRecord({
+    id: 'UT-1', orderId: 'RN-008', materialId: 'MAT-1', materialName: 'Granit',
+    usedQuantity: 0.5, boardLengthCm: 305, boardWidthCm: 145, pricePerM2: 50,
+    date: '2026-11-07T10:00:00.000Z'
+  });
+  assert.equal(consumption.boardAreaM2, 4.4225);
+  assert.equal(consumption.consumedAreaM2, 2.2113);
+  assert.equal(consumption.materialCost, 110.57);
+});
+
+test('automatski trošak pilanja zamjenjuje ručni trošak materijala radi izbjegavanja dvostrukog obračuna', () => {
+  const consumption = createMaterialConsumptionRecord({
+    id: 'UT-2', orderId: 'RN-009', materialId: 'MAT-2', materialName: 'Mramor',
+    usedQuantity: 1, boardLengthCm: 300, boardWidthCm: 150, pricePerM2: 40
+  });
+  const result = calculateOrderFinancials(
+    { id: 'RN-009', pieces: [] },
+    [
+      { orderId: 'RN-009', kind: 'Stvarni trošak', amount: 100, categories: ['Materijal'] },
+      { orderId: 'RN-009', kind: 'Stvarni trošak', amount: 70, categories: ['Rad'] }
+    ],
+    { pieces: {} }, Date.now(),
+    [{ id: 'R-9', orderId: 'RN-009', netTotal: 500, grossTotal: 625 }],
+    [], [consumption]
+  );
+  assert.equal(result.actualCost, 170);
+  assert.equal(result.manualMaterialCost, 100);
+  assert.equal(result.consumedMaterialCost, 180);
+  assert.equal(result.totalActualCost, 250);
+  assert.equal(result.netDifference, 250);
+});
+
+test('bilježi pilanje bez cijene kao nepotpun trošak, bez izmišljanja iznosa', () => {
+  const consumption = createMaterialConsumptionRecord({
+    id: 'UT-3', orderId: 'RN-010', materialId: 'MAT-3', materialName: 'Kvarcit',
+    usedQuantity: 1, boardLengthCm: 300, boardWidthCm: 150, pricePerM2: null
+  });
+  const result = calculateOrderFinancials(
+    { id: 'RN-010', pieces: [] }, [], { pieces: {} }, Date.now(),
+    [{ id: 'R-10', orderId: 'RN-010', netTotal: 300, grossTotal: 375 }], [], [consumption]
+  );
+  assert.equal(result.consumedMaterialCost, 0);
+  assert.equal(result.unpricedMaterialConsumptionCount, 1);
+  assert.equal(result.totalActualCost, 0);
+  assert.equal(result.netDifference, 300);
 });
