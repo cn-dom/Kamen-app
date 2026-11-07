@@ -8,7 +8,7 @@ export function calculateOrderFinancials(order, costRecords = [], productionReco
   const related = (Array.isArray(costRecords) ? costRecords : []).filter(record => record.orderId === orderId);
   const plannedCost = roundMoney(related.filter(record => record.kind === 'Planirani trošak').reduce((sum, record) => sum + Number(record.amount || 0), 0));
   const actualCost = roundMoney(related.filter(record => record.kind === 'Stvarni trošak').reduce((sum, record) => sum + Number(record.amount || 0), 0));
-  const laborCost = roundMoney(related.filter(record => record.kind === 'Stvarni trošak' && (record.categories || [record.category]).includes('Rad')).reduce((sum, record) => sum + Number(record.amount || 0), 0));
+  const laborCost = roundMoney(related.filter(record => { const categories = Array.isArray(record.categories) ? record.categories : String(record.category || '').split(/,\\s*/); return record.kind === 'Stvarni trošak' && categories.includes('Rad'); }).reduce((sum, record) => sum + Number(record.amount || 0), 0));
 
   const allocations = Array.isArray(order?.materialAllocations) ? order.materialAllocations : [];
   const hasMaterialEstimate = allocations.length > 0 && allocations.every(item => validAmount(item.cost));
