@@ -3,8 +3,6 @@ import { Truck, Plus, Search, MapPin, CalendarDays, Clock3, Users, Car, Package,
 
 const KEY = 'kamen-app-field-work-v1';
 const ORDER_KEY = 'kamen-app-work-orders-v1';
-const FINISHED_KEY = 'kamen-app-finished-products-v1';
-const MOVEMENTS_KEY = 'kamen-app-movements-v1';
 const seed = [];
 const read = (key, fallback) => { try { const v = window.localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; } };
 const readWorkOrders = () => read(ORDER_KEY, []);
@@ -22,29 +20,7 @@ export default function FieldWorkModule({ onBack }) {
   const [error,setError] = useState('');
   useEffect(()=>{ try { window.localStorage.setItem(KEY,JSON.stringify(jobs)); } catch {} },[jobs]);
   const filtered = useMemo(()=>jobs.filter(j=>(filter==='Svi'||j.status===filter)&&(!query.trim()||[j.id,j.customer,j.project,j.location,j.orderId].some(v=>(v||'').toLowerCase().includes(query.toLowerCase())))),[jobs,filter,query]);
-  const setField=(id,key,value)=>{
-    const job = jobs.find(row=>row.id===id);
-    setJobs(prev=>prev.map(j=>j.id===id?{...j,[key]:value}:j));
-    if(key==='status' && value==='Završeno' && job?.orderId){
-      try {
-        const finished = read(FINISHED_KEY, []);
-        const installed = finished.filter(item=>item.orderId===job.orderId && Number(item.stockQuantity ?? item.quantity)>0);
-        const updated = finished.map(item=>item.orderId===job.orderId && Number(item.stockQuantity ?? item.quantity)>0
-          ? {...item,status:'Ugrađen',stockQuantity:0,updatedAt:new Date().toISOString()}
-          : item);
-        window.localStorage.setItem(FINISHED_KEY,JSON.stringify(updated));
-        if(installed.length){
-          const movements = read(MOVEMENTS_KEY, []);
-          const entries = installed.map((item,index)=>({
-            id:Date.now()+index,material:item.name,kind:'Ugradnja',quantity:Number(item.stockQuantity ?? item.quantity),
-            location:job.location||item.location||'',date:new Date().toLocaleDateString('hr-HR'),
-            productId:item.id,orderId:job.orderId
-          }));
-          window.localStorage.setItem(MOVEMENTS_KEY,JSON.stringify([...entries,...movements].slice(0,100)));
-        }
-      } catch { /* Field job status remains recorded if the stock log cannot be updated. */ }
-    }
-  };
+  const setField=(id,key,value)=>setJobs(prev=>prev.map(j=>j.id===id?{...j,[key]:value}:j));
   const timestamp=()=>new Date().toLocaleString('hr-HR',{hour:'2-digit',minute:'2-digit'});
   const advance=(job)=>{ const next=steps[Math.min(steps.indexOf(job.status)+1,steps.length-1)]; const key=({ 'Na putu':'departure','Na lokaciji':'arrival','Montaža u tijeku':'workStart','Završeno':'workEnd','Vraćeno':'returnTime'})[next]; setField(job.id,'status',next); if(key) setJobs(prev=>prev.map(j=>j.id===job.id?{...j,[key]:timestamp()}:j)); };
   const create=(e)=>{e.preventDefault();if(!form.customer.trim()||!form.project.trim()||!form.location.trim()||!form.date){setError('Unesi kupca, projekt, lokaciju i datum terenskog rada.');return;}const id='TR-2026-'+String(Math.max(0,...jobs.map(j=>Number(j.id.split('-').at(-1))||0))+1).padStart(3,'0');setJobs(prev=>[{...form,id,status:'Planirano',departure:'',arrival:'',workStart:'',workEnd:'',returnTime:''},...prev]);setExpanded(id);setForm(blank);setShowForm(false);setError('');};
@@ -59,7 +35,7 @@ export default function FieldWorkModule({ onBack }) {
     {j.note&&<p className="workorder-note"><strong>Napomena:</strong> {j.note}</p>}
     <div className="field-actions"><label>Status<select value={j.status} onChange={e=>setField(j.id,'status',e.target.value)}>{steps.map(s=><option key={s}>{s}</option>)}</select></label><button className="button button-primary" disabled={j.status==='Vraćeno'} onClick={()=>advance(j)}>{j.status==='Planirano'?<Play size={15}/>:<Flag size={15}/>} {j.status==='Planirano'?'Evidentiraj polazak':j.status==='Na putu'?'Evidentiraj dolazak':j.status==='Na lokaciji'?'Početak montaže':j.status==='Montaža u tijeku'?'Završi montažu':'Evidentiraj povratak'}</button></div>
     </div>}</article>)}{!filtered.length&&<div className="workorders-empty"><Truck size={28}/><strong>Nema terenskih naloga</strong><span>Promijeni filter ili izradi novi terenski nalog.</span></div>}</div>
-    <p className="workorders-footnote">Vremena se bilježe lokalno u pregledniku. Stvarni obračun sati i sinkronizacija više uređaja još nisu uključeni.</p></section>
+    <p className="workorders-footnote">Završetak terenskog naloga ne skida automatski gotove proizvode sa zalihe. Ugrađene količine evidentiraj zasebno u Skladište → Gotovi proizvodi. Vremena se bilježe lokalno u pregledniku.</p></section>
     {showForm&&<div className="workorders-modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setShowForm(false)}}><section className="workorders-modal" role="dialog" aria-modal="true"><div className="workorders-modal-head"><div><span className="eyebrow">TERENSKI NALOG</span><h2>Novi terenski rad</h2><p>Poveži montažu s projektom i unesi podatke ekipe.</p></div><button className="icon-button" onClick={()=>setShowForm(false)} aria-label="Zatvori"><X size={20}/></button></div><form onSubmit={create}><div className="workorders-form-grid"><label>Radni nalog<select value={form.orderId} onChange={e=>linkOrder(e.target.value)}><option value="">Bez povezanog naloga</option>{orders.filter(o=>o.status!=='Otkazan').map(o=><option key={o.id} value={o.id}>{o.id} · {o.project}</option>)}</select></label><label>Kupac *<input value={form.customer} onChange={e=>setForm(p=>({...p,customer:e.target.value}))} required/></label><label>Projekt *<input value={form.project} onChange={e=>setForm(p=>({...p,project:e.target.value}))} required/></label><label>Datum *<input type="date" value={form.date} onChange={e=>setForm(p=>({...p,date:e.target.value}))} required/></label><label>Lokacija / groblje *<input value={form.location} onChange={e=>setForm(p=>({...p,location:e.target.value}))} placeholder="Naziv groblja, adresa ili mjesto" required/></label><label>Ekipa / odgovorna osoba<input value={form.team} onChange={e=>setForm(p=>({...p,team:e.target.value}))} placeholder="Imena članova ekipe"/></label><label>Vozilo<input value={form.vehicle} onChange={e=>setForm(p=>({...p,vehicle:e.target.value}))} placeholder="Npr. kombi"/></label><label>Materijal i alat<input value={form.materials} onChange={e=>setForm(p=>({...p,materials:e.target.value}))} placeholder="Planirani materijal i oprema"/></label></div><label className="workorders-note-label">Napomena<textarea rows="2" value={form.note} onChange={e=>setForm(p=>({...p,note:e.target.value}))}/></label>{error&&<p className="workorders-error">{error}</p>}<div className="workorders-modal-footer"><button type="button" className="button button-secondary" onClick={()=>setShowForm(false)}>Odustani</button><button type="submit" className="button button-primary"><Plus size={15}/> Spremi nalog</button></div></form></section></div>}
   </div>;
 }
