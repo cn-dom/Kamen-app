@@ -16,6 +16,7 @@ import {
 } from '../lib/production.js';
 
 const ORDERS_KEY = 'kamen-app-work-orders-v1';
+const MATERIALS_KEY = 'kamen-app-materials-v1';
 const PRODUCTION_KEY = 'kamen-app-production-stages-v1';
 function readJson(key, fallback) {
   try { const value = window.localStorage.getItem(key); return value ? JSON.parse(value) : fallback; }
@@ -28,6 +29,7 @@ function csvCell(value) {
 
 export default function ProductionModule({ onBack }) {
   const [orders, setOrders] = useState(() => readJson(ORDERS_KEY, []));
+  const [materials, setMaterials] = useState(() => readJson(MATERIALS_KEY, []));
   const [records, setRecords] = useState(() => normalizeRecords(readJson(PRODUCTION_KEY, {}), readJson(ORDERS_KEY, [])));
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('Aktivni');
@@ -48,6 +50,7 @@ export default function ProductionModule({ onBack }) {
     const refresh = () => {
       const nextOrders = readJson(ORDERS_KEY, []);
       setOrders(nextOrders);
+      setMaterials(readJson(MATERIALS_KEY, []));
       setRecords(current => {
         const saved = readJson(PRODUCTION_KEY, current);
         const migrated = normalizeRecords(saved, nextOrders);
@@ -62,7 +65,7 @@ export default function ProductionModule({ onBack }) {
     };
   }, []);
 
-  const rows = useMemo(() => unitRows(orders), [orders]);
+  const rows = useMemo(() => unitRows(orders, materials), [orders, materials]);
   const recordFor = key => records.pieces?.[key] || blankUnit();
   const updateUnit = (key, updater) => setRecords(current => {
     const previous = current.pieces?.[key] || blankUnit();
