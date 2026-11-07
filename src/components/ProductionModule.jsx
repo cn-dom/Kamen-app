@@ -34,11 +34,16 @@ export default function ProductionModule({ onBack }) {
   const [expandedOrders, setExpandedOrders] = useState({});
   const [expandedUnits, setExpandedUnits] = useState({});
   const [newWorker, setNewWorker] = useState('');
+  const [clockNow, setClockNow] = useState(Date.now());
 
   useEffect(() => {
     try { window.localStorage.setItem(PRODUCTION_KEY, JSON.stringify(records)); }
     catch { /* Browser storage may be unavailable or full. */ }
   }, [records]);
+  useEffect(() => {
+    const timer = window.setInterval(() => setClockNow(Date.now()), 30000);
+    return () => window.clearInterval(timer);
+  }, []);
   useEffect(() => {
     const refresh = () => {
       const nextOrders = readJson(ORDERS_KEY, []);
@@ -72,11 +77,21 @@ export default function ProductionModule({ onBack }) {
     return { ...unit, stages: { ...unit.stages, [stageName]: { ...next, history } } };
   });
 
-  const startStage = (key, stageName) => updateStage(key, stageName, previous => {
-    if (previous.status === 'Završeno' || previous.status === 'Nije potrebno' || previous.status === 'U tijeku') return previous;
+  const startStage = (key, stageName) => {
+    const unit = records.pieces?.[key] || blankUnit();
+    const currentStage = unit.stages?.[stageName] || blankStage();
+    if (currentStage.status === 'Završeno' || currentStage.status === 'Nije potrebno' || currentStage.status === 'U tijeku') return;
+    if (!String(currentStage.assignedTo || '').trim()) { window.alert('Prije početka faze odaberi ili upiši odgovornog radnika.'); return; }
+    const stageIndex = stages.indexOf(stageName);
+    if (currentStage.status !== 'Zastoj' && stages.slice(0, stageIndex).some(previousStage => !['Završeno', 'Nije potrebno'].includes(unit.stages?.[previousStage]?.status))) {
+      window.alert('Najprije završi prethodnu fazu obrade ili je označi kao nije potrebnu.');
+      return;
+    }
+    updateStage(key, stageName, previous => {
     const now = new Date().toISOString();
     return { ...previous, status: 'U tijeku', startedAt: previous.startedAt || now, completedAt: null, blockedReason: '', sessions: [...(previous.sessions || []), { startedAt: now, endedAt: null }] };
-  });
+    });
+  };
   const stopStage = (key, stageName) => {
     const reason = window.prompt('Upiši razlog zastoja. Primjer: kvar stroja, čekanje materijala, promjena nacrta.');
     if (!reason?.trim()) return;
@@ -104,10 +119,22 @@ export default function ProductionModule({ onBack }) {
     updateStage(key, stageName, previous => ({ ...previous, status: 'Nije potrebno', completedAt: new Date().toISOString(), blockedReason: '' }));
   };
   const resetStage = (key, stageName) => {
-    if (!window.confirm('Vratiti fazu „' + stageName + '” na početak? Povijest promjena ostaje sačuvana.')) return;
-    updateStage(key, stageName, previous => ({ ...blankStage(), assignedTo: previous.assignedTo, history: [...(previous.history || []), { from: previous.status, to: 'Nije započeto', at: new Date().toISOString(), reason: 'Ručno vraćanje faze' }] }));
+    if (!window.confirm('Vratiti fazu „' + stageName + '” na početak? Povijest promjena ostaje sačuvana, a završna kontrola ponovno čeka provjeru.')) return;
+    updateUnit(key, unit => {
+      const previous = unit.stages?.[stageName] || blankStage();
+      const nextStage = { ...blankStage(), assignedTo: previous.assignedTo, history: [...(previous.history || []), { from: previous.status, to: 'Nije započeto', at: new Date().toISOString(), reason: 'Ručno vraćanje faze' }] };
+      const quality = unit.quality?.status === 'Prošlo'
+        ? { ...unit.quality, status: 'Čeka kontrolu', checkedAt: null, history: [...(unit.quality.history || []), { status: 'Čeka kontrolu', at: new Date().toISOString(), note: 'Ponovno otvorena nakon vraćanja faze na doradu' }] }
+        : unit.quality;
+      return { ...unit, stages: { ...unit.stages, [stageName]: nextStage }, quality };
+    });
   };
   const updateQuality = (key, status) => {
+    const currentQuality = records.pieces?.[key]?.quality || blankUnit().quality;
+    if (status !== 'Čeka kontrolu' && !String(currentQuality.checkedBy || '').trim()) {
+      window.alert('Prije potvrde kontrole upiši ime osobe koja je obavila kontrolu.');
+      return;
+    }
     let reason = '';
     if (status === 'Neispravno') {
       reason = window.prompt('Opiši nedostatak koji je pronađen na kontroli:') || '';
@@ -117,7 +144,7 @@ export default function ProductionModule({ onBack }) {
       ...unit,
       quality: {
         ...unit.quality, status, checkedAt: new Date().toISOString(),
-        note: status === 'Neispravno' ? reason.trim() : unit.quality.note,
+        note: status === 'Neispravno' ? reason.trim() : (status === 'Prošlo' ? '' : unit.quality.note),
         history: [...(unit.quality.history || []), { status, at: new Date().toISOString(), note: reason.trim() }]
       }
     }));
@@ -241,7 +268,7 @@ export default function ProductionModule({ onBack }) {
                     <div className="production-stage-grid production-stage-grid-detailed">
                       {stages.map((stageName, index) => {
                         const stage = record.stages?.[stageName] || blankStage();
-                        const duration = elapsedMs(stage);
+                        const duration = elapsedMs(stage, clockNow);
                         return <section className={'production-stage-card stage-' + stage.status.toLowerCase().replaceAll(' ', '-')} key={stageName}>
                           <div className="production-stage-title"><span>{String(index + 1).padStart(2, '0')}</span><strong>{stageName}</strong><b>{stage.status}</b></div>
                           <label className="production-worker-field"><UserRound size={14}/><input list="production-worker-list" value={stage.assignedTo || ''} onChange={event => setStageWorker(row.key, stageName, event.target.value)} placeholder="Odgovorni radnik"/></label>
@@ -253,6 +280,7 @@ export default function ProductionModule({ onBack }) {
                             {stage.status === 'U tijeku' && <button className="button button-warning" onClick={() => stopStage(row.key, stageName)}><Pause size={13}/> Zastoj</button>}
                             {stage.status === 'U tijeku' && <button className="button button-success" onClick={() => finishStage(row.key, stageName)}><Check size={13}/> Završi</button>}
                             {stage.status === 'Nije započeto' && <button className="button button-ghost" onClick={() => markNotRequired(row.key, stageName)}>Nije potrebno</button>}
+                            {stage.status === 'Nije potrebno' && <button className="button button-ghost" onClick={() => resetStage(row.key, stageName)}><RotateCcw size={13}/> Vrati fazu</button>}
                             {stage.status === 'Završeno' && <button className="button button-ghost" onClick={() => resetStage(row.key, stageName)}><RotateCcw size={13}/> Ponovi fazu</button>}
                           </div>
                           <label className="production-note-field"><span>Napomena / detalj obrade</span><textarea value={stage.note || ''} onChange={event => setStageNote(row.key, stageName, event.target.value)} rows="2" placeholder="Npr. granulacija, rub, dimenzija nakon obrade..."/></label>
