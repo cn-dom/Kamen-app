@@ -999,3 +999,12 @@ button:active { transform: translateY(1px); }
 .alert-action:hover{background:#eaf0ff}
 .notification-button i{box-shadow:0 0 0 2px #fff}
 @media(max-width:640px){.alert-popover{left:12px;right:12px;top:60px;width:auto;max-width:none}.alert-list{max-height:45vh}}
+
+
+.costs-financial-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0 0 15px}
+.costs-financial-summary>div{display:flex;flex-direction:column;gap:5px;min-width:0;padding:14px 15px;border:1px solid #e9edf3;border-radius:10px;background:#fbfcfe}
+.costs-financial-summary small{font-size:10px;color:#7c899b;font-weight:700}
+.costs-financial-summary strong{font:800 19px Manrope,sans-serif;letter-spacing:-.035em;color:#1d293b;white-space:nowrap}
+.costs-financial-summary span{font-size:9px;color:#8995a6}
+@media(max-width:900px){.costs-financial-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.costs-financial-summary{gap:7px}.costs-financial-summary>div{padding:11px}.costs-financial-summary strong{font-size:16px}}
