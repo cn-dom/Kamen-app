@@ -60,3 +60,14 @@ export function calculatePieceProgress(record) {
   const complete = PRODUCTION_STAGES.filter(stage => ['Završeno', 'Nije potrebno'].includes(record?.stages?.[stage]?.status)).length;
   return Math.round(complete / PRODUCTION_STAGES.length * 100);
 }
+
+export function isProductionOrderComplete(order, productionRecords) {
+  const units = buildProductionUnits(order ? [order] : []);
+  if (!units.length) return false;
+  return units.every(row => {
+    const record = productionRecords?.pieces?.[row.key];
+    return Boolean(record) &&
+      PRODUCTION_STAGES.every(stage => ['Završeno', 'Nije potrebno'].includes(record.stages?.[stage]?.status)) &&
+      record.quality?.status === 'Prošlo';
+  });
+}
