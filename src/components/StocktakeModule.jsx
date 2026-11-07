@@ -50,8 +50,8 @@ export default function StocktakeModule({ materials, onApply }) {
 
   function applySession() {
     if (!active || active.status !== 'U tijeku') return;
-    const incomplete = pending.some(row => row.countedQuantity === '' || !Number.isFinite(qty(row.countedQuantity)) || qty(row.countedQuantity) < 0 || Math.round(qty(row.countedQuantity) * 100) !== qty(row.countedQuantity) * 100);
-    if (incomplete) { flash('Unesi fizički prebrojenu količinu za svaku stavku. Količina mora biti nula ili veća, najviše dvije decimale.'); return; }
+    const incomplete = pending.some(row => { const value = qty(row.countedQuantity); const wholeUnit = ['kom', 'par', 'set'].includes(row.unit); return row.countedQuantity === '' || !Number.isFinite(value) || value < 0 || Math.round(value * 100) !== value * 100 || (wholeUnit && !Number.isInteger(value)); });
+    if (incomplete) { flash('Unesi fizičku količinu za svaku stavku. Količina mora biti nula ili veća; za kom/par/set cijeli broj, za ostalo najviše dvije decimale.'); return; }
     const differences = pending.map(row => ({ ...row, difference: Number((qty(row.countedQuantity) - Number(row.expectedQuantity || 0)).toFixed(2)) })).filter(row => row.difference !== 0);
     if (differences.some(row => !row.reason.trim())) { flash('Za svaki višak ili manjak obavezno upiši razlog.'); return; }
     const finishedNow = (() => { try { return JSON.parse(window.localStorage.getItem(FINISHED_KEY) || '[]'); } catch { return []; } })();
