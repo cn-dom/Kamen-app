@@ -20,7 +20,7 @@ export function createInvoiceFromQuote(quote, invoices = [], date = new Date().t
     customerAddress: quote.customerAddress || '',
     customerOib: quote.customerOib || '',
     date,
-    dueDate: quote.paymentDueDate || '',
+    dueDate: quote.paymentDueDate || (() => { const due = new Date(String(date) + 'T12:00:00'); due.setDate(due.getDate() + 30); return due.toISOString().slice(0, 10); })(),
     items: (totals.lines || []).map(line => ({ description: line.description, quantity: line.quantity, unit: line.unit, unitPrice: line.unitPrice, vatRate: line.vatRate, net: line.netAfterDiscount, vat: line.vat, gross: line.gross })),
     subtotal: totals.subtotal,
     discountAmount: totals.discountAmount,
