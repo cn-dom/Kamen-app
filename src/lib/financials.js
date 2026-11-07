@@ -1,13 +1,21 @@
+import { summarizeMaterialConsumption } from './materialConsumption.js';
 import { calculateStageElapsedMs } from './production.js';
 
 const roundMoney = value => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
 const validAmount = value => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value));
 
-export function calculateOrderFinancials(order, costRecords = [], productionRecords = { pieces: {} }, now = Date.now(), invoices = [], payments = []) {
+export function calculateOrderFinancials(order, costRecords = [], productionRecords = { pieces: {} }, now = Date.now(), invoices = [], payments = [], materialConsumptionRecords = []) {
   const orderId = order?.id;
   const related = (Array.isArray(costRecords) ? costRecords : []).filter(record => record.orderId === orderId);
   const plannedCost = roundMoney(related.filter(record => record.kind === 'Planirani trošak').reduce((sum, record) => sum + Number(record.amount || 0), 0));
   const actualCost = roundMoney(related.filter(record => record.kind === 'Stvarni trošak').reduce((sum, record) => sum + Number(record.amount || 0), 0));
+  const manualMaterialCost = roundMoney(related.filter(record => {
+    const categories = Array.isArray(record.categories) ? record.categories : String(record.category || '').split(',').map(value => value.trim());
+    return record.kind === 'Stvarni trošak' && categories.includes('Materijal');
+  }).reduce((sum, record) => sum + Number(record.amount || 0), 0));
+  const materialConsumption = summarizeMaterialConsumption(materialConsumptionRecords, orderId);
+  // Once cutting consumption is recorded, its warehouse-based cost replaces manual material entries to avoid double counting.
+  const totalActualCost = roundMoney(actualCost - (materialConsumption.recordCount ? manualMaterialCost : 0) + materialConsumption.materialCost);
   const laborCost = roundMoney(related.filter(record => { const categories = Array.isArray(record.categories) ? record.categories : String(record.category || '').split(',').map(value => value.trim()); return record.kind === 'Stvarni trošak' && categories.includes('Rad'); }).reduce((sum, record) => sum + Number(record.amount || 0), 0));
 
   const allocations = Array.isArray(order?.materialAllocations) ? order.materialAllocations : [];
@@ -32,7 +40,7 @@ export function calculateOrderFinancials(order, costRecords = [], productionReco
   const invoiceGross = roundMoney(orderInvoices.reduce((sum, invoice) => sum + Number(invoice.grossTotal || 0), 0));
   const collected = roundMoney((Array.isArray(payments) ? payments : []).filter(payment => invoiceIds.has(payment.invoiceId) || (!payment.invoiceId && quoteIds.has(payment.quoteId))).reduce((sum, payment) => sum + Math.max(0, Number(payment.amount) || 0), 0));
   const receivable = Math.max(0, roundMoney(invoiceGross - collected));
-  const netDifference = orderInvoices.length ? roundMoney(invoiceNet - actualCost) : 0;
+  const netDifference = orderInvoices.length ? roundMoney(invoiceNet - totalActualCost) : 0;
   return {
     orderId,
     invoiceCount: orderInvoices.length,
@@ -43,6 +51,12 @@ export function calculateOrderFinancials(order, costRecords = [], productionReco
     netDifference,
     plannedCost,
     actualCost,
+    manualMaterialCost,
+    consumedMaterialCost: materialConsumption.materialCost,
+    consumedMaterialAreaM2: materialConsumption.consumedAreaM2,
+    materialConsumptionCount: materialConsumption.recordCount,
+    unpricedMaterialConsumptionCount: materialConsumption.unpricedRecordCount,
+    totalActualCost,
     laborCost,
     estimatedMaterialCost,
     materialEstimateComplete: hasMaterialEstimate || validAmount(order?.estimatedMaterialCost),
@@ -55,6 +69,10 @@ export function summarizeFinancials(rows = []) {
   return (Array.isArray(rows) ? rows : []).reduce((summary, row) => ({
     plannedCost: roundMoney(summary.plannedCost + row.plannedCost),
     actualCost: roundMoney(summary.actualCost + row.actualCost),
+    totalActualCost: roundMoney(summary.totalActualCost + Number(row.totalActualCost ?? row.actualCost ?? 0)),
+    consumedMaterialCost: roundMoney(summary.consumedMaterialCost + Number(row.consumedMaterialCost || 0)),
+    consumedMaterialAreaM2: Math.round((summary.consumedMaterialAreaM2 + Number(row.consumedMaterialAreaM2 || 0)) * 10000) / 10000,
+    unpricedMaterialConsumptionCount: summary.unpricedMaterialConsumptionCount + Number(row.unpricedMaterialConsumptionCount || 0),
     estimatedMaterialCost: roundMoney(summary.estimatedMaterialCost + (row.estimatedMaterialCost ?? 0)),
     invoiceNet: roundMoney(summary.invoiceNet + Number(row.invoiceNet || 0)),
     invoiceGross: roundMoney(summary.invoiceGross + Number(row.invoiceGross || 0)),
@@ -64,5 +82,5 @@ export function summarizeFinancials(rows = []) {
     projectsWithInvoices: summary.projectsWithInvoices + (Number(row.invoiceCount || 0) > 0 ? 1 : 0),
     productionHours: Math.round((summary.productionHours + row.productionHours) * 100) / 100,
     incompleteMaterialEstimates: summary.incompleteMaterialEstimates + (row.materialEstimateComplete ? 0 : 1)
-  }), { plannedCost: 0, actualCost: 0, estimatedMaterialCost: 0, invoiceNet: 0, invoiceGross: 0, collected: 0, receivable: 0, netDifference: 0, projectsWithInvoices: 0, productionHours: 0, incompleteMaterialEstimates: 0 });
+  }), { plannedCost: 0, actualCost: 0, totalActualCost: 0, consumedMaterialCost: 0, consumedMaterialAreaM2: 0, unpricedMaterialConsumptionCount: 0, estimatedMaterialCost: 0, invoiceNet: 0, invoiceGross: 0, collected: 0, receivable: 0, netDifference: 0, projectsWithInvoices: 0, productionHours: 0, incompleteMaterialEstimates: 0 });
 }
