@@ -11,7 +11,7 @@ function readStoredOrders() {
   } catch { return seedOrders; }
 }
 
-const blankForm = { customer: '', project: '', material: '', materialQty: '0', due: '', note: '' };
+const blankForm = { customer: '', project: '', due: '', note: '' };
 const parseQuantity = value => Number(String(value ?? '').trim().replace(',', '.'));
 const calculateOrderAreaM2 = orderPieces => orderPieces.reduce((sum, piece) => sum + Number(piece.length || 0) * Number(piece.width || 0) * Number(piece.quantity || 0), 0) / 10000;
 const money = value => new Intl.NumberFormat('hr-HR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(value || 0));
@@ -21,7 +21,7 @@ const calculateSlabUsage = (stockItem, orderPieces) => {
   const requiredArea = orderPieces.reduce((sum, piece) => sum + Number(piece.length || 0) * Number(piece.width || 0) * Number(piece.quantity || 0), 0);
   return Math.ceil((requiredArea / slabArea) * 100 - 1e-9) / 100;
 };
-const blankPiece = () => ({ name: '', length: '', width: '', thickness: '3', quantity: '1' });
+const blankPiece = () => ({ name: '', materialId: '', length: '', width: '', thickness: '3', quantity: '1' });
 const statuses = ['U pripremi', 'Spreman za pilanje', 'U tijeku', 'Čeka kontrolu', 'Završen'];
 
 export default function WorkOrdersModule({ onBack }) {
@@ -42,80 +42,90 @@ export default function WorkOrdersModule({ onBack }) {
   }), [orders, query, statusFilter]);
   const updateForm = (key, value) => setForm(prev => ({ ...prev, [key]: value }));
   const updatePiece = (index, key, value) => setPieces(prev => prev.map((p, i) => i === index ? { ...p, [key]: value } : p));
-  const selectedStockItem = materials.find(item => item.name.trim().toLowerCase() === form.material.trim().toLowerCase() && item.form === 'Ploča');
-  const calculatedMaterialQty = calculateSlabUsage(selectedStockItem, pieces);
+  const plateMaterials = materials.filter(item => item.form === 'Ploča');
+  const materialGroups = useMemo(() => {
+    const groups = new Map();
+    pieces.forEach((piece, index) => {
+      const stock = plateMaterials.find(item => item.id === piece.materialId);
+      if (!stock) return;
+      if (!groups.has(stock.id)) groups.set(stock.id, { stock, pieces: [], areaM2: 0 });
+      const group = groups.get(stock.id);
+      group.pieces.push({ ...piece, sourceIndex: index });
+      group.areaM2 += Number(piece.length || 0) * Number(piece.width || 0) * Number(piece.quantity || 0) / 10000;
+    });
+    return [...groups.values()].map(group => ({ ...group, materialQty: calculateSlabUsage(group.stock, group.pieces) }));
+  }, [pieces, materials]);
   const calculatedAreaM2 = calculateOrderAreaM2(pieces);
-  const materialUnitPrice = selectedStockItem?.pricePerM2 == null || selectedStockItem?.pricePerM2 === '' ? null : Number(selectedStockItem.pricePerM2);
-  const calculatedMaterialCost = materialUnitPrice != null && Number.isFinite(materialUnitPrice) ? Math.round(calculatedAreaM2 * materialUnitPrice * 100) / 100 : null;
+  const calculatedMaterialCost = materialGroups.reduce((sum, group) => sum + (group.stock.pricePerM2 == null || group.stock.pricePerM2 === '' ? 0 : group.areaM2 * Number(group.stock.pricePerM2)), 0);
   const createOrder = (event) => {
     event.preventDefault();
-    if (!form.customer.trim() || !form.project.trim() || !form.material.trim()) {
-      setError('Unesi kupca, naziv projekta i materijal.');
+    if (!form.customer.trim() || !form.project.trim()) {
+      setError('Unesi kupca i naziv projekta.');
       return;
     }
-    if (!pieces.length || pieces.some(p => !p.name.trim() || Number(p.length) <= 0 || Number(p.width) <= 0 || Number(p.thickness) <= 0 || Number(p.quantity) <= 0)) {
-      setError('Za svaki komad unesi naziv, pozitivne dimenzije, debljinu i količinu.');
+    if (!pieces.length || pieces.some(p => !p.name.trim() || !p.materialId || Number(p.length) <= 0 || Number(p.width) <= 0 || Number(p.thickness) <= 0 || Number(p.quantity) <= 0)) {
+      setError('Za svaki komad odaberi materijal te unesi naziv, dimenzije, debljinu i količinu.');
       return;
     }
-    const stockItem = selectedStockItem;
-    const materialQty = calculatedMaterialQty;
-    if (!stockItem || Number(stockItem.length) <= 0 || Number(stockItem.width) <= 0 || materialQty <= 0) {
-      setError('Odaberi ploču iz skladišta koja ima upisane dimenzije. Potrošnja se računa prema dimenzijama i količini komada u nalogu.');
+    const allocations = materialGroups.map(group => ({ materialId: group.stock.id, material: group.stock.name, quantity: group.materialQty, areaM2: Math.round(group.areaM2 * 10000) / 10000, pricePerM2: group.stock.pricePerM2 == null || group.stock.pricePerM2 === '' ? null : Number(group.stock.pricePerM2), cost: group.stock.pricePerM2 == null || group.stock.pricePerM2 === '' ? null : Math.round(group.areaM2 * Number(group.stock.pricePerM2) * 100) / 100 }));
+    if (!allocations.length || materialGroups.some(group => Number(group.stock?.length || 0) <= 0 || Number(group.stock?.width || 0) <= 0 || group.materialQty <= 0)) {
+      setError('Za svaku stavku odaberi valjanu ploču iz skladišta s upisanim dimenzijama.');
       return;
     }
-    if (pieces.some(piece => Number(piece.thickness) !== Number(stockItem.thickness))) {
-      setError(`Debljina svih komada mora odgovarati odabranoj ploči (${stockItem.thickness} cm).`);
-      return;
-    }
-    if (Number(stockItem.quantity) + 1e-9 < materialQty) {
-      setError(`Nema dovoljno materijala. Potrebno je ${materialQty.toLocaleString('hr-HR')} ploča, a dostupno je ${Number(stockItem.quantity).toLocaleString('hr-HR')}.`);
-      return;
+    for (const group of materialGroups) {
+      if (group.pieces.some(piece => Number(piece.thickness) !== Number(group.stock.thickness))) {
+        setError(`Debljina komada za materijal ${group.stock.name} mora odgovarati ploči (${group.stock.thickness} cm).`);
+        return;
+      }
+      if (Number(group.stock.quantity) + 1e-9 < group.materialQty) {
+        setError(`Nema dovoljno materijala ${group.stock.name}. Potrebno ${group.materialQty.toLocaleString('hr-HR')} ploča, dostupno ${Number(group.stock.quantity).toLocaleString('hr-HR')}.`);
+        return;
+      }
     }
     const id = 'RN-2026-' + String(Math.max(0, ...orders.map(o => Number(o.id.split('-').at(-1)) || 0)) + 1).padStart(3, '0');
-    const order = { ...form, materialQty: undefined, estimatedMaterialQty: materialQty, materialAreaM2: Math.round(calculatedAreaM2 * 10000) / 10000, materialPricePerM2: stockItem.pricePerM2 == null || stockItem.pricePerM2 === '' ? null : Number(stockItem.pricePerM2), estimatedMaterialCost: stockItem.pricePerM2 == null || stockItem.pricePerM2 === '' ? null : Math.round(calculatedAreaM2 * Number(stockItem.pricePerM2) * 100) / 100, reservedMaterialId: stockItem.id, reservedMaterialQty: materialQty, id, status: 'U pripremi', pieces: pieces.map(p => ({ ...p, length: Number(p.length), width: Number(p.width), thickness: Number(p.thickness), quantity: Number(p.quantity) })) };
+    const reservationRecords = allocations.map(group => ({ materialId: group.materialId, material: group.material, quantity: group.quantity }));
+    const order = { ...form, material: allocations.map(group => group.material).join(', '), materialAllocations: allocations, materialAreaM2: Math.round(calculatedAreaM2 * 10000) / 10000, estimatedMaterialCost: allocations.some(group => group.cost == null) ? null : Math.round(allocations.reduce((sum, group) => sum + group.cost, 0) * 100) / 100, reservedMaterials: reservationRecords, reservedMaterialId: allocations.length === 1 ? allocations[0].materialId : null, reservedMaterialQty: allocations.length === 1 ? allocations[0].quantity : 0, id, status: 'U pripremi', pieces: pieces.map(p => ({ ...p, length: Number(p.length), width: Number(p.width), thickness: Number(p.thickness), quantity: Number(p.quantity) })) };
     setOrders(prev => [order, ...prev]);
-    if (materialQty > 0 && stockItem) {
-      const nextMaterials = materials.map(item => item.id === stockItem.id ? { ...item, quantity: item.quantity - materialQty } : item);
-      setMaterials(nextMaterials);
-      try { window.localStorage.setItem(MATERIALS_KEY, JSON.stringify(nextMaterials)); } catch {}
-      try {
-        const key = 'kamen-app-movements-v1';
-        const log = JSON.parse(window.localStorage.getItem(key) || '[]');
-        window.localStorage.setItem(key, JSON.stringify([{ id: Date.now(), material: stockItem.name, kind: 'Rezervacija za radni nalog', quantity: materialQty, location: stockItem.location, orderId: id, date: new Date().toLocaleDateString('hr-HR') }, ...log].slice(0, 100)));
-      } catch {}
-    }
+    const nextMaterials = materials.map(item => {
+      const allocation = allocations.find(group => group.materialId === item.id);
+      return allocation ? { ...item, quantity: Math.round((Number(item.quantity) - allocation.quantity) * 100) / 100 } : item;
+    });
+    setMaterials(nextMaterials);
+    try { window.localStorage.setItem(MATERIALS_KEY, JSON.stringify(nextMaterials)); } catch {}
+    try {
+      const key = 'kamen-app-movements-v1';
+      const log = JSON.parse(window.localStorage.getItem(key) || '[]');
+      const entries = allocations.map((group, index) => ({ id: Date.now() + index, material: group.material, kind: 'Rezervacija za radni nalog', quantity: group.quantity, location: materials.find(item => item.id === group.materialId)?.location, orderId: id, date: new Date().toLocaleDateString('hr-HR') }));
+      window.localStorage.setItem(key, JSON.stringify([...entries, ...log].slice(0, 100)));
+    } catch {}
     setExpanded(id); setShowForm(false); setForm(blankForm); setPieces([blankPiece()]); setError('');
   };
   const changeStatus = (id, status) => setOrders(prev => prev.map(o => o.id === id && o.status !== 'Otkazan' ? { ...o, status } : o));
   const cancelOrder = (id) => {
     const order = orders.find(item => item.id === id);
     if (!order || order.status === 'Otkazan') return;
-    const reservedQty = Number(order.reservedMaterialQty || 0);
-    const reservedMaterial = reservedQty > 0 ? materials.find(item => item.id === order.reservedMaterialId) : null;
-    if (reservedQty > 0 && !reservedMaterial) {
-      window.alert('Rezervirani materijal nije pronađen u skladištu. Nalog nije otkazan kako se stanje ne bi pogrešno evidentiralo.');
-      return;
-    }
-    const explanation = reservedQty > 0 ? 'Neiskorištena rezervacija od ' + reservedQty.toLocaleString('hr-HR') + ' ploča bit će vraćena u skladište.' : 'Već utrošeni materijal neće se vraćati.';
+    const reservations = Array.isArray(order.reservedMaterials) ? order.reservedMaterials : (Number(order.reservedMaterialQty || 0) > 0 ? [{ materialId: order.reservedMaterialId, quantity: Number(order.reservedMaterialQty || 0) }] : []);
+    const pending = reservations.filter(item => Number(item.quantity || 0) > 0);
+    const missing = pending.filter(reservation => !materials.some(item => item.id === reservation.materialId));
+    if (missing.length) { window.alert('Jedan ili više rezerviranih materijala nije pronađen u skladištu. Nalog nije otkazan.'); return; }
+    const explanation = pending.length ? 'Neiskorištene rezervacije svih materijala bit će vraćene u skladište.' : 'Već utrošeni materijal neće se vraćati.';
     if (!window.confirm('Otkazati nalog ' + order.id + '? ' + explanation)) return;
-    if (reservedQty > 0 && reservedMaterial) {
-      const nextMaterials = materials.map(item => item.id === reservedMaterial.id
-        ? { ...item, quantity: Math.round((Number(item.quantity || 0) + reservedQty) * 100) / 100 }
-        : item);
+    if (pending.length) {
+      const nextMaterials = materials.map(item => {
+        const reserved = pending.filter(entry => entry.materialId === item.id).reduce((sum, entry) => sum + Number(entry.quantity || 0), 0);
+        return reserved ? { ...item, quantity: Math.round((Number(item.quantity || 0) + reserved) * 100) / 100 } : item;
+      });
       setMaterials(nextMaterials);
       try { window.localStorage.setItem(MATERIALS_KEY, JSON.stringify(nextMaterials)); } catch {}
       try {
         const key = 'kamen-app-movements-v1';
         const log = JSON.parse(window.localStorage.getItem(key) || '[]');
-        window.localStorage.setItem(key, JSON.stringify([{
-          id: Date.now(), material: reservedMaterial.name, kind: 'Povrat rezervacije - otkazivanje naloga',
-          quantity: reservedQty, location: reservedMaterial.location, orderId: order.id,
-          date: new Date().toLocaleDateString('hr-HR')
-        }, ...log].slice(0, 100)));
+        const entries = pending.map((entry, index) => ({ id: Date.now() + index, material: entry.material || materials.find(item => item.id === entry.materialId)?.name || 'Materijal', kind: 'Povrat rezervacije - otkazivanje naloga', quantity: entry.quantity, location: materials.find(item => item.id === entry.materialId)?.location, orderId: order.id, date: new Date().toLocaleDateString('hr-HR') }));
+        window.localStorage.setItem(key, JSON.stringify([...entries, ...log].slice(0, 100)));
       } catch {}
     }
     setOrders(prev => prev.map(item => item.id === id
-      ? { ...item, status: 'Otkazan', reservedMaterialQty: 0, cancelledAt: new Date().toISOString() }
+      ? { ...item, status: 'Otkazan', reservedMaterialQty: 0, reservedMaterials: [], cancelledAt: new Date().toISOString() }
       : item));
   };
   const pieceCount = orders.reduce((sum, order) => sum + order.pieces.reduce((n, p) => n + p.quantity, 0), 0);
@@ -137,8 +147,8 @@ export default function WorkOrdersModule({ onBack }) {
           <span className="workorder-id">{order.id}</span><span className={'workorder-status status-' + order.status.toLowerCase().replaceAll(' ', '-')}>{order.status}</span><span className="workorder-title">{order.project}</span><span className="workorder-customer"><UserRound size={14}/>{order.customer}</span><span className="workorder-material">{order.material}</span><span className="workorder-due"><CalendarDays size={14}/>{order.due || 'Rok nije određen'}</span><ChevronDown size={17} className={expanded === order.id ? 'workorder-chevron open' : 'workorder-chevron'}/>
         </button>
         {expanded === order.id && <div className="workorder-details">
-          <div className="workorder-detail-top"><div><strong>Komadi za izradu</strong><p>{order.pieces.length} stavki · naručeno {order.pieces.reduce((n,p) => n + Number(p.quantity || 0),0)} komada · izrađeno {order.pieces.reduce((n,p) => n + Number(p.producedQuantity || 0),0)} · preostalo {order.pieces.reduce((n,p) => n + Math.max(0, Number(p.quantity || 0) - Number(p.producedQuantity || 0)),0)}</p>{order.estimatedMaterialCost != null && <p><strong>Procijenjeni trošak kamena: {money(order.estimatedMaterialCost)}</strong> · {Number(order.materialAreaM2 || 0).toLocaleString('hr-HR', { maximumFractionDigits: 4 })} m² × {money(order.materialPricePerM2)} / m²</p>}</div><label>Status naloga<select value={order.status} disabled={order.status === 'Otkazan'} onChange={e => changeStatus(order.id, e.target.value)}>{statuses.map(s => <option key={s}>{s}</option>)}</select></label></div>
-          <div className="workorder-pieces-wrap"><table className="workorder-pieces"><thead><tr><th>Opis komada</th><th>Duljina (cm)</th><th>Širina (cm)</th><th>Debljina (cm)</th><th>Naručeno</th><th>Izrađeno</th><th>Preostalo</th></tr></thead><tbody>{order.pieces.map((p,i) => { const produced = Number(p.producedQuantity || 0); const remaining = Math.max(0, Number(p.quantity || 0) - produced); return <tr key={i}><td>{p.name}</td><td>{p.length}</td><td>{p.width}</td><td>{p.thickness}</td><td>{p.quantity}</td><td><strong>{produced}</strong></td><td><span className={remaining === 0 ? "piece-progress-done" : ""}>{remaining}</span></td></tr>; })}</tbody></table></div>
+          <div className="workorder-detail-top"><div><strong>Komadi za izradu</strong><p>{order.pieces.length} stavki · naručeno {order.pieces.reduce((n,p) => n + Number(p.quantity || 0),0)} komada · izrađeno {order.pieces.reduce((n,p) => n + Number(p.producedQuantity || 0),0)} · preostalo {order.pieces.reduce((n,p) => n + Math.max(0, Number(p.quantity || 0) - Number(p.producedQuantity || 0)),0)}</p>{order.estimatedMaterialCost != null && <p><strong>Procijenjeni trošak kamena: {money(order.estimatedMaterialCost)}</strong> · {Number(order.materialAreaM2 || 0).toLocaleString('hr-HR', { maximumFractionDigits: 4 })} m² · {Array.isArray(order.materialAllocations) ? order.materialAllocations.map(group => `${group.material}: ${Number(group.areaM2 || 0).toLocaleString('hr-HR')} m²`).join(' · ') : money(order.materialPricePerM2) + ' / m²'}</p>}</div><label>Status naloga<select value={order.status} disabled={order.status === 'Otkazan'} onChange={e => changeStatus(order.id, e.target.value)}>{statuses.map(s => <option key={s}>{s}</option>)}</select></label></div>
+          <div className="workorder-pieces-wrap"><table className="workorder-pieces"><thead><tr><th>Opis komada</th><th>Materijal</th><th>Duljina (cm)</th><th>Širina (cm)</th><th>Debljina (cm)</th><th>Naručeno</th><th>Izrađeno</th><th>Preostalo</th></tr></thead><tbody>{order.pieces.map((p,i) => { const produced = Number(p.producedQuantity || 0); const remaining = Math.max(0, Number(p.quantity || 0) - produced); return <tr key={i}><td>{p.name}</td><td>{p.material || materials.find(item => item.id === p.materialId)?.name || order.material || '—'}</td><td>{p.length}</td><td>{p.width}</td><td>{p.thickness}</td><td>{p.quantity}</td><td><strong>{produced}</strong></td><td><span className={remaining === 0 ? "piece-progress-done" : ""}>{remaining}</span></td></tr>; })}</tbody></table></div>
           {order.note && <p className="workorder-note"><strong>Napomena:</strong> {order.note}</p>}
           <div className="workorder-card-footer"><span><Hammer size={15}/> Sljedeći korak: priprema i evidentiranje pilanja</span>{order.status !== 'Otkazan' ? <button className="button button-danger-light" onClick={() => cancelOrder(order.id)}><Trash2 size={15}/> Otkaži nalog</button> : <span className="muted-icon">Nalog je otkazan · rezervacija je vraćena ako nije bila utrošena</span>}</div>
         </div>}
@@ -149,9 +159,9 @@ export default function WorkOrdersModule({ onBack }) {
     {showForm && <div className="workorders-modal-backdrop" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget) setShowForm(false); }}><section className="workorders-modal" role="dialog" aria-modal="true" aria-labelledby="workorders-form-title">
       <div className="workorders-modal-head"><div><span className="eyebrow">NOVI PROJEKT</span><h2 id="workorders-form-title">Izradi radni nalog</h2><p>Unesi osnovne podatke i popis komada za pilanje.</p></div><button className="icon-button" onClick={() => setShowForm(false)} aria-label="Zatvori"><X size={20}/></button></div>
       <form onSubmit={createOrder}>
-        <div className="workorders-form-grid"><label>Kupac *<input value={form.customer} onChange={e => updateForm('customer',e.target.value)} placeholder="Naziv kupca ili tvrtke"/></label><label>Naziv projekta *<input value={form.project} onChange={e => updateForm('project',e.target.value)} placeholder="Npr. kuhinjska ploča"/></label><label>Materijal *<input list="workorder-material-options" value={form.material} onChange={e => updateForm('material',e.target.value)} placeholder="Odaberi materijal iz skladišta"/><datalist id="workorder-material-options">{materials.filter(item=>item.form==='Ploča').map(item=><option key={item.id} value={item.name}/>)}</datalist></label><label>Rok izrade<input type="date" value={form.due} onChange={e => updateForm('due',e.target.value)}/></label><div className="modal-note"><Ruler size={16}/><span>{selectedStockItem && calculatedMaterialQty > 0 ? `Prema dimenzijama ploče ${selectedStockItem.length} × ${selectedStockItem.width} cm i unesenim komadima, nalog će rezervirati ${calculatedMaterialQty.toLocaleString('hr-HR')} ploča. Obračun je po površini; stvarna potrošnja potvrđuje se pri pilanju.` : 'Odaberi materijal iz skladišta i unesi dimenzije komada. Aplikacija će automatski izračunati i rezervirati potrebni udio ploče.'}</span></div>{selectedStockItem && <div className="modal-note"><Wallet size={16}/><span>{materialUnitPrice == null ? 'Za odabrani materijal nije unesena nabavna cijena po m². Cijenu možeš dodati ili urediti u Skladištu.' : `Procijenjena površina komada: ${calculatedAreaM2.toLocaleString('hr-HR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} m² × ${money(materialUnitPrice)} / m² = ${money(calculatedMaterialCost)}. Cijena se sprema u nalog kao procjena materijala.`}</span></div>}</div>
-        <div className="workorders-piece-head"><div><h3>Popis komada</h3><p>Dimenzije u centimetrima.</p></div><button type="button" className="button button-secondary" onClick={() => setPieces(prev => [...prev, blankPiece()])}><Plus size={15}/> Dodaj komad</button></div>
-        {pieces.map((p,index) => <div className="workorders-piece-form" key={index}><label className="piece-name">Opis komada<input value={p.name} onChange={e => updatePiece(index,'name',e.target.value)} placeholder="Npr. gazište, klupčica"/></label><label>Duljina<input type="number" min="0.1" step="0.1" value={p.length} onChange={e => updatePiece(index,'length',e.target.value)} placeholder="cm"/></label><label>Širina<input type="number" min="0.1" step="0.1" value={p.width} onChange={e => updatePiece(index,'width',e.target.value)} placeholder="cm"/></label><label>Debljina<input type="number" min="0.1" step="0.1" value={p.thickness} onChange={e => updatePiece(index,'thickness',e.target.value)}/></label><label>Količina<input type="number" min="1" step="1" value={p.quantity} onChange={e => updatePiece(index,'quantity',e.target.value)}/></label>{pieces.length > 1 && <button type="button" className="piece-remove" onClick={() => setPieces(prev => prev.filter((_,i) => i !== index))} aria-label="Ukloni komad"><X size={16}/></button>}</div>)}
+        <div className="workorders-form-grid"><label>Kupac *<input value={form.customer} onChange={e => updateForm('customer',e.target.value)} placeholder="Naziv kupca ili tvrtke"/></label><label>Naziv projekta *<input value={form.project} onChange={e => updateForm('project',e.target.value)} placeholder="Npr. kuhinjska ploča"/></label><label>Rok izrade<input type="date" value={form.due} onChange={e => updateForm('due',e.target.value)}/></label><div className="modal-note"><Ruler size={16}/><span>Svaki komad ima vlastiti odabir materijala. Aplikacija grupira stavke po ploči, provjerava debljinu i zalihu te zasebno rezervira potrebnu količinu za svaki materijal. Površina svih komada: {calculatedAreaM2.toLocaleString('hr-HR', { maximumFractionDigits: 4 })} m².</span></div><div className="modal-note"><Wallet size={16}/><span>{materialGroups.length ? `Procijenjeni nabavni trošak materijala: ${money(calculatedMaterialCost)} (bez procjene za stavke bez unesene nabavne cijene).` : 'Odaberi materijal uz svaku stavku kako bi se izračunala rezervacija i trošak.'}</span></div></div>
+        <div className="workorders-piece-head"><div><h3>Popis komada</h3><p>Unesi mjere koje je kupac naručio. Svaka stavka može biti od drugog materijala.</p></div><button type="button" className="button button-secondary" onClick={() => setPieces(prev => [...prev, blankPiece()])}><Plus size={15}/> Dodaj komad</button></div>
+        {pieces.map((p,index) => <div className="workorders-piece-form" key={index}><label className="piece-name">Opis komada<input value={p.name} onChange={e => updatePiece(index,'name',e.target.value)} placeholder="Npr. gazište, klupčica"/></label><label className="piece-material">Materijal<select value={p.materialId} onChange={e => { const stock = plateMaterials.find(item => item.id === e.target.value); setPieces(prev => prev.map((piece,i) => i === index ? { ...piece, materialId: e.target.value, thickness: stock?.thickness ? String(stock.thickness) : piece.thickness } : piece)); }}><option value="">Odaberi ploču</option>{plateMaterials.map(item => <option key={item.id} value={item.id}>{item.name} · {item.thickness} cm · {Number(item.quantity).toLocaleString('hr-HR')} {item.unit}</option>)}</select></label><label>Duljina<input type="number" min="0.1" step="0.1" value={p.length} onChange={e => updatePiece(index,'length',e.target.value)} placeholder="cm"/></label><label>Širina<input type="number" min="0.1" step="0.1" value={p.width} onChange={e => updatePiece(index,'width',e.target.value)} placeholder="cm"/></label><label>Debljina<input type="number" min="0.1" step="0.1" value={p.thickness} onChange={e => updatePiece(index,'thickness',e.target.value)}/></label><label>Količina<input type="number" min="1" step="1" value={p.quantity} onChange={e => updatePiece(index,'quantity',e.target.value)}/></label>{pieces.length > 1 && <button type="button" className="piece-remove" onClick={() => setPieces(prev => prev.filter((_,i) => i !== index))} aria-label="Ukloni komad"><X size={16}/></button>}</div>)}
         <label className="workorders-note-label">Napomena<textarea value={form.note} onChange={e => updateForm('note',e.target.value)} rows="2" placeholder="Posebne upute, rubovi, završna obrada…"/></label>
         {error && <p className="workorders-error">{error}</p>}
         <div className="workorders-modal-footer"><button type="button" className="button button-secondary" onClick={() => setShowForm(false)}>Odustani</button><button type="submit" className="button button-primary"><Plus size={16}/> Izradi nalog</button></div>
