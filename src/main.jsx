@@ -20,6 +20,7 @@ const nav = [
   {label:'Proizvodnja', icon:Factory},
   {label:'Raspored', icon:CalendarDays},
   {label:'Nabava', icon:ShoppingCart},
+  {label:'Ponude', icon:FileText, section:'POSLOVANJE'},
   {label:'Skladište', icon:Boxes},
   {label:'Terenski rad', icon:Truck},
   {label:'Kupci', icon:Users},
