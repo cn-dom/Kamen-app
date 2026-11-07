@@ -14,7 +14,7 @@ Aplikacija već sadrži početne module:
 - kupci;
 - troškovi i osnovni izvještaji.
 
-**Važno:** trenutačni podaci spremaju se lokalno u preglednik (`localStorage`). Nema prijave, višekorisničke sinkronizacije, izolacije tvrtki ni sigurnosne kopije. Aplikacija se još ne smije smatrati spremnom za stvarni višekorisnički poslovni rad.
+**Važno:** poslovni podaci spremaju se lokalno u preglednik (`localStorage`). Postoji ručni izvoz i povrat sigurnosne kopije, ali nema prijave, višekorisničke sinkronizacije ni izolacije tvrtki. Aplikacija se još ne smije smatrati spremnom za stvarni višekorisnički poslovni rad.
 
 ## Provjera kvalitete koda
 
