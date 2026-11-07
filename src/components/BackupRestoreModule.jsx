@@ -14,9 +14,11 @@ const BACKUP_KEYS = [
   'kamen-app-schedule-v1',
   'kamen-app-schedule-equipment-v1',
   'kamen-app-suppliers-v1',
-  'kamen-app-purchase-orders-v1'
+  'kamen-app-purchase-orders-v1',
+  'kamen-app-quotes-v1',
+  'kamen-app-company-profile-v1'
 ];
-const OPTIONAL_BACKUP_KEYS = ['kamen-app-schedule-v1', 'kamen-app-schedule-equipment-v1', 'kamen-app-suppliers-v1', 'kamen-app-purchase-orders-v1'];
+const OPTIONAL_BACKUP_KEYS = ['kamen-app-schedule-v1', 'kamen-app-schedule-equipment-v1', 'kamen-app-suppliers-v1', 'kamen-app-purchase-orders-v1', 'kamen-app-quotes-v1', 'kamen-app-company-profile-v1'];
 const APP_ID = 'kamen-app-local-data';
 const VERSION = 1;
 
