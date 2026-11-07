@@ -18,6 +18,7 @@ const nav = [
   {label:'Pregled', icon:LayoutDashboard, section:'RADNI PROSTOR'},
   {label:'Radni nalozi', icon:ClipboardList},
   {label:'Proizvodnja', icon:Factory},
+  {label:'Raspored', icon:CalendarDays},
   {label:'Skladište', icon:Boxes},
   {label:'Terenski rad', icon:Truck},
   {label:'Kupci', icon:Users},
