@@ -17,7 +17,9 @@ export function validateDelivery(delivery) {
   if (!delivery.quoteId) return 'Odaberi prihvaćenu ponudu.';
   if (!delivery.date) return 'Unesi datum isporuke.';
   if (!Array.isArray(delivery.items) || !delivery.items.length) return 'Dodaj barem jednu stavku.';
-  if (delivery.items.some(item => !String(item.description || '').trim() || !(Number(item.quantity) > 0))) return 'Provjeri opis i količinu svih stavki.';
+  const selected = delivery.items.filter(item => Number(item.quantity) > 0);
+  if (!selected.length) return 'Unesi barem jednu isporučenu stavku.';
+  if (selected.some(item => !String(item.description || '').trim() || Number(item.quantity) > Number(item.remaining) + 0.0005)) return 'Količina isporuke ne može biti veća od preostale količine.';
   return '';
 }
 
