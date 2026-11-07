@@ -16,3 +16,52 @@ export function maintenanceDue(machine = {}, today = new Date().toISOString().sl
  if(hours>0&&Number(machine.hours)>=nextHours)due=true;else if(hours>0&&Number(machine.hours)>=nextHours-hours*.1)soon=true;
  return due?'Dospjelo':soon?'Uskoro':'U redu';
 }
+
+export function prepareSparePartIssue(materials = [], parts = [], record = {}, now = Date.now()) {
+  if (!Array.isArray(parts) || !parts.length) return { ok: true, materials, movements: [], parts: [] };
+  const totals = new Map();
+  for (const part of parts) {
+    const quantity = Number(String(part.quantity ?? '').replace(',', '.'));
+    if (!part.materialId || !Number.isFinite(quantity) || quantity <= 0 || Math.round(quantity * 100) !== quantity * 100) {
+      return { ok: false, error: 'Količina rezervnog dijela mora biti veća od nule i imati najviše dvije decimale.' };
+    }
+    totals.set(part.materialId, (totals.get(part.materialId) || 0) + quantity);
+  }
+  for (const [materialId, quantity] of totals) {
+    const item = materials.find(row => row.id === materialId && !row.archived);
+    if (!item) return { ok: false, error: 'Jedan od odabranih dijelova više nije dostupan u aktivnom skladištu.' };
+    if (quantity > Number(item.quantity || 0) + 1e-9) {
+      return { ok: false, error: 'Nema dovoljno zalihe za ' + item.name + '. Na zalihi: ' + Number(item.quantity || 0) + ' ' + (item.unit || 'kom') + '.' };
+    }
+  }
+  const nextMaterials = materials.map(item => {
+    const quantity = totals.get(item.id);
+    return quantity === undefined ? item : { ...item, quantity: Number((Number(item.quantity || 0) - quantity).toFixed(4)) };
+  });
+  const date = new Date(now).toLocaleDateString('hr-HR');
+  const snapshots = parts.map((part, index) => {
+    const item = materials.find(row => row.id === part.materialId);
+    const quantity = Number(String(part.quantity).replace(',', '.'));
+    return {
+      materialId: item.id,
+      name: item.name,
+      quantity,
+      unit: item.unit || 'kom',
+      location: item.location || '',
+      movementId: now + index
+    };
+  });
+  const movements = snapshots.map(part => ({
+    id: part.movementId,
+    material: part.name,
+    kind: 'Izdavanje - održavanje',
+    quantity: part.quantity,
+    unit: part.unit,
+    location: part.location,
+    date,
+    reason: 'Servisni nalog ' + (record.id || 'u izradi'),
+    referenceId: record.id || '',
+    source: 'Održavanje strojeva'
+  }));
+  return { ok: true, materials: nextMaterials, movements, parts: snapshots };
+}
