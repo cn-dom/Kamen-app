@@ -5,7 +5,8 @@ import {
   buildProductionUnits,
   normalizeProductionRecords,
   calculateStageElapsedMs,
-  calculatePieceProgress
+  calculatePieceProgress,
+  isProductionOrderComplete
 } from '../src/lib/production.js';
 
 test('proizvodnja stvara zaseban zapis za svaki fizički komad', () => {
@@ -77,4 +78,23 @@ test('svaki komad prikazuje vlastiti odabrani materijal iz višematerijalnog nal
   ], [{ id: 'g1', name: 'Granit iz skladišta' }]);
   assert.equal(rows[0].material, 'Granit iz skladišta');
   assert.equal(rows[1].material, 'Mramor');
+});
+
+test('radni nalog se može zatvoriti tek nakon kontrole svakog fizičkog komada', () => {
+  const order = { id: 'RN-006', pieces: [{ name: 'Element', quantity: 2 }] };
+  const records = { version: 2, pieces: {} };
+  const keys = ['RN-006::0::1', 'RN-006::0::2'];
+  keys.forEach(key => {
+    records.pieces[key] = {
+      stages: Object.fromEntries(PRODUCTION_STAGES.map(stage => [stage, { status: 'Završeno' }])),
+      quality: { status: 'Prošlo' }
+    };
+  });
+  assert.equal(isProductionOrderComplete(order, records), true);
+  records.pieces[keys[1]].quality.status = 'Neispravno';
+  assert.equal(isProductionOrderComplete(order, records), false);
+  records.pieces[keys[1]].quality.status = 'Prošlo';
+  records.pieces[keys[0]].stages[PRODUCTION_STAGES[2]].status = 'U tijeku';
+  assert.equal(isProductionOrderComplete(order, records), false);
+  assert.equal(isProductionOrderComplete({ id: 'RN-007', pieces: [] }, records), false);
 });
