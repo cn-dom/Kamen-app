@@ -61,3 +61,8 @@ Planirani termini odvojeni su od stvarnih radnih intervala u modulu Proizvodnja:
 ## Nabava i dobavljači
 
 Modul **Nabava** vodi adresar dobavljača, narudžbe s više stavki, količine, ulazne cijene, PDV i očekivane datume. Podržano je djelomično zaprimanje: svako zaprimanje stvara novu skladišnu stavku s vezom na dobavljača i narudžbu te evidentira skladišno kretanje. Povijest nabave i CSV izvoz omogućuju pregled naručenih i zaprimljenih količina. Podaci su lokalni i uključeni u JSON sigurnosnu kopiju; modul nije zamjena za računovodstvo ili eRačun.
+
+
+## Ponude i kalkulacije
+
+Modul **Ponude** omogućuje izradu ponuda za kupce iz imenika ili ručni unos kupca, više stavki materijala i usluga, različite stope PDV-a, popust, uvjete i rok valjanosti. Ispis se otvara u pregledniku i može se spremiti kao PDF. Podaci ponuditelja spremaju se za ponovnu uporabu. Ponude imaju statuse nacrt, poslana, prihvaćena i odbijena; prihvaćenu ponudu moguće je povezati s postojećim radnim nalogom. Ponude i profil ponuditelja uključeni su u JSON sigurnosnu kopiju.
