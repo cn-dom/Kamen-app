@@ -106,3 +106,12 @@ Na kartici materijala u skladištu postavi minimalnu količinu veću od nule. Mo
 ### Upozorenja minimalne zalihe na nadzornoj ploči
 
 Početna nadzorna ploča koristi isti izračun minimalne zalihe kao modul Nabava. Brojač prikazuje samo aktivne materijale s postavljenim minimumom koji su na ili ispod praga; materijali bez minimuma ne stvaraju lažna upozorenja. Zvonce u gornjoj traci otvara popis materijala sa stanjem i minimumom, a bočna navigacija prikazuje broj upozorenja uz Nabavu. Odabir **Otvori nabavu** vodi izravno u modul nabave. Podaci se osvježavaju pri povratku iz modula na pregled.
+
+
+### Izdavanje računa i financijski pregled projekta
+
+U modulu **Isporuke i naplata** može se iz prihvaćene ponude izdati jedan račun. Račun sprema vlastitu kopiju stavki, cijena, osnovice, PDV-a i ukupnog iznosa, pa kasnije promjene ponude ne mijenjaju već izdani dokument. Za račun se automatski predlaže rok plaćanja od 30 dana ako nije ranije zadan. Račun se može pregledati i ispisati s prikazom cijene, neto iznosa, stope i iznosa PDV-a te ukupnog iznosa.
+
+Uplate se vežu uz račun, a starije uplate povezane samo s ponudom i dalje se uračunavaju u saldo pripadajućeg računa. Pregled **Troškovi i izvještaji → Pregled po projektu** prikazuje izdane račune (neto), stvarno evidentirane uplate i otvorena potraživanja po radnom nalogu. Prihvaćena ponuda bez izdanog računa ne računa se kao prihod. Novi registar računa uključen je u JSON sigurnosnu kopiju i vraćanje podataka.
+
+Ovo je operativna evidencija, a ne fiskalizacija, zakonski e-račun, knjigovodstvo ili porezna evidencija. Prije korištenja kao službenog računa potrebno je provjeriti zakonske i računovodstvene zahtjeve s knjigovođom. Podaci ostaju u lokalnoj pohrani preglednika.
