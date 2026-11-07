@@ -32,6 +32,7 @@ export function calculateOrderFinancials(order, costRecords = [], productionReco
   const invoiceGross = roundMoney(orderInvoices.reduce((sum, invoice) => sum + Number(invoice.grossTotal || 0), 0));
   const collected = roundMoney((Array.isArray(payments) ? payments : []).filter(payment => invoiceIds.has(payment.invoiceId) || (!payment.invoiceId && quoteIds.has(payment.quoteId))).reduce((sum, payment) => sum + Math.max(0, Number(payment.amount) || 0), 0));
   const receivable = Math.max(0, roundMoney(invoiceGross - collected));
+  const netDifference = roundMoney(invoiceNet - actualCost);
   return {
     orderId,
     invoiceCount: orderInvoices.length,
@@ -39,6 +40,7 @@ export function calculateOrderFinancials(order, costRecords = [], productionReco
     invoiceGross,
     collected,
     receivable,
+    netDifference,
     plannedCost,
     actualCost,
     laborCost,
@@ -58,7 +60,9 @@ export function summarizeFinancials(rows = []) {
     invoiceGross: roundMoney(summary.invoiceGross + Number(row.invoiceGross || 0)),
     collected: roundMoney(summary.collected + Number(row.collected || 0)),
     receivable: roundMoney(summary.receivable + Number(row.receivable || 0)),
+    netDifference: roundMoney(summary.netDifference + Number(row.netDifference ?? ((Number(row.invoiceNet || 0)) - Number(row.actualCost || 0)))),
+    projectsWithInvoices: summary.projectsWithInvoices + (Number(row.invoiceCount || 0) > 0 ? 1 : 0),
     productionHours: Math.round((summary.productionHours + row.productionHours) * 100) / 100,
     incompleteMaterialEstimates: summary.incompleteMaterialEstimates + (row.materialEstimateComplete ? 0 : 1)
-  }), { plannedCost: 0, actualCost: 0, estimatedMaterialCost: 0, invoiceNet: 0, invoiceGross: 0, collected: 0, receivable: 0, productionHours: 0, incompleteMaterialEstimates: 0 });
+  }), { plannedCost: 0, actualCost: 0, estimatedMaterialCost: 0, invoiceNet: 0, invoiceGross: 0, collected: 0, receivable: 0, netDifference: 0, projectsWithInvoices: 0, productionHours: 0, incompleteMaterialEstimates: 0 });
 }
