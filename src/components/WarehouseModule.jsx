@@ -279,11 +279,11 @@ function buildCuttingPlan(boardLength, boardWidth, pieces, kerf, trim, allowRota
         note: [cutForm.note.trim(), output.note.trim(), linkedOrder ? 'Radni nalog ' + linkedOrder.id : '', linkedOrder && output.type === 'Gotov komad' ? 'Komad: ' + (linkedOrder.pieces[Number(output.orderPieceIndex)]?.name || '') : '', 'Nastalo pilanjem materijala ' + source.id].filter(Boolean).join(' · ')
       };
     });
-    if (linkedOrder) {
+    {
       try {
         const consumption = createMaterialConsumptionRecord({
           id: 'UT-' + timestamp,
-          orderId: linkedOrder.id,
+          orderId: linkedOrder?.id || 'SKLADIŠTE',
           materialId: source.id,
           materialName: source.name,
           usedQuantity: usedQty,
