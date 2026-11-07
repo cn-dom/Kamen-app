@@ -31,6 +31,11 @@ export default function FinishedProductsModule({ onBack }) {
 
   useEffect(() => { try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items)); } catch { /* Storage unavailable. */ } }, [items]);
   useEffect(() => {
+    const syncStocktake = event => { if (Array.isArray(event.detail)) setItems(event.detail); };
+    window.addEventListener('kamen:finished-products-updated', syncStocktake);
+    return () => window.removeEventListener('kamen:finished-products-updated', syncStocktake);
+  }, []);
+  useEffect(() => {
     const refresh = () => { setOrders(readJson(ORDERS_KEY, [])); setMaterials(readJson(MATERIALS_KEY, [])); };
     window.addEventListener('focus', refresh);
     return () => window.removeEventListener('focus', refresh);
