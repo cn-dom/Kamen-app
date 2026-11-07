@@ -125,7 +125,10 @@ function buildCuttingPlan(boardLength, boardWidth, pieces, kerf, trim, allowRota
   const activeMaterials = materials.filter(item => !item.archived);
   const totalPieces = activeMaterials.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
   const lowStock = activeMaterials.filter(item => item.form !== 'Otpad' && item.quantity <= item.min).length;
-  const remnants = activeMaterials.filter(item => item.form === 'Ostatak').length;
+  const remnantItems = activeMaterials.filter(item => item.form === 'Ostatak');
+  const remnants = remnantItems.length;
+  const remnantValueTotal = remnantItems.reduce((sum, item) => sum + (calculateStockCarryingValue(item) ?? 0), 0);
+  const unpricedRemnants = remnantItems.filter(item => calculateStockCarryingValue(item) === null).length;
   const updateForm = (key, value) => setForm(current => ({ ...current, [key]: value }));
   const updateCutOutput = (id, key, value) => setCutForm(current => ({ ...current, outputs: current.outputs.map(output => output.id === id ? { ...output, [key]: value } : output) }));
   const addCutOutput = () => setCutForm(current => ({ ...current, outputs: [...current.outputs, { ...newOutput(), location: current.outputs[0]?.location || 'Polica O1' }] }));
@@ -444,7 +447,7 @@ function buildCuttingPlan(boardLength, boardWidth, pieces, kerf, trim, allowRota
         <article className="stat-card"><div className="stat-top"><span>Stavke u evidenciji</span><span className="stat-icon blue-icon"><Boxes size={18}/></span></div><div className="stat-value">{materials.length}<span className="stat-unit">stavki</span></div><div className="stat-foot">Materijali, ostaci i otpad</div></article>
         <article className="stat-card"><div className="stat-top"><span>Ukupna količina</span><span className="stat-icon green-icon"><Layers3 size={18}/></span></div><div className="stat-value">{formatQuantity(totalPieces)}<span className="stat-unit">kom / ploča</span></div><div className="stat-foot">Zbroj evidentiranih jedinica</div></article>
         <article className="stat-card"><div className="stat-top"><span>Niska zaliha</span><span className="stat-icon red-icon"><ArrowDownToLine size={18}/></span></div><div className="stat-value">{lowStock}<span className="stat-unit">stavki</span></div><div className="stat-foot">Na ili ispod minimalne količine</div></article>
-        <article className="stat-card"><div className="stat-top"><span>Upotrebljivi ostaci</span><span className="stat-icon violet-icon"><ClipboardCheck size={18}/></span></div><div className="stat-value">{remnants}<span className="stat-unit">stavki</span></div><div className="stat-foot">Odvojeno od punih ploča</div></article>
+        <article className="stat-card"><div className="stat-top"><span>Upotrebljivi ostaci</span><span className="stat-icon violet-icon"><ClipboardCheck size={18}/></span></div><div className="stat-value">{remnants}<span className="stat-unit">stavki</span></div><div className="stat-foot">Vrijednost zalihe: {new Intl.NumberFormat('hr-HR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2 }).format(remnantValueTotal)}{unpricedRemnants ? ' · ' + unpricedRemnants + ' bez nabavne cijene' : ''}</div></article>
       </section>
 
       <section className="panel warehouse-panel">
