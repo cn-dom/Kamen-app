@@ -123,10 +123,20 @@ export default function ProductionModule({ onBack }) {
     if (!window.confirm('Označiti fazu „' + stageName + '” kao nije potrebnu za ovaj komad?')) return;
     updateStage(key, stageName, previous => ({ ...previous, status: 'Nije potrebno', completedAt: new Date().toISOString(), blockedReason: '' }));
   };
-  const resetStage = (key, stageName) => {
+  const resetStage = (key, stageName, orderId) => {
     const stageIndex = stages.indexOf(stageName);
     const affectedStages = stages.slice(stageIndex);
     if (!window.confirm('Vratiti fazu „' + stageName + '” na doradu? Ova i sve sljedeće faze ponovno će se otvoriti; već evidentirani radni intervali i povijest ostaju sačuvani.')) return;
+    const latestOrders = readJson(ORDERS_KEY, orders);
+    const targetOrder = latestOrders.find(order => order.id === orderId);
+    if (targetOrder?.status === 'Završen') {
+      const now = new Date().toISOString();
+      const reopenedOrders = latestOrders.map(order => order.id === orderId
+        ? { ...order, status: 'U tijeku', statusHistory: [...(order.statusHistory || []), { from: 'Završen', to: 'U tijeku', at: now, reason: 'Ponovno otvoren zbog dorade komada' }] }
+        : order);
+      try { window.localStorage.setItem(ORDERS_KEY, JSON.stringify(reopenedOrders)); } catch {}
+      setOrders(reopenedOrders);
+    }
     updateUnit(key, unit => {
       const nextStages = { ...unit.stages };
       const now = new Date().toISOString();
@@ -305,8 +315,8 @@ export default function ProductionModule({ onBack }) {
                             {stage.status === 'U tijeku' && <button className="button button-warning" onClick={() => stopStage(row.key, stageName)}><Pause size={13}/> Zastoj</button>}
                             {stage.status === 'U tijeku' && <button className="button button-success" onClick={() => finishStage(row.key, stageName)}><Check size={13}/> Završi</button>}
                             {stage.status === 'Nije započeto' && <button className="button button-ghost" onClick={() => markNotRequired(row.key, stageName)}>Nije potrebno</button>}
-                            {stage.status === 'Nije potrebno' && <button className="button button-ghost" onClick={() => resetStage(row.key, stageName)}><RotateCcw size={13}/> Vrati fazu</button>}
-                            {stage.status === 'Završeno' && <button className="button button-ghost" onClick={() => resetStage(row.key, stageName)}><RotateCcw size={13}/> Ponovi fazu</button>}
+                            {stage.status === 'Nije potrebno' && <button className="button button-ghost" onClick={() => resetStage(row.key, stageName, row.order.id)}><RotateCcw size={13}/> Vrati fazu</button>}
+                            {stage.status === 'Završeno' && <button className="button button-ghost" onClick={() => resetStage(row.key, stageName, row.order.id)}><RotateCcw size={13}/> Ponovi fazu</button>}
                           </div>
                           <label className="production-note-field"><span>Napomena / detalj obrade</span><textarea value={stage.note || ''} onChange={event => setStageNote(row.key, stageName, event.target.value)} rows="2" placeholder="Npr. granulacija, rub, dimenzija nakon obrade..."/></label>
                           {stage.completedAt && <small className="production-completed-at">Završeno: {formatDate(stage.completedAt)}</small>}
