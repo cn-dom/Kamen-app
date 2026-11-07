@@ -5,7 +5,7 @@ import {
   Bell, Boxes, CalendarDays, Check, CheckCircle2, ChevronDown, ChevronRight,
   CircleHelp, Clock3, Command, Factory, FileText, Filter, Hammer, LayoutDashboard,
   Menu, MoreHorizontal, Package, Plus, Search, Settings2, ShieldCheck,
-  Truck, Users, Wallet, X, HardHat, ClipboardList, Layers3, PackageCheck
+  Truck, Users, Wallet, X, HardHat, ShoppingCart, ClipboardList, Layers3, PackageCheck
 } from 'lucide-react';
 import './styles.css';
 import { resetDemoDataOnce } from './lib/resetDemoData.js';
@@ -19,6 +19,7 @@ const nav = [
   {label:'Radni nalozi', icon:ClipboardList},
   {label:'Proizvodnja', icon:Factory},
   {label:'Raspored', icon:CalendarDays},
+  {label:'Nabava', icon:ShoppingCart},
   {label:'Skladište', icon:Boxes},
   {label:'Terenski rad', icon:Truck},
   {label:'Kupci', icon:Users},
