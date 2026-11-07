@@ -103,6 +103,15 @@ Svi scenariji su kriteriji koje će aplikacija morati zadovoljiti. Njihovo navo�
 **Koraci:** Potrošiti cijelu količinu proizvoda prodajom ili ugradnjom, zatim pokušati promijeniti status natrag na Na zalihi.
 **Očekivano:** Zatvorena stavka ne vraća automatski početnu količinu. Povrat ili korekcija mora biti zasebna kontrolirana skladišna operacija.
 
+
+### INV-009 — povrat zatvorenog gotovog proizvoda
+**Koraci:** Prodati cijelu količinu proizvoda, zatim evidentirati povrat dijela količine uz obvezan razlog.
+**Očekivano:** Vraćena količina ponovno je na zalihi, stavka se otvara kao Na zalihi, a povrat ostaje zaseban događaj s razlogom i vremenom.
+
+### INV-010 — korekcija zalihe s razlogom
+**Koraci:** Povećati pa umanjiti zalihu gotovog proizvoda korekcijom. Pokušati potvrditi korekciju bez razloga i umanjiti zalihu ispod nule.
+**Očekivano:** Korekcija bez razloga i umanjenje veće od raspoložive količine odbijaju se. Potvrđena korekcija mijenja samo unesenu količinu i bilježi predznak, razlog, proizvod i vrijeme.
+
 ## F. Troškovi i izvještaji
 
 ### FIN-001 — planirano nasuprot stvarnom

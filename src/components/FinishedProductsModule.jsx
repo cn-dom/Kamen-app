@@ -27,6 +27,7 @@ export default function FinishedProductsModule({ onBack }) {
   const [stockAction, setStockAction] = useState(null);
   const [actionQuantity, setActionQuantity] = useState('1');
   const [actionError, setActionError] = useState('');
+  const [actionReason, setActionReason] = useState('');
 
   useEffect(() => { try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items)); } catch { /* Storage unavailable. */ } }, [items]);
   useEffect(() => {
@@ -78,9 +79,10 @@ export default function FinishedProductsModule({ onBack }) {
     setItems(current => current.map(row => row.id === id ? { ...row, status, updatedAt: new Date().toISOString() } : row));
   };
 
-  const openStockAction = (item, kind) => {
-    setStockAction({ id: item.id, kind });
+  const openStockAction = (item, kind, direction = null) => {
+    setStockAction({ id: item.id, kind, direction });
     setActionQuantity('1');
+    setActionReason('');
     setActionError('');
   };
 
@@ -89,34 +91,50 @@ export default function FinishedProductsModule({ onBack }) {
     const item = items.find(row => row.id === stockAction?.id);
     const quantity = Number(actionQuantity);
     const available = item ? Number(item.stockQuantity ?? item.quantity) : 0;
+    const isAdjustment = ['Povrat', 'Korekcija'].includes(stockAction?.kind);
+    const isDecrease = isAdjustment && stockAction.direction === 'minus';
+    const isInstall = stockAction?.kind === 'Ugradnja';
+    const isSale = stockAction?.kind === 'Prodaja';
     const wholeUnit = item && ['kom', 'par', 'set'].includes(item.unit);
-    if (!item || !Number.isFinite(quantity) || quantity <= 0 || quantity > available || (wholeUnit && !Number.isInteger(quantity))) {
-      setActionError(wholeUnit ? 'Unesi cijeli broj koji nije veći od raspoložive količine.' : 'Unesi količinu veću od nule i ne veću od raspoložive zalihe.');
+    const exceedsStock = (isSale || isInstall || isDecrease) && quantity > available;
+    if (!item || !Number.isFinite(quantity) || quantity <= 0 || exceedsStock || (wholeUnit && !Number.isInteger(quantity))) {
+      setActionError(wholeUnit ? 'Unesi cijeli broj koji nije veći od raspoložive količine.' : 'Unesi valjanu količinu; kod izdavanja ili umanjenja ne može biti veća od raspoložive zalihe.');
       return;
     }
-    const remaining = Math.max(0, Number((available - quantity).toFixed(4)));
+    if (isAdjustment && !actionReason.trim()) {
+      setActionError('Za povrat ili korekciju obavezno upiši razlog.');
+      return;
+    }
+    const delta = isAdjustment ? (isDecrease ? -quantity : quantity) : -quantity;
+    const remaining = Math.max(0, Number((available + delta).toFixed(4)));
     const timestamp = new Date().toISOString();
-    const isInstall = stockAction.kind === 'Ugradnja';
-    const transaction = { id: item.id + '-' + timestamp, kind: stockAction.kind, quantity, date: timestamp };
+    const kind = isAdjustment
+      ? (stockAction.kind === 'Povrat' ? 'Povrat gotovog proizvoda' : (isDecrease ? 'Korekcija zalihe (-)' : 'Korekcija zalihe (+)'))
+      : stockAction.kind;
+    const transaction = { id: item.id + '-' + timestamp, kind, quantity: isAdjustment ? delta : quantity, reason: actionReason.trim(), date: timestamp };
+    const wasClosed = ['Ugrađen', 'Prodano'].includes(item.status);
     setItems(current => current.map(row => row.id !== item.id ? row : {
       ...row,
       stockQuantity: remaining,
-      status: remaining === 0 ? (isInstall ? 'Ugrađen' : 'Prodano') : row.status,
+      status: remaining === 0 && (isSale || isInstall)
+        ? (isInstall ? 'Ugrađen' : 'Prodano')
+        : (wasClosed && isAdjustment && remaining > 0 ? 'Na zalihi' : row.status),
       installedQuantity: Number(row.installedQuantity || 0) + (isInstall ? quantity : 0),
-      soldQuantity: Number(row.soldQuantity || 0) + (isInstall ? 0 : quantity),
+      soldQuantity: Number(row.soldQuantity || 0) + (isSale ? quantity : 0),
       transactions: [...(row.transactions || []), transaction],
       updatedAt: timestamp
     }));
     try {
       const movements = readJson(MOVEMENTS_KEY, []);
       window.localStorage.setItem(MOVEMENTS_KEY, JSON.stringify([{
-        id: transaction.id, material: item.name, kind: isInstall ? 'Ugradnja' : 'Prodaja', quantity,
-        location: item.location || '', date: new Date(timestamp).toLocaleDateString('hr-HR'),
+        id: transaction.id, material: item.name, kind, quantity: transaction.quantity,
+        reason: actionReason.trim(), location: item.location || '', date: new Date(timestamp).toLocaleDateString('hr-HR'),
         productId: item.id, orderId: item.orderId || ''
       }, ...movements].slice(0, 100)));
     } catch { /* The product balance is saved independently; local movement history may be unavailable. */ }
     setStockAction(null);
     setActionError('');
+    setActionReason('');
   };
   const availableQuantity = item => Number(item.stockQuantity ?? ((item.status === 'Ugrađen' || item.status === 'Prodano') ? 0 : item.quantity));
   const count = status => items.filter(item => item.status === status).reduce((sum, item) => sum + availableQuantity(item), 0);
@@ -156,6 +174,9 @@ export default function FinishedProductsModule({ onBack }) {
               <div className="finished-stock-action-buttons">
                 <button type="button" className="button button-secondary" disabled={availableQuantity(item) <= 0} onClick={() => openStockAction(item, 'Prodaja')}>Evidentiraj prodaju</button>
                 <button type="button" className="button button-primary" disabled={availableQuantity(item) <= 0} onClick={() => openStockAction(item, 'Ugradnja')}>Evidentiraj ugradnju</button>
+                <button type="button" className="button button-secondary" onClick={() => openStockAction(item, 'Povrat')}>Povrat u zalihu</button>
+                <button type="button" className="button button-secondary" onClick={() => openStockAction(item, 'Korekcija', 'plus')}>Korekcija +</button>
+                <button type="button" className="button button-secondary" disabled={availableQuantity(item) <= 0} onClick={() => openStockAction(item, 'Korekcija', 'minus')}>Korekcija −</button>
               </div>
               {(Number(item.soldQuantity || 0) > 0 || Number(item.installedQuantity || 0) > 0) && <small className="finished-product-note">Prodano: {Number(item.soldQuantity || 0)} · Ugrađeno: {Number(item.installedQuantity || 0)}</small>}
             </div>
@@ -187,14 +208,15 @@ export default function FinishedProductsModule({ onBack }) {
     </section></div>}
     {stockAction && <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setStockAction(null); }}>
       <section className="modal finished-product-modal stock-action-modal" role="dialog" aria-modal="true" aria-labelledby="stock-action-title">
-        <div className="modal-head"><div><span className="modal-kicker">PROMJENA ZALIHE</span><h2 id="stock-action-title">{stockAction.kind === 'Ugradnja' ? 'Evidentiraj ugradnju' : 'Evidentiraj prodaju'}</h2><p>{items.find(item => item.id === stockAction.id)?.name} · raspoloživo {availableQuantity(items.find(item => item.id === stockAction.id) || {})}</p></div><button className="icon-button" type="button" onClick={() => setStockAction(null)} aria-label="Zatvori"><X size={19}/></button></div>
+        <div className="modal-head"><div><span className="modal-kicker">PROMJENA ZALIHE · KONTROLIRANA EVIDENCIJA</span><h2 id="stock-action-title">{stockAction.kind === 'Ugradnja' ? 'Evidentiraj ugradnju' : stockAction.kind === 'Prodaja' ? 'Evidentiraj prodaju' : stockAction.kind === 'Povrat' ? 'Povrat u zalihu' : 'Korekcija zalihe'}</h2><p>{items.find(item => item.id === stockAction.id)?.name} · raspoloživo {availableQuantity(items.find(item => item.id === stockAction.id) || {})}</p></div><button className="icon-button" type="button" onClick={() => setStockAction(null)} aria-label="Zatvori"><X size={19}/></button></div>
         <form onSubmit={confirmStockAction}>
-          <label>Količina {items.find(item => item.id === stockAction.id)?.unit || ''} *
-            <input autoFocus type="number" min="0.01" step={['kom', 'par', 'set'].includes(items.find(item => item.id === stockAction.id)?.unit) ? '1' : '0.01'} max={availableQuantity(items.find(item => item.id === stockAction.id) || {})} value={actionQuantity} onChange={e => setActionQuantity(e.target.value)} required/>
+          <label>{stockAction.kind === 'Korekcija' ? (stockAction.direction === 'minus' ? 'Umanji zalihu za' : 'Povećaj zalihu za') : stockAction.kind === 'Povrat' ? 'Vrati na zalihu' : 'Količina'} {items.find(item => item.id === stockAction.id)?.unit || ''} *
+            <input autoFocus type="number" min="0.01" step={['kom', 'par', 'set'].includes(items.find(item => item.id === stockAction.id)?.unit) ? '1' : '0.01'} max={['Prodaja', 'Ugradnja'].includes(stockAction.kind) || (stockAction.kind === 'Korekcija' && stockAction.direction === 'minus') ? availableQuantity(items.find(item => item.id === stockAction.id) || {}) : undefined} value={actionQuantity} onChange={e => setActionQuantity(e.target.value)} required/>
           </label>
-          <p className="field-hint">Skida se samo unesena količina. Ostatak ostaje na zalihi; status se zatvara tek kada raspoloživa količina dosegne nulu.</p>
+          {['Povrat', 'Korekcija'].includes(stockAction.kind) && <label>Razlog promjene *<textarea rows="3" value={actionReason} onChange={e => setActionReason(e.target.value)} placeholder={stockAction.kind === 'Povrat' ? 'Npr. kupac vratio nepreuzeti element...' : 'Npr. inventurna razlika, pogrešno evidentirana količina...'} required/></label>}
+          <p className="field-hint">{stockAction.kind === 'Povrat' ? 'Povrat povećava zalihu. Ako je proizvod bio zatvoren, ponovno se otvara kao Na zalihi.' : stockAction.kind === 'Korekcija' ? 'Korekcija mijenja zalihu za unesenu količinu. Razlog se obvezno sprema u povijest.' : 'Skida se samo unesena količina. Ostatak ostaje na zalihi; status se zatvara tek kada raspoloživa količina dosegne nulu.'}</p>
           {actionError && <p className="workorders-error">{actionError}</p>}
-          <div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setStockAction(null)}>Odustani</button><button type="submit" className="button button-primary">Potvrdi {stockAction.kind === 'Ugradnja' ? 'ugradnju' : 'prodaju'}</button></div>
+          <div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setStockAction(null)}>Odustani</button><button type="submit" className="button button-primary">Potvrdi promjenu</button></div>
         </form>
       </section>
     </div>}
