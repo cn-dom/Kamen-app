@@ -77,3 +77,10 @@ Otpremnica se izrađuje iz prihvaćene ponude, omogućuje djelomičnu isporuku p
 Pri izradi otpremnice svaka stavka može se povezati s odgovarajućim gotovim proizvodom. Za povezane stavke sustav provjerava raspoloživu količinu, umanjuje zalihu gotovih proizvoda i zapisuje transakciju na kartici proizvoda te skladišno kretanje s brojem otpremnice. Stavke bez povezanog proizvoda (npr. rad, montaža ili prijevoz) ne mijenjaju zalihu. Ista otpremnica ne može se dvaput proknjižiti.
 
 **Ograničenja:** ovo je interna evidencija, a ne fiskalizirani račun, eRačun ili knjigovodstvena evidencija. Isporuka ne skida sirovi materijal; umanjuje samo izričito povezanu zalihu gotovih proizvoda. Podaci se spremaju lokalno u preglednik.
+
+
+## Servis i reklamacije
+
+Modul **Servis i reklamacije** vodi reklamacije, jamstvene i plaćene servise te redovne preglede. Servisni nalog može se povezati s kupcem iz imenika ili ručno unesenim kupcem te s izvornim radnim nalogom. Evidentiraju se datum prijave, rok, rok jamstva, prioritet, odgovorna osoba, opis problema, rezultat zahvata i kronološka povijest promjena. Fotografije prije i poslije mogu se dodavati i nakon otvaranja naloga (do 1,5 MB po fotografiji). Trošak se računa iz dijelova, sati rada i cijene sata, puta i ostalih troškova. Završetak zahtijeva evidentiran rezultat servisa. Podaci i fotografije uključeni su u JSON sigurnosnu kopiju.
+
+**Ograničenja:** evidencija se sprema lokalno u preglednik; nije sustav za automatsku naplatu jamstvenih zahtjeva ni službeno izdavanje računa. Fotografije povećavaju veličinu lokalne pohrane i sigurnosne kopije.
