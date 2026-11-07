@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import FinishedProductsModule from './FinishedProductsModule.jsx';
+import StocktakeModule from './StocktakeModule.jsx';
 import { ArrowDownToLine, ArrowUpFromLine, Boxes, Check, ChevronDown, ClipboardCheck, Layers3, Plus, Search, Scissors, X, Pencil, Trash2 } from 'lucide-react';
 
 const seedMaterials = [];
@@ -326,7 +327,33 @@ function buildCuttingPlan(boardLength, boardWidth, pieces, kerf, trim, allowRota
     flash(movement.kind + ' je evidentirano u oglednom prikazu.');
   }
 
-  if (!productionMode && warehouseTab === 'finished') return <div className="page-content module-page warehouse-page"><div className="warehouse-subnav"><button className="warehouse-subnav-item" onClick={() => setWarehouseTab('materials')}><Boxes size={16}/> Materijali i zalihe</button><button className="warehouse-subnav-item active" onClick={() => setWarehouseTab('finished')}><Layers3 size={16}/> Gotovi proizvodi</button></div><FinishedProductsModule onBack={() => setWarehouseTab('materials')} /></div>;
+  function applyStocktake(differences) {
+    const timestamp = Date.now();
+    const date = new Date().toLocaleDateString('hr-HR');
+    const byId = new Map(differences.map(row => [row.materialId, row]));
+    setMaterials(current => current.map(item => byId.has(item.id) ? { ...item, quantity: Number(byId.get(item.id).countedQuantity) } : item));
+    if (differences.length) setMovements(current => [
+      ...differences.map((row, index) => ({
+        id: timestamp + index,
+        material: row.name,
+        kind: row.difference > 0 ? 'Inventurna korekcija +' : 'Inventurna korekcija −',
+        quantity: Math.abs(row.difference),
+        location: row.location,
+        reason: row.reason,
+        date
+      })),
+      ...current
+    ].slice(0, 100));
+  }
+
+  const warehouseSubnav = <div className="warehouse-subnav">
+    <button className={'warehouse-subnav-item ' + (warehouseTab === 'materials' ? 'active' : '')} onClick={() => setWarehouseTab('materials')}><Boxes size={16}/> Materijali i zalihe</button>
+    <button className={'warehouse-subnav-item ' + (warehouseTab === 'finished' ? 'active' : '')} onClick={() => setWarehouseTab('finished')}><Layers3 size={16}/> Gotovi proizvodi</button>
+    <button className={'warehouse-subnav-item ' + (warehouseTab === 'stocktake' ? 'active' : '')} onClick={() => setWarehouseTab('stocktake')}><ClipboardCheck size={16}/> Inventura</button>
+  </div>;
+
+  if (!productionMode && warehouseTab === 'finished') return <div className="page-content module-page warehouse-page">{warehouseSubnav}<FinishedProductsModule onBack={() => setWarehouseTab('materials')} /></div>;
+  if (!productionMode && warehouseTab === 'stocktake') return <div className="page-content module-page warehouse-page">{warehouseSubnav}<StocktakeModule materials={materials} onApply={applyStocktake} /></div>;
 
   return (
     <div className="page-content module-page warehouse-page">
@@ -335,7 +362,7 @@ function buildCuttingPlan(boardLength, boardWidth, pieces, kerf, trim, allowRota
         <div className="welcome-actions"><button className="button button-secondary" onClick={onBack}>← Povratak na pregled</button><button className="button button-secondary" onClick={() => setShowCut(true)}><Scissors size={16}/> {productionMode ? 'Novi nalog za pilanje' : 'Evidentiraj pilanje'}</button><button className="button button-primary" onClick={() => setShowForm(true)}><Plus size={16}/> Novi materijal</button></div>
       </section>
 
-      {!productionMode && <div className="warehouse-subnav"><button className="warehouse-subnav-item active" onClick={() => setWarehouseTab('materials')}><Boxes size={16}/> Materijali i zalihe</button><button className="warehouse-subnav-item" onClick={() => setWarehouseTab('finished')}><Layers3 size={16}/> Gotovi proizvodi</button></div>}
+      {!productionMode && warehouseSubnav}
 
       <section className="stats-grid warehouse-stats">
         <article className="stat-card"><div className="stat-top"><span>Stavke u evidenciji</span><span className="stat-icon blue-icon"><Boxes size={18}/></span></div><div className="stat-value">{materials.length}<span className="stat-unit">stavki</span></div><div className="stat-foot">Materijali, ostaci i otpad</div></article>
