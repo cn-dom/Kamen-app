@@ -453,3 +453,17 @@ button:active { transform: translateY(1px); }
 .cutting-board-preview text{font-size:3px;fill:#17396f;font-weight:700}
 .cutting-plan-warning{padding:10px 12px;border-radius:9px;background:#fff5e8;border:1px solid #f1d6aa;color:#8a5a16;font-size:11px;margin-top:10px}
 @media(max-width:620px){.cutting-planner{padding:13px}.cutting-plan-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.cutting-plan-summary strong{font-size:16px}.cutting-board-label{align-items:flex-start;flex-direction:column;gap:3px}}
+
+
+/* Djelomična prodaja i ugradnja gotovih proizvoda */
+.finished-stock-actions { display: grid; gap: 10px; margin-top: 14px; }
+.finished-stock-action-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.finished-stock-action-buttons .button { flex: 1 1 140px; justify-content: center; }
+.finished-stock-action-buttons .button:disabled { opacity: .45; cursor: not-allowed; }
+.finished-stock-actions .finished-status-control { margin: 0; }
+.finished-stock-actions .finished-product-note { display: block; margin: 0; }
+.stock-action-modal .field-hint { margin: 8px 0 14px; color: var(--text-muted, #788397); font-size: .86rem; line-height: 1.5; }
+@media (max-width: 560px) {
+  .finished-stock-action-buttons { display: grid; grid-template-columns: 1fr; }
+  .finished-stock-action-buttons .button { width: 100%; }
+}

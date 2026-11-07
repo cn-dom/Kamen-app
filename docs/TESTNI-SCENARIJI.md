@@ -87,6 +87,22 @@ Svi scenariji su kriteriji koje će aplikacija morati zadovoljiti. Njihovo navo�
 **Koraci:** Dodati fotografije prije i nakon montaže. Pokušati ih otvoriti iz druge tvrtke.  
 **Očekivano:** Fotografije su povezane s pravim projektom i nisu javno dostupne niti dostupne drugoj tvrtki.
 
+### FLD-004 — završetak terenskog naloga ne mijenja automatski zalihu
+**Koraci:** Povezati terenski nalog s radnim nalogom koji ima više gotovih proizvoda. Označiti terenski nalog kao završen bez evidentiranja stvarno ugrađenih količina.
+**Očekivano:** Status terenskog naloga se mijenja, ali se količine gotovih proizvoda ne mijenjaju. Ugradnja se evidentira zasebno po proizvodu i količini.
+
+### INV-006 — djelomična prodaja gotovog proizvoda
+**Koraci:** Na zalihu unijeti 10 komada. Evidentirati prodaju 3 komada, zatim još 2 komada.
+**Očekivano:** Nakon prve radnje ostaje 7, nakon druge 5 komada. Svaka radnja stvara zaseban zapis kretanja; status proizvoda ostaje otvoren dok ima zalihe.
+
+### INV-007 — djelomična ugradnja i zaštita od prekomjerne količine
+**Koraci:** Na zalihu unijeti 4 komada. Evidentirati ugradnju 1 komada, zatim pokušati ugraditi 4 komada.
+**Očekivano:** Nakon prve radnje ostaju 3 komada. Druga radnja se odbija jer tražena količina prelazi raspoloživu zalihu. Kada se ugradi posljednji komad, status postaje Ugrađen.
+
+### INV-008 — zatvorena stavka ne vraća se promjenom statusa
+**Koraci:** Potrošiti cijelu količinu proizvoda prodajom ili ugradnjom, zatim pokušati promijeniti status natrag na Na zalihi.
+**Očekivano:** Zatvorena stavka ne vraća automatski početnu količinu. Povrat ili korekcija mora biti zasebna kontrolirana skladišna operacija.
+
 ## F. Troškovi i izvještaji
 
 ### FIN-001 — planirano nasuprot stvarnom
