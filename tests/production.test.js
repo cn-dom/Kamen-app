@@ -56,3 +56,11 @@ test('napredak komada broji završene i nepotrebne faze, ali ne aktivne', () => 
   } };
   assert.equal(calculatePieceProgress(record), 50);
 });
+
+test('migracija prenosi završenu staru fazu završne kontrole', () => {
+  const migrated = normalizeProductionRecords({
+    'RN-004': { 'Završna kontrola': 'Završeno', updatedAt: '2026-01-02T12:00:00.000Z' }
+  }, [{ id: 'RN-004', pieces: [{ name: 'Spomenik', quantity: 1 }] }]);
+  assert.equal(migrated.pieces['RN-004::0::1'].quality.status, 'Prošlo');
+  assert.equal(migrated.pieces['RN-004::0::1'].quality.checkedAt, '2026-01-02T12:00:00.000Z');
+});
