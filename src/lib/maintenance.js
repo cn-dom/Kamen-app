@@ -18,9 +18,10 @@ export function maintenanceDue(machine = {}, today = new Date().toISOString().sl
 }
 
 
+const localDateKey = date => [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
 const validDate = value => typeof value === 'string' && /^\\d{4}-\\d{2}-\\d{2}$/.test(value) && !Number.isNaN(new Date(value + 'T12:00:00').getTime());
 
-export function dashboardOperationalAlerts(machines = [], orders = [], today = new Date().toISOString().slice(0, 10)) {
+export function dashboardOperationalAlerts(machines = [], orders = [], today = localDateKey(new Date())) {
   const alerts = [];
   for (const machine of Array.isArray(machines) ? machines : []) {
     if (!machine || machine.archived) continue;
