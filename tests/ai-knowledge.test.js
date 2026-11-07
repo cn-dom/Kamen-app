@@ -54,3 +54,11 @@ test('Kamen AI pravila pokrivaju stvarni primjer Impala vertikala', () => {
   assert.match(prompt, /TUMAČI KRATKE POTVRDE/);
   assert.match(prompt, /ne pitaj je li debljina 3 cm/i);
 });
+
+
+test('Kamen AI zatvara razjašnjavanje kada su svi podaci narudžbe već poznati', () => {
+  assert.match(KAMEN_AI_DOMAIN_PROMPT, /ZATVORI RAZJAŠNJAVANJE ČIM JE NARUDŽBA POTPUNA/);
+  assert.match(KAMEN_AI_DOMAIN_PROMPT, /ne postavljaj više nikakva dodatna tehnička pitanja/);
+  assert.match(KAMEN_AI_DOMAIN_PROMPT, /KRATKA POTVRDA NIJE NOVI ZAHTJEV ZA POTVRĐIVANJEM/);
+  assert.match(KAMEN_AI_DOMAIN_PROMPT, /odgovori bez pitanja/);
+});
