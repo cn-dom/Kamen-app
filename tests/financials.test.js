@@ -46,7 +46,7 @@ test('sažima financijske pokazatelje više projekata', () => {
     { plannedCost: 100, actualCost: 80, estimatedMaterialCost: 40, productionHours: 2, materialEstimateComplete: true },
     { plannedCost: 50, actualCost: 60, estimatedMaterialCost: null, productionHours: 1.5, materialEstimateComplete: false }
   ]);
-  assert.deepEqual(summary, { plannedCost: 150, actualCost: 140, estimatedMaterialCost: 40, invoiceNet: 0, invoiceGross: 0, collected: 0, receivable: 0, productionHours: 3.5, incompleteMaterialEstimates: 1 });
+  assert.deepEqual(summary, { plannedCost: 150, actualCost: 140, estimatedMaterialCost: 40, invoiceNet: 0, invoiceGross: 0, collected: 0, receivable: 0, netDifference: 0, projectsWithInvoices: 0, productionHours: 3.5, incompleteMaterialEstimates: 1 });
 });
 
 test('prepoznaje kategoriju rada i u starijem zapisu', () => {
@@ -74,4 +74,34 @@ test('povezuje izdane račune i stvarne uplate s radnim nalogom', () => {
   assert.equal(result.invoiceGross, 375);
   assert.equal(result.collected, 225);
   assert.equal(result.receivable, 150);
+  assert.equal(result.netDifference, 300);
+});
+
+
+test('izračunava neto razliku po projektu bez dvostrukog uračunavanja procjene materijala', () => {
+  const result = calculateOrderFinancials(
+    { id: 'RN-006', estimatedMaterialCost: 120, pieces: [] },
+    [{ orderId: 'RN-006', kind: 'Stvarni trošak', amount: 180, categories: ['Rad', 'Prijevoz'] }],
+    { pieces: {} },
+    Date.now(),
+    [{ id: 'R-6', orderId: 'RN-006', netTotal: 500, grossTotal: 625 }],
+    [{ invoiceId: 'R-6', amount: 300 }]
+  );
+  assert.equal(result.invoiceNet, 500);
+  assert.equal(result.actualCost, 180);
+  assert.equal(result.estimatedMaterialCost, 120);
+  assert.equal(result.netDifference, 320);
+  assert.equal(result.receivable, 325);
+});
+
+test('neto razlika može biti negativna kada su evidentirani troškovi veći od neto računa', () => {
+  const result = calculateOrderFinancials(
+    { id: 'RN-007', pieces: [] },
+    [{ orderId: 'RN-007', kind: 'Stvarni trošak', amount: 450 }],
+    { pieces: {} },
+    Date.now(),
+    [{ id: 'R-7', orderId: 'RN-007', netTotal: 300, grossTotal: 375 }],
+    []
+  );
+  assert.equal(result.netDifference, -150);
 });
