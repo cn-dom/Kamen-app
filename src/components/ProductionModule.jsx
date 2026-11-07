@@ -84,7 +84,7 @@ export default function ProductionModule({ onBack }) {
     if (currentStage.status === 'Završeno' || currentStage.status === 'Nije potrebno' || currentStage.status === 'U tijeku') return;
     if (!String(currentStage.assignedTo || '').trim()) { window.alert('Prije početka faze odaberi ili upiši odgovornog radnika.'); return; }
     const stageIndex = stages.indexOf(stageName);
-    if (currentStage.status !== 'Zastoj' && stages.slice(0, stageIndex).some(previousStage => !['Završeno', 'Nije potrebno'].includes(unit.stages?.[previousStage]?.status))) {
+    if (stages.slice(0, stageIndex).some(previousStage => !['Završeno', 'Nije potrebno'].includes(unit.stages?.[previousStage]?.status))) {
       window.alert('Najprije završi prethodnu fazu obrade ili je označi kao nije potrebnu.');
       return;
     }
@@ -121,18 +121,38 @@ export default function ProductionModule({ onBack }) {
     updateStage(key, stageName, previous => ({ ...previous, status: 'Nije potrebno', completedAt: new Date().toISOString(), blockedReason: '' }));
   };
   const resetStage = (key, stageName) => {
-    if (!window.confirm('Vratiti fazu „' + stageName + '” na početak? Povijest promjena ostaje sačuvana, a završna kontrola ponovno čeka provjeru.')) return;
+    const stageIndex = stages.indexOf(stageName);
+    const affectedStages = stages.slice(stageIndex);
+    if (!window.confirm('Vratiti fazu „' + stageName + '” na doradu? Ova i sve sljedeće faze ponovno će se otvoriti; već evidentirani radni intervali i povijest ostaju sačuvani.')) return;
     updateUnit(key, unit => {
-      const previous = unit.stages?.[stageName] || blankStage();
-      const nextStage = { ...blankStage(), assignedTo: previous.assignedTo, history: [...(previous.history || []), { from: previous.status, to: 'Nije započeto', at: new Date().toISOString(), reason: 'Ručno vraćanje faze' }] };
+      const nextStages = { ...unit.stages };
+      const now = new Date().toISOString();
+      affectedStages.forEach(affectedName => {
+        const previous = nextStages[affectedName] || blankStage();
+        const sessions = [...(previous.sessions || [])];
+        let open = sessions.length - 1;
+        while (open >= 0 && sessions[open].endedAt) open -= 1;
+        if (open >= 0) sessions[open] = { ...sessions[open], endedAt: now };
+        if (previous.status !== 'Nije započeto') {
+          nextStages[affectedName] = {
+            ...previous, status: 'Nije započeto', completedAt: null, blockedReason: '', sessions,
+            history: [...(previous.history || []), { from: previous.status, to: 'Nije započeto', at: now, reason: 'Ponovno otvaranje zbog dorade prethodne faze' }]
+          };
+        }
+      });
       const quality = unit.quality?.status !== 'Čeka kontrolu'
-        ? { ...unit.quality, status: 'Čeka kontrolu', checkedAt: null, history: [...(unit.quality.history || []), { status: 'Čeka kontrolu', at: new Date().toISOString(), note: 'Ponovno otvorena nakon vraćanja faze na doradu' }] }
+        ? { ...unit.quality, status: 'Čeka kontrolu', checkedAt: null, history: [...(unit.quality.history || []), { status: 'Čeka kontrolu', at: now, note: 'Ponovno otvorena nakon vraćanja faze na doradu' }] }
         : unit.quality;
-      return { ...unit, stages: { ...unit.stages, [stageName]: nextStage }, quality };
+      return { ...unit, stages: nextStages, quality };
     });
   };
   const updateQuality = (key, status) => {
-    const currentQuality = records.pieces?.[key]?.quality || blankUnit().quality;
+    const currentUnit = records.pieces?.[key] || blankUnit();
+    const currentQuality = currentUnit.quality || blankUnit().quality;
+    if (status !== 'Čeka kontrolu' && !stages.every(stageName => ['Završeno', 'Nije potrebno'].includes(currentUnit.stages?.[stageName]?.status))) {
+      window.alert('Kontrola kvalitete može se potvrditi tek nakon završetka svih potrebnih faza.');
+      return;
+    }
     if (status !== 'Čeka kontrolu' && !String(currentQuality.checkedBy || '').trim()) {
       window.alert('Prije potvrde kontrole upiši ime osobe koja je obavila kontrolu.');
       return;
@@ -278,7 +298,7 @@ export default function ProductionModule({ onBack }) {
                           {stage.status === 'Zastoj' && <p className="production-block-reason"><AlertTriangle size={13}/>{stage.blockedReason}</p>}
                           {stage.note && <p className="production-stage-note">{stage.note}</p>}
                           <div className="production-stage-actions">
-                            {stage.status !== 'Završeno' && stage.status !== 'Nije potrebno' && <button className="button button-primary" onClick={() => startStage(row.key, stageName)}><Play size={13}/>{stage.status === 'U tijeku' ? 'U tijeku' : 'Pokreni / nastavi'}</button>}
+                            {stage.status !== 'Završeno' && stage.status !== 'Nije potrebno' && stage.status !== 'U tijeku' && <button className="button button-primary" onClick={() => startStage(row.key, stageName)}><Play size={13}/>{stage.status === 'U tijeku' ? 'U tijeku' : 'Pokreni / nastavi'}</button>}
                             {stage.status === 'U tijeku' && <button className="button button-warning" onClick={() => stopStage(row.key, stageName)}><Pause size={13}/> Zastoj</button>}
                             {stage.status === 'U tijeku' && <button className="button button-success" onClick={() => finishStage(row.key, stageName)}><Check size={13}/> Završi</button>}
                             {stage.status === 'Nije započeto' && <button className="button button-ghost" onClick={() => markNotRequired(row.key, stageName)}>Nije potrebno</button>}
