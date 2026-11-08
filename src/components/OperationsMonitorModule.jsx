@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Activity, AlertTriangle, CheckCircle2, Clock3, Factory, Users, ArrowRight } from 'lucide-react';
+import { Activity, CheckCircle2, Clock3, Factory, Users, ArrowRight, UserCheck, UserX } from 'lucide-react';
 import { analyzeWorkshopCapacity } from '../lib/workshopMonitor.js';
 
 const read = (key, fallback) => { try { const value = JSON.parse(window.localStorage.getItem(key) || 'null'); return value ?? fallback; } catch { return fallback; } };
@@ -34,7 +34,7 @@ export default function OperationsMonitorModule({ onBack }) {
       <div>
         <div className="eyebrow"><span className="live-dot"/> PAMETNI NADZOR RADIONICE</div>
         <h1>AI nadzor poslovanja</h1>
-        <p className="subtitle">Pozadinsko praćenje proizvodnje, opterećenja faza i raspoloživosti evidentiranih radnika.</p>
+        <p className="subtitle">Pozadinsko praćenje proizvodnje, opterećenja faza i današnje prisutnosti radnika.</p>
       </div>
       <div className="welcome-actions">
         <button className="button button-secondary" onClick={onBack}>← Pregled</button>
@@ -43,19 +43,19 @@ export default function OperationsMonitorModule({ onBack }) {
     </section>
 
     <section className="stats-grid" aria-label="Pokazatelji radionice">
-      <article className="stat-card"><div className="stat-top"><span>Evidentirani radnici</span><span className="stat-icon blue-icon"><Users size={18}/></span></div><div className="stat-value">{report.workers.length}<span className="stat-unit">osoba</span></div><div className="stat-foot"><span>Popis iz modula Proizvodnja</span></div></article>
-      <article className="stat-card"><div className="stat-top"><span>Radnici na aktivnom poslu</span><span className="stat-icon purple-icon"><Factory size={18}/></span></div><div className="stat-value">{report.activeWorkers}<span className="stat-unit">osoba</span></div><div className="stat-foot"><span>Prema aktivnim dodjelama faza</span></div></article>
-      <article className="stat-card"><div className="stat-top"><span>Bez aktivne dodjele</span><span className="stat-icon amber-icon"><Clock3 size={18}/></span></div><div className="stat-value">{report.idleWorkers.length}<span className="stat-unit">osoba</span></div><div className="stat-foot"><span>Provjeriti raspored i sljedeće zadatke</span></div></article>
+      <article className="stat-card"><div className="stat-top"><span>Radnici danas prisutni</span><span className="stat-icon blue-icon"><UserCheck size={18}/></span></div><div className="stat-value">{report.presentWorkers.length}<span className="stat-unit">osoba</span></div><div className="stat-foot"><span>{report.unrecordedWorkers.length} bez evidencije · {report.absentWorkers.length} odsutno</span></div></article>
+      <article className="stat-card"><div className="stat-top"><span>Na aktivnom poslu</span><span className="stat-icon purple-icon"><Factory size={18}/></span></div><div className="stat-value">{report.activeWorkers}<span className="stat-unit">osoba</span></div><div className="stat-foot"><span>Prema aktivnim dodjelama faza</span></div></article>
+      <article className="stat-card"><div className="stat-top"><span>Prisutni bez dodjele</span><span className="stat-icon amber-icon"><Clock3 size={18}/></span></div><div className="stat-value">{report.idleWorkers.length}<span className="stat-unit">osoba</span></div><div className="stat-foot"><span>Provjeriti raspored i sljedeće zadatke</span></div></article>
       <article className="stat-card"><div className="stat-top"><span>Komadi u aktivnim nalozima</span><span className="stat-icon green-icon"><Activity size={18}/></span></div><div className="stat-value">{report.summary.activePieces}<span className="stat-unit">komada</span></div><div className="stat-foot"><span>{report.summary.activeOrders} aktivnih naloga</span></div></article>
     </section>
 
     <section className="main-grid">
       <article className="panel orders-panel">
-        <div className="panel-heading"><div><h2>Upozorenja i prijedlozi</h2><p>Automatski zaključci iz evidentiranih radnih naloga i faza.</p></div><span className="count-pill">{report.alerts.length}</span></div>
+        <div className="panel-heading"><div><h2>Upozorenja i prijedlozi</h2><p>Zaključci iz naloga, faza i današnje evidencije prisutnosti.</p></div><span className="count-pill">{report.alerts.length}</span></div>
         {report.alerts.length ? <div className="alert-list">{report.alerts.map(alert => <div className="alert-row" key={alert.id}>
           <span className={'alert-dot '+(alert.severity === 'warning' ? 'amber' : 'blue')}/><div className="alert-row-copy"><strong>{alert.title}</strong><p>{alert.description}</p></div>
-          <button className="row-action" onClick={onBack} title="Povratak na pregled"><ArrowRight size={15}/></button>
-        </div>)}</div> : <div className="empty-state"><CheckCircle2 size={22}/><strong>Nema otkrivenih uskih grla</strong><span>Trenutačno nema faza s evidentiranim čekanjem ili neiskorištenim kapacitetom.</span></div>}
+          <button className="row-action" onClick={onBack} title="Otvori pregled"><ArrowRight size={15}/></button>
+        </div>)}</div> : <div className="empty-state"><CheckCircle2 size={22}/><strong>Nema otkrivenih uskih grla</strong><span>Potvrđena prisutnost i aktivne faze trenutačno ne pokazuju zastoj kapaciteta.</span></div>}
       </article>
       <article className="panel inventory-panel">
         <div className="panel-heading"><div><h2>Opterećenje po fazama</h2><p>Stanje pojedinačnih komada, ne samo naloga.</p></div></div>
@@ -67,9 +67,16 @@ export default function OperationsMonitorModule({ onBack }) {
     </section>
 
     <section className="panel" style={{padding:22,marginTop:20}}>
-      <div className="panel-heading"><div><h2>Radnici bez aktivne dodjele</h2><p>Ovo je usporedba popisa radnika i trenutačno aktivnih faza.</p></div></div>
-      {report.idleWorkers.length ? <div className="quick-actions">{report.idleWorkers.map(name => <div key={name} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 0'}}><Users size={17}/><strong>{name}</strong><span className="stock-status warn">Nema aktivne dodjele</span></div>)}</div> : <div className="empty-state"><CheckCircle2 size={20}/><strong>Svi evidentirani radnici imaju aktivnu dodjelu</strong></div>}
-      <p className="subtitle" style={{fontSize:12,marginTop:14}}>Važno: aplikacija zasad prati evidentirane radnike i dodjele u proizvodnji. Ne zna tko je fizički prisutan u smjeni, na bolovanju ili slobodan; za to će trebati evidencija smjena i odsutnosti.</p>
+      <div className="panel-heading"><div><h2>Evidencija radnika za danas</h2><p>Ovo je stvarni temelj za procjenu raspoloživog kapaciteta.</p></div></div>
+      <div className="quick-actions">
+        {report.workers.length ? report.workers.map(name => {
+          const status = report.presentWorkers.includes(name) ? 'Prisutan' : report.absentWorkers.includes(name) ? 'Odsutan' : report.offShiftWorkers.includes(name) ? 'Izvan smjene' : 'Nije evidentirano';
+          return <div key={name} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 0'}}>
+            {status === 'Prisutan' ? <UserCheck size={17}/> : <UserX size={17}/>}<strong>{name}</strong><span className={'stock-status '+(status === 'Prisutan' ? 'good' : status === 'Odsutan' ? 'warn' : '')}>{status}</span>
+          </div>;
+        }) : <div className="empty-state"><Users size={20}/><strong>Nema evidentiranih radnika</strong><span>Dodaj radnike u modulu Proizvodnja.</span></div>}
+      </div>
+      <p className="subtitle" style={{fontSize:12,marginTop:14}}>Prisutnost se unosi u modulu Proizvodnja i vrijedi samo za današnji datum. Ako nije evidentirana, sustav neće radnika računati kao prisutnog niti će ga proglasiti neiskorištenim.</p>
       <small style={{color:'var(--muted,#718096)'}}>Zadnje osvježavanje: {updatedAt.toLocaleTimeString('hr-HR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})} · Podaci ostaju u ovom pregledniku.</small>
     </section>
   </div>;
