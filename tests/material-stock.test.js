@@ -41,3 +41,12 @@ test('ne broji isti fizički ostatak dvaput kada prima više komada', () => {
   ];
   assert.equal(calculateMaterialReservation(remnant, planned), 1);
 });
+
+test('ručno dodani komadi uz automatski plan dobivaju dodatnu sigurnosnu rezervaciju', () => {
+  const remnant = { form: 'Ostatak', length: 100, width: 100 };
+  const mixed = [
+    { length: 70, width: 70, quantity: 1, remnantBoardKeys: ['rem-1::0'] },
+    { length: 20, width: 20, quantity: 1 }
+  ];
+  assert.equal(calculateMaterialReservation(remnant, mixed), 2);
+});
