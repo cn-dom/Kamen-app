@@ -1116,3 +1116,24 @@ button:active { transform: translateY(1px); }
 .ai-provider-note strong{color:#39765f}
 @media(max-width:1050px){.ai-workspace{grid-template-columns:minmax(0,1fr)}.ai-side{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.ai-provider-note{grid-column:1/-1}.ai-messages{max-height:55vh}}
 @media(max-width:700px){.ai-page{padding:18px 13px 25px}.ai-hero{align-items:flex-start;flex-wrap:wrap;padding:17px}.ai-hero-icon{width:43px;height:43px;flex-basis:43px}.ai-hero-copy{flex:1 1 calc(100% - 60px)}.ai-hero h1{font-size:21px}.ai-connection{margin-left:59px}.ai-side{grid-template-columns:1fr}.ai-provider-note{grid-column:auto}.ai-chat{min-height:570px}.ai-chat-head{padding:12px}.ai-chat-head small{max-width:170px;line-height:1.4}.ai-clear{font-size:0;padding:8px}.ai-clear svg{width:16px;height:16px}.ai-messages{padding:16px 12px;min-height:340px;max-height:50vh}.ai-message{max-width:100%}.ai-composer{padding:10px;gap:7px}.ai-composer .button{padding:0 10px;font-size:10px}.ai-chat-foot{padding:0 11px 11px}.ai-chat-foot span:last-child{display:none}}
+
+
+/* Dnevni raspored radnika: radionica i teren */
+.production-worker-roster{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.production-worker-card{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:11px;border:1px solid #e2e8f1;border-radius:10px;background:#fff}
+.production-worker-card-head{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;color:#34445d;font-size:11px}
+.production-worker-card-head button{display:grid;place-items:center;width:22px;height:22px;border:0;border-radius:50%;background:#eef1f6;color:#778397;cursor:pointer}
+.production-worker-card>label,.production-field-details>label{display:flex;flex-direction:column;gap:4px;min-width:0}
+.production-worker-card label>span,.production-field-details label>span{font-size:9px;color:#8290a3}
+.production-worker-card select,.production-field-details input{width:100%;min-width:0;padding:7px;border:1px solid #dfe6ef;border-radius:7px;background:#fbfcfe;color:#34445d;font-size:10px}
+.production-field-details{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.monitor-worker-row{display:grid;grid-template-columns:20px minmax(90px,auto) auto 1fr;align-items:center;gap:9px;padding:9px 0;border-bottom:1px solid #edf0f5}
+.monitor-worker-row>small{font-size:11px;color:var(--muted,#718096)}
+.monitor-field-summary{margin-top:20px;padding-top:16px;border-top:1px solid #edf0f5}
+.monitor-field-summary .panel-heading h3{display:flex;align-items:center;gap:7px;margin:0;font-size:14px}
+.monitor-field-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:9px}
+.monitor-field-list article{display:flex;flex-direction:column;gap:5px;padding:12px;border:1px solid #e2e8f1;border-radius:9px;background:#fbfcfe}
+.monitor-field-list article strong{font-size:12px;color:#34445d}
+.monitor-field-list article span{font-size:11px;color:#52627a}
+.monitor-field-list article small{display:flex;align-items:center;gap:4px;font-size:10px;color:#8793a4}
+@media(max-width:600px){.production-worker-roster{grid-template-columns:1fr}.production-field-details{grid-template-columns:1fr}.monitor-worker-row{grid-template-columns:20px 1fr auto}.monitor-worker-row>small{grid-column:2/-1}}
