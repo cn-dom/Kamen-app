@@ -108,7 +108,7 @@ test('predlaže samo prisutne radnike u radionici s odgovarajućom vještinom', 
 });
 
 test('ne predlaže odsutne, terenske ili već zauzete radnike', () => {
-  const production = { ...present(['Ivan','Marko','Ana']), workerSkills: { Ivan: ['Pilanje'], Marko: ['Pilanje'], Ana: ['Pilanje'] }, deployment: { date: today(), assignments: { Marko: { area: 'Teren' } } } };
+  const production = { ...present(['Ivan','Marko','Ana']), attendance: { date: today(), statuses: { Ivan: 'Odsutan', Marko: 'Prisutan', Ana: 'Prisutan' } }, workerSkills: { Ivan: ['Pilanje'], Marko: ['Pilanje'], Ana: ['Pilanje'] }, deployment: { date: today(), assignments: { Marko: { area: 'Teren' } } } };
   const pieces = { 'RN-1::0::1': { stages: { 'Pilanje': { status: 'U tijeku', assignedTo: 'Ana' } } } };
   const result = analyzeWorkshopCapacity(orders, { ...production, pieces });
   assert.equal(result.recommendations.some(item => item.stage === 'Pilanje'), false);
