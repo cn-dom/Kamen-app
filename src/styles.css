@@ -1397,3 +1397,12 @@ input,select,textarea{border-radius:9px}
 
 
 .warehouse-spare-toggle{display:flex;align-items:center;gap:10px;min-height:42px;padding:10px 12px;border:1px solid var(--border,#dbe3ed);border-radius:10px;background:var(--surface-soft,#f7f9fc);font-weight:600}.warehouse-spare-toggle input{width:17px;height:17px;flex:0 0 auto;margin:0;accent-color:var(--primary,#2563eb)}
+
+
+/* Bulk replenishment selection */
+.low-stock-bulk-actions{display:flex;align-items:center;justify-content:flex-end;gap:9px;flex-wrap:wrap}
+.low-stock-select{display:flex;align-items:center;justify-content:center;flex:0 0 22px;margin:0;cursor:pointer}
+.low-stock-select input{width:17px;height:17px;accent-color:var(--primary,#2563eb);cursor:pointer}
+.low-stock-row:has(.low-stock-select input:checked){background:rgba(37,99,235,.055);border-color:rgba(59,130,246,.35)}
+.low-stock-bulk-actions .button:disabled{opacity:.45;cursor:not-allowed}
+@media(max-width:760px){.low-stock-bulk-actions{width:100%;justify-content:flex-start}.low-stock-bulk-actions .button{flex:1}.low-stock-select{align-self:flex-start;padding-top:5px}}
