@@ -28,7 +28,7 @@ function csvCell(value) {
   return '"' + text.replaceAll('"', '""') + '"';
 }
 
-export default function ProductionModule({ onBack }) {
+export default function ProductionModule({ onBack, onCreateProject }) {
   const [orders, setOrders] = useState(() => readJson(ORDERS_KEY, []));
   const [materials, setMaterials] = useState(() => readJson(MATERIALS_KEY, []));
   const [records, setRecords] = useState(() => normalizeRecords(readJson(PRODUCTION_KEY, {}), readJson(ORDERS_KEY, [])));
@@ -188,11 +188,22 @@ export default function ProductionModule({ onBack }) {
   const updateQualityField = (key, field, value) => updateUnit(key, unit => ({ ...unit, quality: { ...unit.quality, [field]: value } }));
   const addWorker = event => {
     event.preventDefault();
-    const name = newWorker.trim();
+    const name = newWorker.trim().replace(/\\s+/g, ' ');
     if (!name) return;
-    const exists = (records.workers || []).some(worker => worker.toLocaleLowerCase('hr') === name.toLocaleLowerCase('hr'));
-    if (exists) { setNewWorker(''); return; }
-    setRecords(current => ({ ...current, version: 2, workers: [...(current.workers || []), name] }));
+    const currentWorkers = Array.isArray(records.workers) ? records.workers : [];
+    const exists = currentWorkers.some(worker => String(worker).toLocaleLowerCase('hr') === name.toLocaleLowerCase('hr'));
+    if (exists) {
+      window.alert('Radnik s tim imenom već postoji u popisu.');
+      return;
+    }
+    const nextRecords = { ...records, version: 2, workers: [...currentWorkers, name] };
+    setRecords(nextRecords);
+    try {
+      window.localStorage.setItem(PRODUCTION_KEY, JSON.stringify(nextRecords));
+    } catch {
+      window.alert('Radnik nije spremljen. Provjeri je li preglednik dopustio spremanje podataka.');
+      return;
+    }
     setNewWorker('');
   };
   const setWorkerAttendance = (name, status) => setRecords(current => {
@@ -281,6 +292,7 @@ export default function ProductionModule({ onBack }) {
       <div><div className="eyebrow"><span className="live-dot"/> RADIONICA I OBRADA</div><h1>Proizvodnja</h1><p className="subtitle">Prati svaki fizički komad od pilanja do kontrole kvalitete. Dodijeli radnika, mjeri vrijeme i evidentiraj zastoje.</p></div>
       <div className="welcome-actions production-actions">
         <button className="button button-secondary" onClick={onBack}>← Povratak na pregled</button>
+        <button className="button button-primary" onClick={onCreateProject}><UserPlus size={15}/> Novi projekt / zadatak</button>
         <button className="button button-secondary" onClick={() => window.print()}><Printer size={15}/> Ispiši prikaz</button>
         <button className="button button-primary" onClick={exportCsv}><Download size={15}/> Izvoz CSV</button>
       </div>
@@ -384,7 +396,7 @@ export default function ProductionModule({ onBack }) {
             </div>}
           </article>;
         })}
-        {!groups.length && <div className="workorders-empty"><Factory size={28}/><strong>{rows.length ? 'Nema komada za odabrani prikaz' : 'Još nema komada u proizvodnji'}</strong><span>{rows.length ? 'Promijeni pretragu ili filter.' : 'Izradi radni nalog s dimenzijama i količinama; svaki fizički komad pojavit će se zasebno.'}</span></div>}
+        {!groups.length && <div className="workorders-empty"><Factory size={28}/><strong>{rows.length ? 'Nema komada za odabrani prikaz' : 'Još nema komada u proizvodnji'}</strong><span>{rows.length ? 'Promijeni pretragu ili filter.' : 'Za početak projekta izradi radni nalog s kupcem, rokovima, materijalom, dimenzijama i količinama. Svaki komad automatski će postati proizvodni zadatak.'}</span>{!rows.length && <button className="button button-primary" onClick={onCreateProject}><UserPlus size={14}/> Izradi prvi projekt</button>}</div>}
       </div>
     </section>
     <div className="module-notice"><ClipboardCheck size={17}/><span>Vrijeme se računa iz zabilježenih radnih intervala; zastoj prekida aktivni interval, a nastavak otvara novi. Podaci ostaju u ovom pregledniku i nisu sinkronizirani između uređaja. Završetak kontrole kvalitete ne zatvara automatski radni nalog niti mijenja skladište.</span></div>
