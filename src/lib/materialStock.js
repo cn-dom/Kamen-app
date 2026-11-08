@@ -24,7 +24,7 @@ export function calculateMaterialReservation(stockItem, orderPieces = []) {
   // When the cutting suggestion carries physical board keys, reserve the exact
   // number of distinct remnants used. Area alone cannot predict packing waste.
   if (stockItem.form === 'Ostatak') {
-    const keyedPieces = (Array.isArray(orderPieces) ? orderPieces : []).filter(piece => Array.isArray(piece.remnantBoardKeys) && piece.remnantBoardKeys.length === Number(piece.quantity || 0));
+    const keyedPieces = (Array.isArray(orderPieces) ? orderPieces : []).filter(piece => Array.isArray(piece.remnantBoardKeys) && piece.remnantBoardKeys.length > 0);
     if (keyedPieces.length === (Array.isArray(orderPieces) ? orderPieces.length : 0) && keyedPieces.length) {
       return new Set(keyedPieces.flatMap(piece => piece.remnantBoardKeys)).size;
     }
