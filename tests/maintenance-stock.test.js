@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { prepareSparePartIssue } from '../src/lib/maintenance.js';
+import { prepareSparePartIssue, sparePartReorderSuggestions } from '../src/lib/maintenance.js';
 
 test('izdavanje dijelova umanjuje zalihu i stvara skladišno kretanje s referencom',()=>{
  const materials=[{id:'M1',name:'Rezni disk',quantity:10,unit:'kom',location:'Polica A'},{id:'M2',name:'Ulje',quantity:4,unit:'l'}];
@@ -31,7 +31,6 @@ test('ne dopušta izdavanje arhiviranog ili nepostojećeg artikla',()=>{
 });
 
 
-import { sparePartReorderSuggestions } from '../src/lib/maintenance.js';
 
 test('prijedlog nabave pojavljuje se samo za označene rezervne dijelove ispod minimuma',()=>{
  const result=sparePartReorderSuggestions([
