@@ -52,3 +52,46 @@ test('ignorira završene i otkazane radne naloge', () => {
   const result = analyzeWorkshopCapacity([{ ...orders[0], status: 'Završen' }], present(['Ivan']));
   assert.equal(result.summary.activePieces, 0);
 });
+
+
+test('radnik na terenu ne ulazi u slobodan kapacitet radionice', () => {
+  const production = {
+    ...present(['Ivan', 'Marko']),
+    deployment: {
+      date: today(),
+      assignments: {
+        Ivan: { area: 'Teren', task: 'Montaža spomenika', location: 'Krapina' },
+        Marko: { area: 'Radionica', task: '', location: '' }
+      }
+    }
+  };
+  const result = analyzeWorkshopCapacity(orders, production);
+  assert.deepEqual(result.fieldWorkers, [{ name: 'Ivan', task: 'Montaža spomenika', location: 'Krapina' }]);
+  assert.deepEqual(result.workshopWorkers, ['Marko']);
+  assert.deepEqual(result.idleWorkers, ['Marko']);
+  assert.equal(result.activeWorkers, 0);
+  const alert = result.alerts.find(item => item.id === 'manual-capacity-idle');
+  assert.match(alert.description, /1 radnika je prisutno u radionici/);
+  assert.match(alert.description, /1 radnika je na terenu/);
+});
+
+test('upozorava kada terenski zadatak nema vrstu posla ili lokaciju', () => {
+  const production = {
+    ...present(['Ivan']),
+    deployment: { date: today(), assignments: { Ivan: { area: 'Teren', task: 'Izmjera', location: '' } } }
+  };
+  const result = analyzeWorkshopCapacity(orders, production);
+  assert.equal(result.fieldWorkers.length, 1);
+  assert.equal(result.idleWorkers.length, 0);
+  assert.equal(result.alerts.some(item => item.id === 'field-assignment-incomplete'), true);
+});
+
+test('stari dnevni raspored ne prenosi radnika na teren u novi dan', () => {
+  const production = {
+    ...present(['Ivan']),
+    deployment: { date: '2020-01-01', assignments: { Ivan: { area: 'Teren', task: 'Montaža', location: 'Zagreb' } } }
+  };
+  const result = analyzeWorkshopCapacity(orders, production);
+  assert.equal(result.fieldWorkers.length, 0);
+  assert.deepEqual(result.workshopWorkers, ['Ivan']);
+});
