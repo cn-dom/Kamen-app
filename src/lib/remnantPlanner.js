@@ -28,40 +28,73 @@ function tryPlace(rectangles, piece, kerf, allowRotation) {
 }
 
 /**
- * Assigns complete order lines to compatible remnants where every copy fits.
- * Lines that do not fit remain assigned to their original material.
+ * Distributes individual copies from an order line across compatible remnants.
+ * A line may be split between several remnants; any copies that cannot be
+ * placed remain assigned to the original slab/material.
  */
 export function suggestRemnantAssignments(pieces = [], materials = [], { kerf = 0.4, trim = 1, allowRotation = true } = {}) {
-  const result = pieces.map(piece => ({ ...piece }));
-  const stocks = (Array.isArray(materials) ? materials : [])
+  const sourceMaterials = Array.isArray(materials) ? materials : [];
+  const stocks = sourceMaterials
     .filter(item => item.form === 'Ostatak' && !item.archived && Number.isInteger(Number(item.quantity)) && Number(item.quantity) > 0 && Number(item.length) > 2 * trim && Number(item.width) > 2 * trim)
     .map(item => ({ item, boards: Array.from({ length: Math.min(100, Number(item.quantity)) }, () => [{ x: 0, y: 0, w: Number(item.length) - trim * 2, h: Number(item.width) - trim * 2 }]) }))
     .sort((a, b) => Number(a.item.length) * Number(a.item.width) - Number(b.item.length) * Number(b.item.width));
-  const candidates = result.map((piece, index) => ({ piece, index, area: Number(piece.length) * Number(piece.width) * Number(piece.quantity || 0) }))
+
+  const candidates = (Array.isArray(pieces) ? pieces : []).map((piece, index) => ({ piece: { ...piece }, index, area: Number(piece.length) * Number(piece.width) * Number(piece.quantity || 0) }))
     .filter(entry => entry.piece.materialId && Number(entry.piece.length) > 0 && Number(entry.piece.width) > 0 && Number.isInteger(Number(entry.piece.quantity)) && Number(entry.piece.quantity) > 0)
     .sort((a, b) => b.area - a.area);
-  const assignments = [];
+
+  const allocations = new Map();
+  const assignedByLine = new Map();
   for (const entry of candidates) {
-    const original = materials.find(item => item.id === entry.piece.materialId);
+    const original = sourceMaterials.find(item => item.id === entry.piece.materialId);
     if (!original) continue;
+    let remaining = Number(entry.piece.quantity);
     for (const stock of stocks) {
+      if (remaining <= 0) break;
       if (stock.item.type !== original.type || Number(stock.item.thickness) !== Number(entry.piece.thickness || original.thickness)) continue;
       const trial = stock.boards.map(board => board.map(rect => ({ ...rect })));
-      let placed = true;
-      for (let copy = 0; copy < Number(entry.piece.quantity); copy++) {
-        let done = false;
+      let placedCount = 0;
+      for (let copy = 0; copy < remaining; copy++) {
+        let placed = false;
         for (const board of trial) {
-          if (tryPlace(board, { length: Number(entry.piece.length), width: Number(entry.piece.width) }, kerf, allowRotation)) { done = true; break; }
+          if (tryPlace(board, { length: Number(entry.piece.length), width: Number(entry.piece.width) }, kerf, allowRotation)) {
+            placed = true;
+            break;
+          }
         }
-        if (!done) { placed = false; break; }
+        if (!placed) break;
+        placedCount += 1;
       }
-      if (placed) {
-        stock.boards = trial;
-        result[entry.index] = { ...entry.piece, materialId: stock.item.id };
-        assignments.push({ pieceIndex: entry.index, pieceName: entry.piece.name, materialId: stock.item.id, materialName: stock.item.name, form: 'Ostatak' });
-        break;
-      }
+      if (!placedCount) continue;
+      stock.boards = trial;
+      remaining -= placedCount;
+      if (!assignedByLine.has(entry.index)) assignedByLine.set(entry.index, new Map());
+      const lineAllocations = assignedByLine.get(entry.index);
+      lineAllocations.set(stock.item.id, (lineAllocations.get(stock.item.id) || 0) + placedCount);
+      allocations.set(stock.item.id, stock.item);
     }
+    entry.remaining = remaining;
   }
-  return { pieces: result, assignments, assignedCount: assignments.length };
+
+  const piecesByIndex = new Map(candidates.map(entry => [entry.index, entry]));
+  const result = [];
+  const assignments = [];
+  let assignedCount = 0;
+  for (let index = 0; index < (Array.isArray(pieces) ? pieces.length : 0); index++) {
+    const piece = pieces[index];
+    const entry = piecesByIndex.get(index);
+    const lineAllocations = assignedByLine.get(index);
+    if (!entry || !lineAllocations?.size) {
+      result.push({ ...piece });
+      continue;
+    }
+    for (const [materialId, quantity] of lineAllocations) {
+      const stock = allocations.get(materialId);
+      result.push({ ...piece, materialId, quantity });
+      assignments.push({ pieceIndex: index, pieceName: piece.name, materialId, materialName: stock.name, form: 'Ostatak', quantity });
+      assignedCount += quantity;
+    }
+    if (entry.remaining > 0) result.push({ ...piece, quantity: entry.remaining });
+  }
+  return { pieces: result, assignments, assignedCount, assignedLineCount: assignments.length };
 }
