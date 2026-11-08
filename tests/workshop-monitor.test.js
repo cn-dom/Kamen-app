@@ -95,3 +95,21 @@ test('stari dnevni raspored ne prenosi radnika na teren u novi dan', () => {
   assert.equal(result.fieldWorkers.length, 0);
   assert.deepEqual(result.workshopWorkers, ['Ivan']);
 });
+
+
+test('predlaže samo prisutne radnike u radionici s odgovarajućom vještinom', () => {
+  const pieces = {};
+  for (let i = 1; i <= 2; i++) pieces['RN-1::0::' + i] = { stages: { 'Pilanje': { status: 'Nije započeto' } } };
+  const production = { ...present(['Ivan','Marko']), workerSkills: { Ivan: ['Pilanje'], Marko: ['Poliranje'] } };
+  const result = analyzeWorkshopCapacity(orders, production);
+  const recommendation = result.recommendations.find(item => item.stage === 'Pilanje');
+  assert.ok(recommendation);
+  assert.deepEqual(recommendation.workers, ['Ivan']);
+});
+
+test('ne predlaže odsutne, terenske ili već zauzete radnike', () => {
+  const production = { ...present(['Ivan','Marko','Ana']), workerSkills: { Ivan: ['Pilanje'], Marko: ['Pilanje'], Ana: ['Pilanje'] }, deployment: { date: today(), assignments: { Marko: { area: 'Teren' } } } };
+  const pieces = { 'RN-1::0::1': { stages: { 'Pilanje': { status: 'U tijeku', assignedTo: 'Ana' } } } };
+  const result = analyzeWorkshopCapacity(orders, { ...production, pieces });
+  assert.equal(result.recommendations.some(item => item.stage === 'Pilanje'), false);
+});
