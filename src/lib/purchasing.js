@@ -33,10 +33,10 @@ export function receivePurchaseLine(item = {}, received) {
   return { ...item, receivedQty: Math.round((already + amount) * 10000) / 10000 };
 }
 
-
 /**
  * Returns active stock items at or below their configured minimum.
- * Suggested order quantity restores the stock to twice the minimum level.
+ * Spare parts honor their configured reorder target; other materials retain
+ * the existing default of twice the minimum stock.
  */
 export function lowStockSuggestions(materials = []) {
   if (!Array.isArray(materials)) return [];
@@ -45,12 +45,15 @@ export function lowStockSuggestions(materials = []) {
     .map(item => {
       const quantity = Math.max(0, Number(item.quantity) || 0);
       const minimum = Math.max(0, Number(item.min) || 0);
+      const configuredTarget = item.isSparePart === true ? Math.max(0, Number(item.reorderTo) || 0) : 0;
+      const targetQuantity = configuredTarget > minimum ? configuredTarget : minimum * 2;
       return {
         ...item,
         currentQuantity: quantity,
         minimumQuantity: minimum,
+        targetQuantity,
         shortage: Math.round(Math.max(0, minimum - quantity) * 100) / 100,
-        suggestedQuantity: Math.round(Math.max(0, minimum * 2 - quantity) * 100) / 100
+        suggestedQuantity: Math.round(Math.max(0, targetQuantity - quantity) * 100) / 100
       };
     })
     .sort((a, b) => (a.currentQuantity / a.minimumQuantity) - (b.currentQuantity / b.minimumQuantity));
