@@ -17,6 +17,7 @@ import {
 
 const ORDERS_KEY = 'kamen-app-work-orders-v1';
 const MATERIALS_KEY = 'kamen-app-materials-v1';
+const EQUIPMENT_KEY = 'kamen-app-equipment-register-v1';
 const PRODUCTION_KEY = 'kamen-app-production-stages-v1';
 const todayKey = () => { const date = new Date(); return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`; };
 const formatDate = value => {
@@ -37,6 +38,7 @@ function csvCell(value) {
 export default function ProductionModule({ onBack, onCreateProject }) {
   const [orders, setOrders] = useState(() => readJson(ORDERS_KEY, []));
   const [materials, setMaterials] = useState(() => readJson(MATERIALS_KEY, []));
+  const [equipment, setEquipment] = useState(() => readJson(EQUIPMENT_KEY, []));
   const [records, setRecords] = useState(() => normalizeRecords(readJson(PRODUCTION_KEY, {}), readJson(ORDERS_KEY, [])));
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('Aktivni');
@@ -58,6 +60,7 @@ export default function ProductionModule({ onBack, onCreateProject }) {
       const nextOrders = readJson(ORDERS_KEY, []);
       setOrders(nextOrders);
       setMaterials(readJson(MATERIALS_KEY, []));
+      setEquipment(readJson(EQUIPMENT_KEY, []));
       setRecords(current => {
         const saved = readJson(PRODUCTION_KEY, current);
         const migrated = normalizeRecords(saved, nextOrders);
@@ -273,13 +276,14 @@ export default function ProductionModule({ onBack, onCreateProject }) {
   }, [visibleRows]);
 
   const exportCsv = () => {
-    const headers = ['Radni nalog', 'Kupac', 'Projekt', 'Komad', 'Redni broj', 'Materijal', 'Duljina cm', 'Širina cm', 'Debljina cm', 'Faza', 'Status', 'Radnik', 'Početak', 'Završetak', 'Trajanje minuta', 'Razlog zastoja', 'Napomena', 'Kontrola kvalitete'];
+    const headers = ['Radni nalog', 'Kupac', 'Projekt', 'Komad', 'Redni broj', 'Materijal', 'Duljina cm', 'Širina cm', 'Debljina cm', 'Faza', 'Status', 'Radnik', 'Stroj / oprema', 'Početak', 'Završetak', 'Trajanje minuta', 'Razlog zastoja', 'Napomena', 'Kontrola kvalitete'];
     const lines = [headers.map(csvCell).join(';')];
     visibleRows.forEach(row => stages.forEach(stageName => {
       const stage = row.record.stages?.[stageName] || blankStage();
       lines.push([
         row.order.id, row.order.customer, row.order.project, row.label, row.unitIndex, row.material,
         row.piece.length, row.piece.width, row.piece.thickness, stageName, stage.status, stage.assignedTo,
+        equipment.find(item => item.id === stage.equipmentId)?.name || '',
         formatDate(stage.startedAt), formatDate(stage.completedAt), Math.round(elapsedMs(stage) / 60000),
         stage.blockedReason, stage.note, row.record.quality.status
       ].map(csvCell).join(';'));
@@ -367,7 +371,9 @@ export default function ProductionModule({ onBack, onCreateProject }) {
                         return <section className={'production-stage-card stage-' + stage.status.toLowerCase().replaceAll(' ', '-')} key={stageName}>
                           <div className="production-stage-title"><span>{String(index + 1).padStart(2, '0')}</span><strong>{stageName}</strong><b>{stage.status}</b></div>
                           <label className="production-worker-field"><UserRound size={14}/><input list="production-worker-list" value={stage.assignedTo || ''} onChange={event => setStageWorker(row.key, stageName, event.target.value)} placeholder="Odgovorni radnik"/></label>
+                          <label className="production-equipment-field"><Factory size={14}/><select aria-label={'Stroj za fazu ' + stageName} value={stage.equipmentId || ''} onChange={event => updateStage(row.key, stageName, previous => ({ ...previous, equipmentId: event.target.value }))}><option value="">Bez odabira stroja (nije obavezno)</option>{equipment.filter(item => item.status !== 'Izvan pogona').map(item => <option key={item.id} value={item.id}>{item.name}{item.location ? ' · ' + item.location : ''}</option>)}</select></label>
                           <div className="production-time-row"><Timer size={14}/><span>{formatDuration(duration)}</span>{stage.startedAt && <small>Početak: {formatDate(stage.startedAt)}</small>}</div>
+                          {stage.equipmentId && <small className="production-equipment-runtime">Evidentirano korištenje: {equipment.find(item => item.id === stage.equipmentId)?.name || 'Stroj iz registra'} · {formatDuration(duration)} aktivnog vremena faze</small>}
                           {stage.status === 'Zastoj' && <p className="production-block-reason"><AlertTriangle size={13}/>{stage.blockedReason}</p>}
                           {stage.note && <p className="production-stage-note">{stage.note}</p>}
                           <div className="production-stage-actions">
