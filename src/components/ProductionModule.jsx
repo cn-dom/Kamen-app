@@ -188,7 +188,7 @@ export default function ProductionModule({ onBack, onCreateProject }) {
   const updateQualityField = (key, field, value) => updateUnit(key, unit => ({ ...unit, quality: { ...unit.quality, [field]: value } }));
   const addWorker = event => {
     event.preventDefault();
-    const name = newWorker.trim().replace(/\\s+/g, ' ');
+    const name = newWorker.trim().replace(/\s+/g, ' ');
     if (!name) return;
     const currentWorkers = Array.isArray(records.workers) ? records.workers : [];
     const exists = currentWorkers.some(worker => String(worker).toLocaleLowerCase('hr') === name.toLocaleLowerCase('hr'));
@@ -289,7 +289,7 @@ export default function ProductionModule({ onBack, onCreateProject }) {
 
   return <div className="page-content module-page production-page">
     <section className="welcome-row module-welcome">
-      <div><div className="eyebrow"><span className="live-dot"/> RADIONICA I OBRADA</div><h1>Proizvodnja</h1><p className="subtitle">Prati svaki fizički komad od pilanja do kontrole kvalitete. Dodijeli radnika, mjeri vrijeme i evidentiraj zastoje.</p></div>
+      <div><div className="eyebrow"><span className="live-dot"/> RADIONICA I OBRADA</div><h1>Proizvodnja</h1><p className="subtitle">Jednostavan pregled komada, radnika i napretka obrade.</p></div>
       <div className="welcome-actions production-actions">
         <button className="button button-secondary" onClick={onBack}>← Povratak na pregled</button>
         <button className="button button-primary" onClick={onCreateProject}><UserPlus size={15}/> Novi projekt / zadatak</button>
@@ -308,7 +308,7 @@ export default function ProductionModule({ onBack, onCreateProject }) {
       <section className="production-team">
         <div className="production-team-heading"><UserRound size={17}/><div><strong>Popis radnika</strong><small>Odabir radnika dostupan je u svakoj fazi obrade.</small></div></div>
         <form className="production-team-form" onSubmit={addWorker}><input value={newWorker} onChange={event => setNewWorker(event.target.value)} placeholder="Ime i prezime radnika" aria-label="Ime i prezime radnika"/><button className="button button-secondary" type="submit" disabled={!newWorker.trim()}><UserPlus size={14}/> Dodaj radnika</button></form>
-        <div className="production-worker-roster">{(records.workers || []).map(worker => {
+        <details className="production-team-settings"><summary>Postavke radnika · prisutnost, raspored i vještine</summary><div className="production-team-settings-content"><div className="production-worker-roster">{(records.workers || []).map(worker => {
           const deployment = records.deployment?.date === todayKey() ? records.deployment.assignments?.[worker] : null;
           const area = deployment?.area || 'Radionica';
           return <article className="production-worker-card" key={worker}>
@@ -326,7 +326,7 @@ export default function ProductionModule({ onBack, onCreateProject }) {
           </article>;
         })}{!(records.workers || []).length && <small>Još nema unesenih radnika. Ime se može upisati i izravno u fazi.</small>}</div>
 <p className="production-attendance-note">Prisutnost i raspored vode se odvojeno za današnji datum. Radnik na terenu nije slobodan kapacitet radionice.</p>
-        <datalist id="production-worker-list">{(records.workers || []).map(worker => <option key={worker} value={worker}/>)}</datalist>
+        <datalist id="production-worker-list">{(records.workers || []).map(worker => <option key={worker} value={worker}/>)}</datalist></div></details>
       </section>
       <div className="warehouse-toolbar production-toolbar">
         <label className="warehouse-search"><Search size={16}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Traži nalog, kupca, projekt ili komad..."/></label>
@@ -345,11 +345,11 @@ export default function ProductionModule({ onBack, onCreateProject }) {
               {orderRows.map(row => {
                 const record = row.record;
                 const progress = unitProgress(record);
-                const unitExpanded = expandedUnits[row.key] !== false;
+                const unitExpanded = expandedUnits[row.key] === true;
                 return <article className="production-unit-card" key={row.key}>
                   <button className="production-unit-head" onClick={() => setExpandedUnits(current => ({ ...current, [row.key]: !unitExpanded }))} aria-expanded={unitExpanded}>
                     <span className="production-unit-number">#{row.unitIndex}</span>
-                    <span className="production-unit-title"><strong>{row.label}</strong><small>{row.material} · {row.piece.length} × {row.piece.width} × {row.piece.thickness} cm</small></span>
+                    <span className="production-unit-title"><strong>{row.label}</strong><small>{row.material} · {row.piece.length} × {row.piece.width} × {row.piece.thickness} cm</small><small className="production-unit-hint">Otvori za faze obrade i kontrolu</small></span>
                     <span className="production-unit-progress"><i><b style={{ width: progress + '%' }}/></i>{progress}%</span>
                     <span className={'production-quality-pill quality-' + record.quality.status.toLowerCase().replaceAll(' ', '-')}>{record.quality.status}</span>
                   </button>
