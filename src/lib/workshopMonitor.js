@@ -37,11 +37,19 @@ export function analyzeWorkshopCapacity(orders = [], production = {}) {
     });
     const waiting = rows.filter(row => row.previousReady && !COMPLETE.has(row.stage.status) && row.stage.status !== 'U tijeku');
     const blockedByPrevious = rows.filter(row => !row.previousReady && !COMPLETE.has(row.stage.status));
-    return { stage: stageName, inProgress: inProgress.length, waiting: waiting.length, blockedByPrevious: blockedByPrevious.length, assigned: inProgress.map(row => row.stage.assignedTo).filter(Boolean) };
+    const waitingItems = waiting.map(row => ({ orderId: row.unit.order.id, project: row.unit.order.project || '', customer: row.unit.order.customer || '', label: row.unit.label, unitIndex: row.unit.unitIndex }));
+    return { stage: stageName, inProgress: inProgress.length, waiting: waiting.length, waitingItems, blockedByPrevious: blockedByPrevious.length, assigned: inProgress.map(row => row.stage.assignedTo).filter(Boolean) };
   });
   const idleWorkers = workshopWorkers.filter(name => !activeAssignments.has(name));
   const activeWorkshopWorkers = workshopWorkers.filter(name => activeAssignments.has(name));
   const manual = stages.find(item => item.stage === 'Ostala obrada');
+  const workerSkills = production?.workerSkills || {};
+  const recommendations = stages.flatMap(stage => {
+    if (!stage.waiting) return [];
+    const candidates = idleWorkers.filter(name => (workerSkills[name] || []).includes(stage.stage));
+    if (!candidates.length) return [];
+    return [{ stage: stage.stage, waiting: stage.waiting, workers: candidates, examples: stage.waitingItems.slice(0, 3) }];
+  });
   const alerts = [];
   if (workers.length && unrecordedWorkers.length) alerts.push({
     id: 'attendance-unrecorded',
@@ -83,7 +91,7 @@ export function analyzeWorkshopCapacity(orders = [], production = {}) {
   }));
   return {
     workers, presentWorkers, absentWorkers, offShiftWorkers, unrecordedWorkers,
-    workshopWorkers, fieldWorkers, idleWorkers,
+    workshopWorkers, fieldWorkers, idleWorkers, recommendations,
     activeWorkers: activeWorkshopWorkers.length,
     stages, alerts,
     summary: {
