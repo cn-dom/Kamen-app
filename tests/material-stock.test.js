@@ -23,3 +23,21 @@ test('zadržava rezervaciju ploča u stotinkama kao dosad', () => {
   const slab = { form: 'Ploča', length: 300, width: 200 };
   assert.equal(calculateMaterialReservation(slab, [{ length: 100, width: 100, quantity: 1 }]), 0.17);
 });
+
+test('rezervira fizičke ostatke prema planu rezanja, a ne samo prema površini', () => {
+  const remnant = { form: 'Ostatak', length: 100, width: 100 };
+  const planned = [
+    { length: 70, width: 70, quantity: 1, remnantBoardKeys: ['rem-1::0'] },
+    { length: 70, width: 70, quantity: 1, remnantBoardKeys: ['rem-1::1'] }
+  ];
+  assert.equal(calculateMaterialReservation(remnant, planned), 2);
+});
+
+test('ne broji isti fizički ostatak dvaput kada prima više komada', () => {
+  const remnant = { form: 'Ostatak', length: 120, width: 80 };
+  const planned = [
+    { length: 50, width: 30, quantity: 1, remnantBoardKeys: ['rem-1::0'] },
+    { length: 50, width: 30, quantity: 1, remnantBoardKeys: ['rem-1::0'] }
+  ];
+  assert.equal(calculateMaterialReservation(remnant, planned), 1);
+});
