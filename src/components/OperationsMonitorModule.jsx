@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Activity, CheckCircle2, Clock3, Factory, Users, ArrowRight, UserCheck, UserX } from 'lucide-react';
+import { Activity, CheckCircle2, Clock3, Factory, Users, ArrowRight, UserCheck, UserX, MapPin, BriefcaseBusiness } from 'lucide-react';
 import { analyzeWorkshopCapacity } from '../lib/workshopMonitor.js';
 
 const read = (key, fallback) => { try { const value = JSON.parse(window.localStorage.getItem(key) || 'null'); return value ?? fallback; } catch { return fallback; } };
@@ -44,6 +44,7 @@ export default function OperationsMonitorModule({ onBack }) {
 
     <section className="stats-grid" aria-label="Pokazatelji radionice">
       <article className="stat-card"><div className="stat-top"><span>Radnici danas prisutni</span><span className="stat-icon blue-icon"><UserCheck size={18}/></span></div><div className="stat-value">{report.presentWorkers.length}<span className="stat-unit">osoba</span></div><div className="stat-foot"><span>{report.unrecordedWorkers.length} bez evidencije · {report.absentWorkers.length} odsutno</span></div></article>
+      <article className="stat-card"><div className="stat-top"><span>Na terenu</span><span className="stat-icon amber-icon"><MapPin size={18}/></span></div><div className="stat-value">{report.fieldWorkers.length}<span className="stat-unit">osoba</span></div><div className="stat-foot"><span>Izvan kapaciteta radionice</span></div></article>
       <article className="stat-card"><div className="stat-top"><span>Na aktivnom poslu</span><span className="stat-icon purple-icon"><Factory size={18}/></span></div><div className="stat-value">{report.activeWorkers}<span className="stat-unit">osoba</span></div><div className="stat-foot"><span>Prema aktivnim dodjelama faza</span></div></article>
       <article className="stat-card"><div className="stat-top"><span>Prisutni bez dodjele</span><span className="stat-icon amber-icon"><Clock3 size={18}/></span></div><div className="stat-value">{report.idleWorkers.length}<span className="stat-unit">osoba</span></div><div className="stat-foot"><span>Provjeriti raspored i sljedeće zadatke</span></div></article>
       <article className="stat-card"><div className="stat-top"><span>Komadi u aktivnim nalozima</span><span className="stat-icon green-icon"><Activity size={18}/></span></div><div className="stat-value">{report.summary.activePieces}<span className="stat-unit">komada</span></div><div className="stat-foot"><span>{report.summary.activeOrders} aktivnih naloga</span></div></article>
@@ -71,12 +72,20 @@ export default function OperationsMonitorModule({ onBack }) {
       <div className="quick-actions">
         {report.workers.length ? report.workers.map(name => {
           const status = report.presentWorkers.includes(name) ? 'Prisutan' : report.absentWorkers.includes(name) ? 'Odsutan' : report.offShiftWorkers.includes(name) ? 'Izvan smjene' : 'Nije evidentirano';
-          return <div key={name} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 0'}}>
-            {status === 'Prisutan' ? <UserCheck size={17}/> : <UserX size={17}/>}<strong>{name}</strong><span className={'stock-status '+(status === 'Prisutan' ? 'good' : status === 'Odsutan' ? 'warn' : '')}>{status}</span>
+          const field = report.fieldWorkers.find(worker => worker.name === name);
+          return <div key={name} className="monitor-worker-row">
+            {field ? <MapPin size={17}/> : status === 'Prisutan' ? <UserCheck size={17}/> : <UserX size={17}/>}<strong>{name}</strong>
+            <span className={'stock-status '+(field ? 'warn' : status === 'Prisutan' ? 'good' : status === 'Odsutan' ? 'warn' : '')}>{field ? 'Na terenu' : status}</span>
+            {field && <small>{[field.task, field.location].filter(Boolean).join(' · ') || 'Terenski posao nije opisan'}</small>}
+            {!field && status === 'Prisutan' && <small>Radionica</small>}
           </div>;
         }) : <div className="empty-state"><Users size={20}/><strong>Nema evidentiranih radnika</strong><span>Dodaj radnike u modulu Proizvodnja.</span></div>}
       </div>
-      <p className="subtitle" style={{fontSize:12,marginTop:14}}>Prisutnost se unosi u modulu Proizvodnja i vrijedi samo za današnji datum. Ako nije evidentirana, sustav neće radnika računati kao prisutnog niti će ga proglasiti neiskorištenim.</p>
+      <p className="subtitle" style={{fontSize:12,marginTop:14}}>Prisutnost i mjesto rada vode se odvojeno za današnji datum. Radnici na terenu prikazuju se zasebno i ne ulaze u raspoloživi kapacitet radionice.</p>
+      <div className="monitor-field-summary">
+        <div className="panel-heading"><div><h3><BriefcaseBusiness size={16}/> Terenski raspored</h3><p>Aktivni terenski zadaci evidentirani za danas.</p></div><span className="count-pill">{report.fieldWorkers.length}</span></div>
+        {report.fieldWorkers.length ? <div className="monitor-field-list">{report.fieldWorkers.map(worker => <article key={worker.name}><strong>{worker.name}</strong><span>{worker.task || 'Vrsta posla nije unesena'}</span><small><MapPin size={13}/>{worker.location || 'Lokacija nije unesena'}</small></article>)}</div> : <p className="subtitle" style={{fontSize:12}}>Trenutačno nema radnika označenih za teren.</p>}
+      </div>
       <small style={{color:'var(--muted,#718096)'}}>Zadnje osvježavanje: {updatedAt.toLocaleTimeString('hr-HR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})} · Podaci ostaju u ovom pregledniku.</small>
     </section>
   </div>;
