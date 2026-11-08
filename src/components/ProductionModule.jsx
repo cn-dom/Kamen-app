@@ -18,6 +18,7 @@ import {
 const ORDERS_KEY = 'kamen-app-work-orders-v1';
 const MATERIALS_KEY = 'kamen-app-materials-v1';
 const PRODUCTION_KEY = 'kamen-app-production-stages-v1';
+const todayKey = () => { const date = new Date(); return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`; };
 function readJson(key, fallback) {
   try { const value = window.localStorage.getItem(key); return value ? JSON.parse(value) : fallback; }
   catch { return fallback; }
@@ -194,6 +195,13 @@ export default function ProductionModule({ onBack }) {
     setRecords(current => ({ ...current, version: 2, workers: [...(current.workers || []), name] }));
     setNewWorker('');
   };
+  const setWorkerAttendance = (name, status) => setRecords(current => {
+    const date = todayKey();
+    const attendance = current.attendance?.date === date
+      ? current.attendance
+      : { date, statuses: {} };
+    return { ...current, attendance: { ...attendance, statuses: { ...(attendance.statuses || {}), [name]: status } } };
+  });
   const removeWorker = name => {
     if (!window.confirm('Ukloniti radnika „' + name + '” iz popisa? Već evidentirane dodjele ostaju sačuvane.')) return;
     setRecords(current => ({ ...current, workers: (current.workers || []).filter(worker => worker !== name) }));
@@ -271,7 +279,8 @@ export default function ProductionModule({ onBack }) {
       <section className="production-team">
         <div className="production-team-heading"><UserRound size={17}/><div><strong>Popis radnika</strong><small>Odabir radnika dostupan je u svakoj fazi obrade.</small></div></div>
         <form className="production-team-form" onSubmit={addWorker}><input value={newWorker} onChange={event => setNewWorker(event.target.value)} placeholder="Ime i prezime radnika" aria-label="Ime i prezime radnika"/><button className="button button-secondary" type="submit" disabled={!newWorker.trim()}><UserPlus size={14}/> Dodaj radnika</button></form>
-        <div className="production-worker-chips">{(records.workers || []).map(worker => <span key={worker}>{worker}<button type="button" onClick={() => removeWorker(worker)} aria-label={'Ukloni ' + worker}><X size={12}/></button></span>)}{!(records.workers || []).length && <small>Još nema unesenih radnika. Ime se može upisati i izravno u fazi.</small>}</div>
+        <div className="production-worker-chips">{(records.workers || []).map(worker => <span className="production-worker-chip" key={worker}><strong>{worker}</strong><select aria-label={'Današnja prisutnost: ' + worker} value={records.attendance?.date === todayKey() ? (records.attendance.statuses?.[worker] || 'Nije evidentirano') : 'Nije evidentirano'} onChange={event => setWorkerAttendance(worker, event.target.value)}><option value="Nije evidentirano">Nije evidentirano</option><option value="Prisutan">Prisutan</option><option value="Odsutan">Odsutan</option><option value="Izvan smjene">Izvan smjene</option></select><button type="button" onClick={() => removeWorker(worker)} aria-label={'Ukloni ' + worker}><X size={12}/></button></span>)}{!(records.workers || []).length && <small>Još nema unesenih radnika. Ime se može upisati i izravno u fazi.</small>}</div>
+<p className="production-attendance-note">Evidentiraj prisutnost za današnji datum. Neuneseni status ne smatra se potvrđenom prisutnošću.</p>
         <datalist id="production-worker-list">{(records.workers || []).map(worker => <option key={worker} value={worker}/>)}</datalist>
       </section>
       <div className="warehouse-toolbar production-toolbar">
