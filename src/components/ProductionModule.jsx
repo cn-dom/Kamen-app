@@ -188,7 +188,7 @@ export default function ProductionModule({ onBack, onCreateProject }) {
   const updateQualityField = (key, field, value) => updateUnit(key, unit => ({ ...unit, quality: { ...unit.quality, [field]: value } }));
   const addWorker = event => {
     event.preventDefault();
-    const name = newWorker.trim().replace(/\\s+/g, ' ');
+    const name = newWorker.trim().replace(/\s+/g, ' ');
     if (!name) return;
     const currentWorkers = Array.isArray(records.workers) ? records.workers : [];
     const exists = currentWorkers.some(worker => String(worker).toLocaleLowerCase('hr') === name.toLocaleLowerCase('hr'));
