@@ -1444,3 +1444,34 @@ input,select,textarea{border-radius:9px}
 .production-unit-head{transition:background .16s ease}
 .production-unit-head:hover{background:#f8faff}
 @media(max-width:600px){.production-team-settings>summary{width:100%}.production-unit-hint{font-size:9px!important}}
+
+
+/* Plan rada: kapaciteti, zauzetost resursa i upozorenja */
+.production-capacity-panel{margin-bottom:22px;overflow:hidden}
+.production-capacity-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;border-top:1px solid #edf1f6}
+.production-capacity-column{min-width:0;padding:18px 20px;border-right:1px solid #edf1f6}
+.production-capacity-column:last-child{border-right:0}
+.production-capacity-title{display:flex;align-items:center;gap:8px;margin-bottom:13px;color:#52647d;font-size:11px}
+.production-capacity-title svg{color:#3974df}
+.production-capacity-title strong{color:#263a55;font-size:11px}
+.production-capacity-title>span{margin-left:auto;padding:4px 7px;border-radius:7px;background:#edf3ff;color:#3869ce;font-size:10px;font-weight:800}
+.production-resource-row{padding:10px 0;border-bottom:1px solid #f0f3f7}
+.production-resource-row:last-child{border-bottom:0}
+.production-resource-top{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.production-resource-top strong{font-size:11px;color:#34445b}
+.production-resource-top b{font-size:10px;color:#3869ce}
+.production-resource-track{height:6px;margin:8px 0 6px;border-radius:9px;background:#edf1f7;overflow:hidden}
+.production-resource-track i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#4778e8,#77a2f8);transition:width .3s ease}
+.production-resource-track.machine i{background:linear-gradient(90deg,#8a6bd5,#b09ae9)}
+.production-resource-row small,.production-resource-alert small{display:block;color:#8996a8;font-size:9px;line-height:1.5}
+.production-capacity-empty{padding:12px 0;color:#8a96a8;font-size:10px;line-height:1.6}
+.production-capacity-empty.success{color:#28845e}
+.production-resource-alert{padding:9px 10px;margin:7px 0;border:1px solid #f1d9a9;border-radius:9px;background:#fff9ec}
+.production-resource-alert strong{display:block;margin-bottom:3px;color:#98631c;font-size:10px}
+.production-resource-alert.blocked{border-color:#f0caca;background:#fff5f5}
+.production-resource-alert.blocked strong{color:#b94c4c}
+.production-capacity-footer{display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding:12px 20px;border-top:1px solid #edf1f6;background:#fafbfd;color:#7f8ca0;font-size:9px}
+.production-capacity-footer strong{color:#344761}
+.production-capacity-footer span:last-child{margin-left:auto}
+@media(max-width:1000px){.production-capacity-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.production-alert-column{grid-column:1/-1;border-top:1px solid #edf1f6}}
+@media(max-width:620px){.production-capacity-grid{grid-template-columns:1fr}.production-capacity-column{padding:15px;border-right:0;border-bottom:1px solid #edf1f6}.production-alert-column{grid-column:auto}.production-capacity-footer{gap:9px 14px;padding:11px 15px}.production-capacity-footer span:last-child{width:100%;margin-left:0}}

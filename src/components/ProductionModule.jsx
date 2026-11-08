@@ -96,6 +96,24 @@ export default function ProductionModule({ onBack, onCreateProject }) {
     const currentStage = unit.stages?.[stageName] || blankStage();
     if (currentStage.status === 'Završeno' || currentStage.status === 'Nije potrebno' || currentStage.status === 'U tijeku') return;
     if (!String(currentStage.assignedTo || '').trim()) { window.alert('Prije početka faze odaberi ili upiši odgovornog radnika.'); return; }
+    const workerName = String(currentStage.assignedTo).trim().toLocaleLowerCase('hr');
+    const today = todayKey();
+    const attendanceStatus = records.attendance?.date === today ? records.attendance.statuses?.[currentStage.assignedTo] : '';
+    const deployment = records.deployment?.date === today ? records.deployment.assignments?.[currentStage.assignedTo] : null;
+    if (attendanceStatus === 'Odsutan' || attendanceStatus === 'Izvan smjene') { window.alert('Radnik je evidentiran kao odsutan ili izvan smjene. Promijeni prisutnost prije početka faze.'); return; }
+    if (deployment?.area === 'Teren') { window.alert('Radnik je danas raspoređen na teren i nije slobodan kapacitet radionice.'); return; }
+    const skills = records.workerSkills?.[currentStage.assignedTo] || [];
+    if (skills.length && !skills.includes(stageName)) { window.alert('Radniku nije evidentirana vještina za ovu fazu. Provjeri raspored i vještine prije početka.'); return; }
+    const currentEquipmentId = currentStage.equipmentId || '';
+    const occupied = Object.entries(records.pieces || {}).flatMap(([otherKey, otherUnit]) => stages.flatMap(otherStageName => {
+      const otherStage = otherUnit.stages?.[otherStageName] || blankStage();
+      if (otherStage.status !== 'U tijeku' || (otherKey === key && otherStageName === stageName)) return [];
+      return [{ key: otherKey, stageName: otherStageName, worker: String(otherStage.assignedTo || '').trim().toLocaleLowerCase('hr'), equipmentId: otherStage.equipmentId || '' }];
+    }));
+    if (occupied.some(item => item.worker && item.worker === workerName)) { window.alert('Sukob rasporeda: ovaj radnik već ima drugu fazu u tijeku.'); return; }
+    if (currentEquipmentId && occupied.some(item => item.equipmentId === currentEquipmentId)) { window.alert('Sukob stroja: odabrani stroj već se koristi u drugoj aktivnoj fazi.'); return; }
+    const selectedEquipment = equipment.find(item => item.id === currentEquipmentId);
+    if (selectedEquipment && selectedEquipment.status === 'Izvan pogona') { window.alert('Odabrani stroj je označen kao izvan pogona.'); return; }
     const stageIndex = stages.indexOf(stageName);
     if (stages.slice(0, stageIndex).some(previousStage => !['Završeno', 'Nije potrebno'].includes(unit.stages?.[previousStage]?.status))) {
       window.alert('Najprije završi prethodnu fazu obrade ili je označi kao nije potrebnu.');
@@ -275,6 +293,48 @@ export default function ProductionModule({ onBack, onCreateProject }) {
     return [...map.values()];
   }, [visibleRows]);
 
+  const activeAssignments = useMemo(() => rowsWithRecords.flatMap(row => stages.flatMap(stageName => {
+    const stage = row.record.stages?.[stageName] || blankStage();
+    if (!['U tijeku', 'Zastoj'].includes(stage.status)) return [];
+    return [{ key: row.key, orderId: row.order.id, project: row.order.project || 'Projekt bez naziva', piece: row.label, stageName, status: stage.status, worker: stage.assignedTo || 'Nije dodijeljen', workerKey: String(stage.assignedTo || '').trim().toLocaleLowerCase('hr'), equipmentId: stage.equipmentId || '', equipmentName: equipment.find(item => item.id === stage.equipmentId)?.name || 'Bez stroja', duration: elapsedMs(stage, clockNow), reason: stage.blockedReason || '' }];
+  })), [rowsWithRecords, equipment, clockNow]);
+  const workerLoads = useMemo(() => {
+    const map = new Map();
+    activeAssignments.filter(item => item.status === 'U tijeku' && item.workerKey).forEach(item => {
+      const entry = map.get(item.worker) || { name: item.worker, count: 0, minutes: 0, tasks: [] };
+      entry.count += 1; entry.minutes += item.duration / 60000; entry.tasks.push(item);
+      map.set(item.worker, entry);
+    });
+    return [...map.values()].sort((a,b) => b.count-a.count || b.minutes-a.minutes);
+  }, [activeAssignments]);
+  const machineLoads = useMemo(() => {
+    const map = new Map();
+    activeAssignments.filter(item => item.status === 'U tijeku' && item.equipmentId).forEach(item => {
+      const entry = map.get(item.equipmentId) || { id: item.equipmentId, name: item.equipmentName, count: 0, minutes: 0, tasks: [] };
+      entry.count += 1; entry.minutes += item.duration / 60000; entry.tasks.push(item);
+      map.set(item.equipmentId, entry);
+    });
+    return [...map.values()].sort((a,b) => b.count-a.count || b.minutes-a.minutes);
+  }, [activeAssignments]);
+  const resourceConflicts = useMemo(() => {
+    const active = activeAssignments.filter(item => item.status === 'U tijeku');
+    const conflicts = [];
+    const byWorker = new Map(); const byMachine = new Map();
+    active.forEach(item => {
+      if (item.workerKey) { const list = byWorker.get(item.workerKey) || []; list.push(item); byWorker.set(item.workerKey,list); }
+      if (item.equipmentId) { const list = byMachine.get(item.equipmentId) || []; list.push(item); byMachine.set(item.equipmentId,list); }
+    });
+    byWorker.forEach((items,key) => { if(items.length>1) conflicts.push({type:'Radnik',name:items[0].worker,items}); });
+    byMachine.forEach((items,key) => { if(items.length>1) conflicts.push({type:'Stroj',name:items[0].equipmentName,items}); });
+    return conflicts;
+  }, [activeAssignments]);
+  const todayCapacityWarnings = useMemo(() => workerLoads.flatMap(load => {
+    const attendance = records.attendance?.date === todayKey() ? records.attendance.statuses?.[load.name] : '';
+    const deployment = records.deployment?.date === todayKey() ? records.deployment.assignments?.[load.name] : null;
+    if (attendance === 'Odsutan' || attendance === 'Izvan smjene' || deployment?.area === 'Teren') return [{ name: load.name, reason: deployment?.area === 'Teren' ? 'Raspoređen na teren' : attendance }];
+    return [];
+  }), [workerLoads, records.attendance, records.deployment]);
+
   const exportCsv = () => {
     const headers = ['Radni nalog', 'Kupac', 'Projekt', 'Komad', 'Redni broj', 'Materijal', 'Duljina cm', 'Širina cm', 'Debljina cm', 'Faza', 'Status', 'Radnik', 'Stroj / oprema', 'Početak', 'Završetak', 'Trajanje minuta', 'Razlog zastoja', 'Napomena', 'Kontrola kvalitete'];
     const lines = [headers.map(csvCell).join(';')];
@@ -312,6 +372,24 @@ export default function ProductionModule({ onBack, onCreateProject }) {
       <article className="stat-card"><div className="stat-top"><span>Faze u tijeku</span><span className="stat-icon amber-icon"><Clock3 size={18}/></span></div><div className="stat-value">{inProgress}<span className="stat-unit">faza</span></div><div className="stat-foot">Aktivni radni intervali</div></article>
       <article className="stat-card"><div className="stat-top"><span>Zastoji</span><span className="stat-icon red-icon"><AlertTriangle size={18}/></span></div><div className="stat-value">{blocked}<span className="stat-unit">faza</span></div><div className="stat-foot">Čekaju rješavanje</div></article>
       <article className="stat-card"><div className="stat-top"><span>Prošla kontrola</span><span className="stat-icon green-icon"><CheckCircle2 size={18}/></span></div><div className="stat-value">{passedQuality}<span className="stat-unit">komada</span></div><div className="stat-foot">{readyForQuality} spremno za kontrolu</div></article>
+    </section>
+    <section className="panel production-capacity-panel">
+      <div className="panel-heading"><div><h2>Plan rada i opterećenje resursa</h2><p>Pregled aktivnih faza, zauzetosti radnika i strojeva te upozorenja na preklapanja.</p></div><span className="demo-label"><span/> AŽURIRA SE IZ EVIDENCIJE</span></div>
+      <div className="production-capacity-grid">
+        <div className="production-capacity-column"><div className="production-capacity-title"><UserRound size={16}/><strong>Radnici u aktivnom radu</strong><span>{workerLoads.length}</span></div>
+          {workerLoads.length ? workerLoads.map(load => <article className="production-resource-row" key={load.name}><div className="production-resource-top"><strong>{load.name}</strong><b>{load.count} {load.count === 1 ? 'faza' : 'faze'}</b></div><div className="production-resource-track"><i style={{width: Math.min(100,load.count*50)+'%'}}/></div><small>{formatDuration(load.minutes*60000)} evidentiranog aktivnog vremena · {load.tasks.map(task=>task.stageName).join(', ')}</small></article>) : <p className="production-capacity-empty">Trenutačno nema aktivnih radnih intervala.</p>}
+        </div>
+        <div className="production-capacity-column"><div className="production-capacity-title"><Factory size={16}/><strong>Strojevi u uporabi</strong><span>{machineLoads.length}</span></div>
+          {machineLoads.length ? machineLoads.map(load => <article className="production-resource-row" key={load.id}><div className="production-resource-top"><strong>{load.name}</strong><b>{load.count} {load.count === 1 ? 'faza' : 'faze'}</b></div><div className="production-resource-track machine"><i style={{width: Math.min(100,load.count*50)+'%'}}/></div><small>{formatDuration(load.minutes*60000)} aktivnog vremena · {load.tasks.map(task=>task.stageName).join(', ')}</small></article>) : <p className="production-capacity-empty">Nijedan stroj trenutačno nije vezan uz aktivnu fazu.</p>}
+        </div>
+        <div className="production-capacity-column production-alert-column"><div className="production-capacity-title"><AlertTriangle size={16}/><strong>Kontrola rasporeda</strong><span>{resourceConflicts.length+todayCapacityWarnings.length+activeAssignments.filter(item=>item.status==='Zastoj').length}</span></div>
+          {resourceConflicts.map((conflict,index)=><article className="production-resource-alert" key={conflict.type+conflict.name+index}><strong>{conflict.type}: {conflict.name}</strong><small>{conflict.items.length} istodobne aktivne faze — provjeri raspored.</small></article>)}
+          {todayCapacityWarnings.map(item=><article className="production-resource-alert" key={item.name}><strong>{item.name}</strong><small>{item.reason} — provjeri aktivne zadatke.</small></article>)}
+          {activeAssignments.filter(item=>item.status==='Zastoj').map(item=><article className="production-resource-alert blocked" key={item.key+item.stageName}><strong>{item.orderId} · {item.stageName}</strong><small>{item.reason || 'Zastoj čeka rješavanje'}</small></article>)}
+          {!resourceConflicts.length&&!todayCapacityWarnings.length&&!activeAssignments.some(item=>item.status==='Zastoj')&&<p className="production-capacity-empty success">Nema evidentiranih sukoba ni zastoja.</p>}
+        </div>
+      </div>
+      <div className="production-capacity-footer"><span>Aktivno: <strong>{activeAssignments.filter(item=>item.status==='U tijeku').length}</strong></span><span>Zastoji: <strong>{activeAssignments.filter(item=>item.status==='Zastoj').length}</strong></span><span>Prepoznati sukobi: <strong>{resourceConflicts.length}</strong></span><span>Ovaj pregled ne mijenja dodjele ni stanje skladišta.</span></div>
     </section>
     <section className="panel warehouse-panel production-workspace">
       <div className="panel-heading"><div><h2>Proizvodnja po komadima</h2><p>Svaka jedinica narudžbe ima vlastite faze, radnika, vremenske zapise i kontrolu.</p></div><span className="demo-label"><span/> LOKALNA EVIDENCIJA</span></div>
