@@ -19,6 +19,12 @@ const ORDERS_KEY = 'kamen-app-work-orders-v1';
 const MATERIALS_KEY = 'kamen-app-materials-v1';
 const PRODUCTION_KEY = 'kamen-app-production-stages-v1';
 const todayKey = () => { const date = new Date(); return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`; };
+const formatDate = value => {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleString('hr-HR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+};
 function readJson(key, fallback) {
   try { const value = window.localStorage.getItem(key); return value ? JSON.parse(value) : fallback; }
   catch { return fallback; }
