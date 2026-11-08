@@ -31,16 +31,27 @@ test('poštuje debljinu i vrstu materijala', () => {
   assert.equal(result.pieces[0].materialId, slab.id);
 });
 
-test('ne dijeli jednu stavku između više različitih ostataka', () => {
+test('dijeli jednu stavku između više ostataka i zadržava izvornu količinu', () => {
+  const pieces = [{ name: 'Serija', materialId: slab.id, length: 50, width: 30, thickness: 3, quantity: 3 }];
+  const first = remnant({ id: 'rem-1', name: 'Ostatak A', length: 60, width: 40, quantity: 1 });
+  const second = remnant({ id: 'rem-2', name: 'Ostatak B', length: 60, width: 40, quantity: 1 });
+  const result = suggestRemnantAssignments(pieces, [slab, first, second]);
+  assert.equal(result.assignedCount, 2);
+  assert.deepEqual(result.pieces.map(piece => [piece.materialId, piece.quantity]), [['rem-1', 1], ['rem-2', 1], ['slab-1', 1]]);
+  assert.equal(result.pieces.reduce((sum, piece) => sum + piece.quantity, 0), 3);
+});
+
+test('može rasporediti količinu preko više fizičkih komada istog ostatka', () => {
   const pieces = [{ name: 'Serija', materialId: slab.id, length: 50, width: 30, thickness: 3, quantity: 2 }];
-  const oneSmallRemnant = remnant({ length: 60, width: 40, quantity: 1 });
-  const result = suggestRemnantAssignments(pieces, [slab, oneSmallRemnant]);
-  assert.equal(result.assignedCount, 0);
-  assert.equal(result.pieces[0].materialId, slab.id);
+  const stock = remnant({ length: 60, width: 40, quantity: 2 });
+  const result = suggestRemnantAssignments(pieces, [slab, stock]);
+  assert.equal(result.assignedCount, 2);
+  assert.deepEqual(result.pieces.map(piece => [piece.materialId, piece.quantity]), [['rem-1', 2]]);
 });
 
 test('zanemaruje arhivirane ostatke', () => {
   const pieces = [{ name: 'Komad', materialId: slab.id, length: 50, width: 30, thickness: 3, quantity: 1 }];
   const result = suggestRemnantAssignments(pieces, [slab, remnant({ archived: true })]);
   assert.equal(result.assignedCount, 0);
+  assert.equal(result.pieces[0].materialId, slab.id);
 });
