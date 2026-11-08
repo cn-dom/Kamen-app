@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { prepareSparePartIssue } from '../src/lib/maintenance.js';
+import { prepareSparePartIssue, sparePartReorderSuggestions } from '../src/lib/maintenance.js';
 
 test('izdavanje dijelova umanjuje zalihu i stvara skladišno kretanje s referencom',()=>{
  const materials=[{id:'M1',name:'Rezni disk',quantity:10,unit:'kom',location:'Polica A'},{id:'M2',name:'Ulje',quantity:4,unit:'l'}];
@@ -28,4 +28,32 @@ test('ne dopušta izdavanje arhiviranog ili nepostojećeg artikla',()=>{
  const result=prepareSparePartIssue([{id:'M1',name:'Stari disk',quantity:3,archived:true}],[{materialId:'M1',quantity:1}],{id:'ODR-4'},4000);
  assert.equal(result.ok,false);
  assert.match(result.error,/više nije dostupan/);
+});
+
+
+
+test('prijedlog nabave pojavljuje se samo za označene rezervne dijelove ispod minimuma',()=>{
+ const result=sparePartReorderSuggestions([
+  {id:'A',name:'Ležaj',isSparePart:true,quantity:1,min:2,unit:'kom',location:'Polica A'},
+  {id:'B',name:'Rezni disk',isSparePart:true,quantity:5,min:2,unit:'kom'},
+  {id:'C',name:'Granit',isSparePart:false,quantity:0,min:3,unit:'ploča'},
+  {id:'D',name:'Filter',isSparePart:true,quantity:0,min:1,unit:'kom',reorderTo:4}
+ ]);
+ assert.equal(result.length,2);
+ assert.equal(result[0].name,'Filter');
+ assert.equal(result[0].severity,'high');
+ assert.equal(result[0].suggestedQuantity,4);
+ assert.equal(result[1].name,'Ležaj');
+ assert.equal(result[1].suggestedQuantity,3);
+ assert.equal(result[1].location,'Polica A');
+});
+
+test('ciljna zaliha može biti posebno podešena, a arhivirani dijelovi se ignoriraju',()=>{
+ const result=sparePartReorderSuggestions([
+  {id:'A',name:'Ulje',isSparePart:true,quantity:2,min:3,reorderTo:8,unit:'l'},
+  {id:'B',name:'Stari dio',isSparePart:true,quantity:0,min:3,archived:true}
+ ]);
+ assert.equal(result.length,1);
+ assert.equal(result[0].target,8);
+ assert.equal(result[0].suggestedQuantity,6);
 });

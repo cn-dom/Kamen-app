@@ -1,19 +1,22 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Activity, CheckCircle2, Clock3, Factory, Users, ArrowRight, UserCheck, UserX, MapPin, BriefcaseBusiness } from 'lucide-react';
 import { analyzeWorkshopCapacity } from '../lib/workshopMonitor.js';
+import { sparePartReorderSuggestions } from '../lib/maintenance.js';
 
 const read = (key, fallback) => { try { const value = JSON.parse(window.localStorage.getItem(key) || 'null'); return value ?? fallback; } catch { return fallback; } };
 
 export default function OperationsMonitorModule({ onBack }) {
   const [snapshot, setSnapshot] = useState(() => ({
     orders: read('kamen-app-work-orders-v1', []),
-    production: read('kamen-app-production-stages-v1', {})
+    production: read('kamen-app-production-stages-v1', {}),
+    materials: read('kamen-app-materials-v1', [])
   }));
   const [updatedAt, setUpdatedAt] = useState(new Date());
   const refresh = () => {
     setSnapshot({
       orders: read('kamen-app-work-orders-v1', []),
-      production: read('kamen-app-production-stages-v1', {})
+      production: read('kamen-app-production-stages-v1', {}),
+      materials: read('kamen-app-materials-v1', [])
     });
     setUpdatedAt(new Date());
   };
@@ -29,6 +32,17 @@ export default function OperationsMonitorModule({ onBack }) {
   }, []);
   const report = useMemo(() => analyzeWorkshopCapacity(snapshot.orders, snapshot.production), [snapshot]);
   const stages = report.stages;
+  const reorderSuggestions = useMemo(() => sparePartReorderSuggestions(snapshot.materials), [snapshot.materials]);
+  const visibleAlerts = [
+    ...report.alerts,
+    ...reorderSuggestions.map(item => ({
+      id: item.id,
+      severity: 'warning',
+      title: item.name + (item.quantity <= 0 ? ' · NEMA NA ZALIHI' : ' · ISPOD MINIMUMA'),
+      description: 'Na zalihi ' + item.quantity.toLocaleString('hr-HR') + ' ' + item.unit + ' (minimum ' + item.minimum.toLocaleString('hr-HR') + '). Prijedlog nabave: ' + item.suggestedQuantity.toLocaleString('hr-HR') + ' ' + item.unit + ' za ciljnu zalihu ' + item.target.toLocaleString('hr-HR') + (item.location ? ' · ' + item.location : '') + '.',
+      destination: 'Skladište'
+    }))
+  ];
   return <div className="page-content module-page">
     <section className="welcome-row module-welcome">
       <div>
@@ -52,11 +66,11 @@ export default function OperationsMonitorModule({ onBack }) {
 
     <section className="main-grid">
       <article className="panel orders-panel">
-        <div className="panel-heading"><div><h2>Upozorenja i prijedlozi</h2><p>Zaključci iz naloga, faza i današnje evidencije prisutnosti.</p></div><span className="count-pill">{report.alerts.length}</span></div>
-        {report.alerts.length ? <div className="alert-list">{report.alerts.map(alert => <div className="alert-row" key={alert.id}>
+        <div className="panel-heading"><div><h2>Upozorenja i prijedlozi</h2><p>Zaključci iz proizvodnje, prisutnosti, održavanja i zaliha rezervnih dijelova.</p></div><span className="count-pill">{visibleAlerts.length}</span></div>
+        {visibleAlerts.length ? <div className="alert-list">{visibleAlerts.map(alert => <div className="alert-row" key={alert.id}>
           <span className={'alert-dot '+(alert.severity === 'warning' ? 'amber' : 'blue')}/><div className="alert-row-copy"><strong>{alert.title}</strong><p>{alert.description}</p></div>
           <button className="row-action" onClick={onBack} title="Otvori pregled"><ArrowRight size={15}/></button>
-        </div>)}</div> : <div className="empty-state"><CheckCircle2 size={22}/><strong>Nema otkrivenih uskih grla</strong><span>Potvrđena prisutnost i aktivne faze trenutačno ne pokazuju zastoj kapaciteta.</span></div>}
+        </div>)}</div> : <div className="empty-state"><CheckCircle2 size={22}/><strong>Nema aktivnih upozorenja</strong><span>Proizvodnja, prisutnost i označene zalihe rezervnih dijelova trenutačno ne traže intervenciju.</span></div>}
       </article>
       <article className="panel inventory-panel">
         <div className="panel-heading"><div><h2>Opterećenje po fazama</h2><p>Stanje pojedinačnih komada, ne samo naloga.</p></div></div>

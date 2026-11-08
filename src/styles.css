@@ -1394,3 +1394,6 @@ input,select,textarea{border-radius:9px}
 @media(prefers-reduced-motion:reduce){
   .welcome-row:after{display:none}
 }
+
+
+.warehouse-spare-toggle{display:flex;align-items:center;gap:10px;min-height:42px;padding:10px 12px;border:1px solid var(--border,#dbe3ed);border-radius:10px;background:var(--surface-soft,#f7f9fc);font-weight:600}.warehouse-spare-toggle input{width:17px;height:17px;flex:0 0 auto;margin:0;accent-color:var(--primary,#2563eb)}
