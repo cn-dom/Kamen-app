@@ -1406,3 +1406,29 @@ input,select,textarea{border-radius:9px}
 .low-stock-row:has(.low-stock-select input:checked){background:rgba(37,99,235,.055);border-color:rgba(59,130,246,.35)}
 .low-stock-bulk-actions .button:disabled{opacity:.45;cursor:not-allowed}
 @media(max-width:760px){.low-stock-bulk-actions{width:100%;justify-content:flex-start}.low-stock-bulk-actions .button{flex:1}.low-stock-select{align-self:flex-start;padding-top:5px}}
+
+
+/* Dashboard: stvarni pregled proizvodnje */
+.production-summary-panel { overflow: hidden; }
+.production-summary-list { padding: 2px 20px 8px; }
+.production-summary-row { display: grid; grid-template-columns: minmax(150px, 1.05fr) minmax(90px, 1fr) minmax(90px, .8fr); align-items: center; gap: 14px; padding: 13px 0; border-bottom: 1px solid #eef1f5; }
+.production-summary-row:last-child { border-bottom: 0; }
+.production-summary-name { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.production-summary-name strong { color: #344055; font-size: 11px; }
+.production-summary-name small { color: #98a2b1; font-size: 9px; }
+.production-summary-track { height: 7px; overflow: hidden; border-radius: 10px; background: #edf1f6; }
+.production-summary-track span { display: block; height: 100%; min-width: 0; border-radius: inherit; background: linear-gradient(90deg,#4775e8,#72a0fa); transition: width .35s ease; }
+.production-summary-counts { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 5px; }
+.production-summary-counts span { padding: 5px 7px; border-radius: 6px; font-size: 9px; font-weight: 700; white-space: nowrap; }
+.summary-active { color: #4569c8; background: #edf2ff; }
+.summary-blocked { color: #bd7421; background: #fff4df; }
+.production-summary-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 20px; border-top: 1px solid #eff2f6; color: #929dad; font-size: 9px; }
+.production-summary-foot button { display: inline-flex; align-items: center; gap: 6px; border: 0; background: transparent; color: #3569e8; font-size: 10px; font-weight: 700; }
+.production-summary-panel .warehouse-empty { min-height: 155px; }
+@media (max-width: 760px) {
+  .production-summary-list { padding: 2px 15px 8px; }
+  .production-summary-row { grid-template-columns: minmax(0,1fr) auto; gap: 8px 12px; }
+  .production-summary-track { grid-column: 1 / -1; grid-row: 2; }
+  .production-summary-counts { grid-column: 1 / -1; justify-content: flex-start; }
+  .production-summary-foot { padding: 11px 15px; align-items: flex-start; flex-direction: column; }
+}
