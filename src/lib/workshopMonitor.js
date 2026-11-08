@@ -65,9 +65,9 @@ export function analyzeWorkshopCapacity(orders = [], production = {}) {
       id: 'manual-capacity-idle',
       severity: manual.waiting ? 'warning' : 'info',
       title: 'Ručna obrada nema aktivnog posla',
-      description: manual.waiting
-        ? `Čeka ${manual.waiting} komada za ručnu obradu, a ${workshopWorkers.length} radnika je prisutno u radionici. ${fieldWorkers.length ? `${fieldWorkers.length} radnika je na terenu i nije uračunato.` : ''}`
-        : `Nema komada spremnih za ručnu obradu; ${workshopWorkers.length} radnika je prisutno u radionici.`,
+      description: (manual.waiting
+        ? `Čeka ${manual.waiting} komada za ručnu obradu, a ${workshopWorkers.length} radnika je prisutno u radionici.`
+        : `Nema komada spremnih za ručnu obradu; ${workshopWorkers.length} radnika je prisutno u radionici.`) + (fieldWorkers.length ? ` ${fieldWorkers.length} radnika je na terenu i nije uračunato.` : ''),
       destination: 'Proizvodnja',
       waiting: manual.waiting,
       workers: workshopWorkers.length
