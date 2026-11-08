@@ -8,12 +8,10 @@ import {
   Truck, Users, Wallet, X, HardHat, ShoppingCart, ClipboardList, Layers3, PackageCheck, Sparkles
 } from 'lucide-react';
 import './styles.css';
-import { resetDemoDataOnce } from './lib/resetDemoData.js';
 import { lowStockSuggestions } from './lib/purchasing.js';
 import { dashboardOperationalAlerts } from './lib/maintenance.js';
 import { getInvoiceReceivables } from './lib/invoices.js';
 
-resetDemoDataOnce();
 import ModulePlaceholder from './components/ModulePlaceholder.jsx';
 import OperationsMonitorModule from './components/OperationsMonitorModule.jsx';
 import FieldWorkModule from './components/FieldWorkModule.jsx';
