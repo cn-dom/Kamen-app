@@ -53,12 +53,13 @@ export function suggestRemnantAssignments(pieces = [], materials = [], { kerf = 
       if (remaining <= 0) break;
       if (stock.item.type !== original.type || Number(stock.item.thickness) !== Number(entry.piece.thickness || original.thickness)) continue;
       const trial = stock.boards.map(board => board.map(rect => ({ ...rect })));
+      const usedForLine = new Set();
       let placedCount = 0;
       for (let copy = 0; copy < remaining; copy++) {
         let placed = false;
         for (let boardIndex = 0; boardIndex < trial.length; boardIndex++) {
           if (tryPlace(trial[boardIndex], { length: Number(entry.piece.length), width: Number(entry.piece.width) }, kerf, allowRotation)) {
-            stock.usedBoardKeys.add(stock.item.id + '::' + boardIndex);
+            usedForLine.add(stock.item.id + '::' + boardIndex);
             placed = true;
             break;
           }
@@ -73,7 +74,7 @@ export function suggestRemnantAssignments(pieces = [], materials = [], { kerf = 
       const lineAllocations = assignedByLine.get(entry.index);
       const allocation = lineAllocations.get(stock.item.id) || { quantity: 0, boardKeys: new Set() };
       allocation.quantity += placedCount;
-      for (const key of stock.usedBoardKeys) allocation.boardKeys.add(key);
+      for (const key of usedForLine) allocation.boardKeys.add(key);
       lineAllocations.set(stock.item.id, allocation);
       allocations.set(stock.item.id, stock.item);
     }
