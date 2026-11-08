@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ClipboardList, Plus, Search, X, CalendarDays, UserRound, Ruler, ChevronDown, CheckCircle2, Clock3, Hammer, Trash2, Wallet, Scissors, Boxes } from 'lucide-react';
 import { isProductionOrderComplete } from '../lib/production.js';
 import { calculateMaterialReservation } from '../lib/materialStock.js';
+import { releaseOrderReservations } from '../lib/workOrderStock.js';
 import { suggestRemnantAssignments } from '../lib/remnantPlanner.js';
 
 const seedOrders = [];
@@ -138,23 +139,31 @@ export default function WorkOrdersModule({ onBack, openCreate = false, onCreateO
   const cancelOrder = (id) => {
     const order = orders.find(item => item.id === id);
     if (!order || order.status === 'Otkazan') return;
-    const reservations = Array.isArray(order.reservedMaterials) ? order.reservedMaterials : (Number(order.reservedMaterialQty || 0) > 0 ? [{ materialId: order.reservedMaterialId, quantity: Number(order.reservedMaterialQty || 0) }] : []);
-    const pending = reservations.filter(item => Number(item.quantity || 0) > 0);
-    const missing = pending.filter(reservation => !materials.some(item => item.id === reservation.materialId));
-    if (missing.length) { window.alert('Jedan ili više rezerviranih materijala nije pronađen u skladištu. Nalog nije otkazan.'); return; }
-    const explanation = pending.length ? 'Neiskorištene rezervacije svih materijala bit će vraćene u skladište.' : 'Već utrošeni materijal neće se vraćati.';
+    const released = releaseOrderReservations({ order, materials });
+    if (released.error) {
+      window.alert(released.error + ' Nalog nije otkazan.');
+      return;
+    }
+    const pending = released.returned;
+    const explanation = pending.length
+      ? 'Neiskorištene rezervacije svih materijala bit će vraćene u skladište.'
+      : 'Već utrošeni materijal neće se vraćati.';
     if (!window.confirm('Otkazati nalog ' + order.id + '? ' + explanation)) return;
     if (pending.length) {
-      const nextMaterials = materials.map(item => {
-        const reserved = pending.filter(entry => entry.materialId === item.id).reduce((sum, entry) => sum + Number(entry.quantity || 0), 0);
-        return reserved ? { ...item, quantity: Math.round((Number(item.quantity || 0) + reserved) * 100) / 100 } : item;
-      });
-      setMaterials(nextMaterials);
-      try { window.localStorage.setItem(MATERIALS_KEY, JSON.stringify(nextMaterials)); } catch {}
+      setMaterials(released.materials);
+      try { window.localStorage.setItem(MATERIALS_KEY, JSON.stringify(released.materials)); } catch {}
       try {
         const key = 'kamen-app-movements-v1';
         const log = JSON.parse(window.localStorage.getItem(key) || '[]');
-        const entries = pending.map((entry, index) => ({ id: Date.now() + index, material: entry.material || materials.find(item => item.id === entry.materialId)?.name || 'Materijal', kind: 'Povrat rezervacije - otkazivanje naloga', quantity: entry.quantity, location: materials.find(item => item.id === entry.materialId)?.location, orderId: order.id, date: new Date().toLocaleDateString('hr-HR') }));
+        const entries = pending.map((entry, index) => ({
+          id: Date.now() + index,
+          material: entry.material || materials.find(item => item.id === entry.materialId)?.name || 'Materijal',
+          kind: 'Povrat rezervacije - otkazivanje naloga',
+          quantity: entry.quantity,
+          location: materials.find(item => item.id === entry.materialId)?.location,
+          orderId: order.id,
+          date: new Date().toLocaleDateString('hr-HR')
+        }));
         window.localStorage.setItem(key, JSON.stringify([...entries, ...log].slice(0, 100)));
       } catch {}
     }
