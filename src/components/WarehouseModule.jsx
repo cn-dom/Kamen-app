@@ -3,6 +3,7 @@ import FinishedProductsModule from './FinishedProductsModule.jsx';
 import StocktakeModule from './StocktakeModule.jsx';
 import { createMaterialConsumptionRecord } from '../lib/materialConsumption.js';
 import { calculateStockCarryingValue } from '../lib/materialStock.js';
+import { getReservedQuantity, settleReservationForCut } from '../lib/workOrderStock.js';
 import { ArrowDownToLine, ArrowUpFromLine, Boxes, Check, ChevronDown, ClipboardCheck, Layers3, Plus, Search, Scissors, X, Pencil, Archive, RotateCcw } from 'lucide-react';
 
 const seedMaterials = [];
@@ -231,11 +232,13 @@ function buildCuttingPlan(boardLength, boardWidth, pieces, kerf, trim, allowRota
     const source = materials.find(item => item.id === cutForm.sourceId);
     const usedQty = parseQuantity(cutForm.usedQty);
     const linkedOrder = cutForm.orderId ? readStored(WORK_ORDERS_KEY, []).find(order => order.id === cutForm.orderId && !['Završen', 'Otkazan'].includes(order.status)) : null;
-    const reservedForOrder = linkedOrder ? (Array.isArray(linkedOrder.reservedMaterials) ? linkedOrder.reservedMaterials.filter(item => item.materialId === source?.id).reduce((sum, item) => sum + Number(item.quantity || 0), 0) : linkedOrder.reservedMaterialId === source?.id ? Number(linkedOrder.reservedMaterialQty || 0) : 0) : 0;
-    const availableForCut = Number(source?.quantity || 0) + reservedForOrder;
+    const reservedForOrder = linkedOrder ? getReservedQuantity(linkedOrder, source?.id) : 0;
+    const settlement = source && Number.isFinite(usedQty) && usedQty > 0
+      ? settleReservationForCut({ order: linkedOrder, materialId: source.id, usedQuantity: usedQty, stockQuantity: Number(source.quantity || 0) })
+      : null;
     if (source?.form === 'Ostatak' && !Number.isInteger(usedQty)) { flash('Uporabni ostatak vodi se kao cijeli fizički komad. Unesi cijeli broj ostataka.'); return; }
-    if (!source || !Number.isFinite(usedQty) || usedQty <= 0 || Math.round(usedQty * 100) !== usedQty * 100 || usedQty > availableForCut + 1e-9) {
-      flash('Provjeri ulazni materijal i količinu. Za povezani nalog koristi se njegova prethodno rezervirana količina.');
+    if (!source || !Number.isFinite(usedQty) || usedQty <= 0 || Math.round(usedQty * 100) !== usedQty * 100 || settlement?.error) {
+      flash(settlement?.error || 'Provjeri ulazni materijal i količinu. Za povezani nalog koristi se njegova prethodno rezervirana količina.');
       return;
     }
     if (cutForm.orderId && !linkedOrder) { flash('Odabrani radni nalog više nije dostupan. Osvježi prikaz i pokušaj ponovno.'); return; }
@@ -332,7 +335,7 @@ function buildCuttingPlan(boardLength, boardWidth, pieces, kerf, trim, allowRota
         window.localStorage.setItem('kamen-app-finished-products-v1', JSON.stringify([...finishedOutputs, ...currentFinished]));
       } catch { /* Warehouse cutting is still recorded if the finished goods list cannot be updated. */ }
     }
-    const stockDelta = reservedForOrder > 0 ? reservedForOrder - usedQty : -usedQty;
+    const stockDelta = settlement.stockDelta;
     setMaterials(current => [...current.map(item => item.id === source.id ? { ...item, quantity: Math.max(0, Number((item.quantity + stockDelta).toFixed(2))) } : item), ...outputMaterials.filter(item => item.form !== 'Komad')]);
     const outputMovements = outputMaterials.map((item, index) => ({
       id: timestamp + index + 2,
