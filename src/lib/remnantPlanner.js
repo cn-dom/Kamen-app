@@ -36,7 +36,7 @@ export function suggestRemnantAssignments(pieces = [], materials = [], { kerf = 
   const sourceMaterials = Array.isArray(materials) ? materials : [];
   const stocks = sourceMaterials
     .filter(item => item.form === 'Ostatak' && !item.archived && Number.isInteger(Number(item.quantity)) && Number(item.quantity) > 0 && Number(item.length) > 2 * trim && Number(item.width) > 2 * trim)
-    .map(item => ({ item, usedBoardKeys: new Set(), boards: Array.from({ length: Math.min(100, Number(item.quantity)) }, () => [{ x: 0, y: 0, w: Number(item.length) - trim * 2, h: Number(item.width) - trim * 2 }]) }))
+    .map(item => ({ item, boards: Array.from({ length: Math.min(100, Number(item.quantity)) }, () => [{ x: 0, y: 0, w: Number(item.length) - trim * 2, h: Number(item.width) - trim * 2 }]) }))
     .sort((a, b) => Number(a.item.length) * Number(a.item.width) - Number(b.item.length) * Number(b.item.width));
 
   const candidates = (Array.isArray(pieces) ? pieces : []).map((piece, index) => ({ piece: { ...piece }, index, area: Number(piece.length) * Number(piece.width) * Number(piece.quantity || 0) }))
