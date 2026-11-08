@@ -13,6 +13,7 @@ test('dodjeljuje više komada u isti ostatak ako fizički stanu', () => {
   const result = suggestRemnantAssignments(pieces, [slab, remnant()]);
   assert.equal(result.assignedCount, 2);
   assert.deepEqual(result.pieces.map(piece => piece.materialId), ['rem-1', 'rem-1']);
+  assert.deepEqual(result.pieces.map(piece => piece.remnantBoardKeys), [['rem-1::0'], ['rem-1::0']]);
 });
 
 test('ne dodjeljuje ostatak ako komad ne stane niti uz rotaciju', () => {
@@ -39,6 +40,7 @@ test('dijeli jednu stavku između više ostataka i zadržava izvornu količinu',
   assert.equal(result.assignedCount, 2);
   assert.deepEqual(result.pieces.map(piece => [piece.materialId, piece.quantity]), [['rem-1', 1], ['rem-2', 1], ['slab-1', 1]]);
   assert.equal(result.pieces.reduce((sum, piece) => sum + piece.quantity, 0), 3);
+  assert.deepEqual(result.pieces.slice(0, 2).map(piece => piece.remnantBoardKeys), [['rem-1::0'], ['rem-2::0']]);
 });
 
 test('može rasporediti količinu preko više fizičkih komada istog ostatka', () => {
