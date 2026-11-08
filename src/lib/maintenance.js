@@ -104,3 +104,33 @@ export function prepareSparePartIssue(materials = [], parts = [], record = {}, n
   }));
   return { ok: true, materials: nextMaterials, movements, parts: snapshots };
 }
+
+
+/**
+ * Prijedlozi nadopune samo za artikle koje je korisnik označio kao rezervne dijelove.
+ * Minimalna zaliha je prag upozorenja; ciljna zaliha određuje količinu za narudžbu.
+ */
+export function sparePartReorderSuggestions(materials = []) {
+  return (Array.isArray(materials) ? materials : [])
+    .filter(item => item && !item.archived && item.isSparePart === true)
+    .map(item => {
+      const quantity = Math.max(0, Number(item.quantity) || 0);
+      const minimum = Math.max(0, Number(item.min) || 0);
+      const configuredTarget = Math.max(0, Number(item.reorderTo) || 0);
+      const target = configuredTarget > minimum ? configuredTarget : minimum * 2;
+      return {
+        id: 'spare-part-' + item.id,
+        materialId: item.id,
+        name: item.name || 'Rezervni dio bez naziva',
+        quantity,
+        minimum,
+        target,
+        suggestedQuantity: Math.max(0, Number((target - quantity).toFixed(2))),
+        unit: item.unit || 'kom',
+        location: item.location || '',
+        severity: quantity <= 0 ? 'high' : 'medium'
+      };
+    })
+    .filter(item => item.minimum > 0 && item.quantity <= item.minimum)
+    .sort((a, b) => (a.severity === b.severity ? a.name.localeCompare(b.name, 'hr') : a.severity === 'high' ? -1 : 1));
+}
