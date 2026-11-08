@@ -36,7 +36,7 @@ export function suggestRemnantAssignments(pieces = [], materials = [], { kerf = 
   const sourceMaterials = Array.isArray(materials) ? materials : [];
   const stocks = sourceMaterials
     .filter(item => item.form === 'Ostatak' && !item.archived && Number.isInteger(Number(item.quantity)) && Number(item.quantity) > 0 && Number(item.length) > 2 * trim && Number(item.width) > 2 * trim)
-    .map(item => ({ item, boards: Array.from({ length: Math.min(100, Number(item.quantity)) }, () => [{ x: 0, y: 0, w: Number(item.length) - trim * 2, h: Number(item.width) - trim * 2 }]) }))
+    .map(item => ({ item, usedBoardKeys: new Set(), boards: Array.from({ length: Math.min(100, Number(item.quantity)) }, () => [{ x: 0, y: 0, w: Number(item.length) - trim * 2, h: Number(item.width) - trim * 2 }]) }))
     .sort((a, b) => Number(a.item.length) * Number(a.item.width) - Number(b.item.length) * Number(b.item.width));
 
   const candidates = (Array.isArray(pieces) ? pieces : []).map((piece, index) => ({ piece: { ...piece }, index, area: Number(piece.length) * Number(piece.width) * Number(piece.quantity || 0) }))
@@ -56,8 +56,9 @@ export function suggestRemnantAssignments(pieces = [], materials = [], { kerf = 
       let placedCount = 0;
       for (let copy = 0; copy < remaining; copy++) {
         let placed = false;
-        for (const board of trial) {
-          if (tryPlace(board, { length: Number(entry.piece.length), width: Number(entry.piece.width) }, kerf, allowRotation)) {
+        for (let boardIndex = 0; boardIndex < trial.length; boardIndex++) {
+          if (tryPlace(trial[boardIndex], { length: Number(entry.piece.length), width: Number(entry.piece.width) }, kerf, allowRotation)) {
+            stock.usedBoardKeys.add(stock.item.id + '::' + boardIndex);
             placed = true;
             break;
           }
@@ -70,7 +71,10 @@ export function suggestRemnantAssignments(pieces = [], materials = [], { kerf = 
       remaining -= placedCount;
       if (!assignedByLine.has(entry.index)) assignedByLine.set(entry.index, new Map());
       const lineAllocations = assignedByLine.get(entry.index);
-      lineAllocations.set(stock.item.id, (lineAllocations.get(stock.item.id) || 0) + placedCount);
+      const allocation = lineAllocations.get(stock.item.id) || { quantity: 0, boardKeys: new Set() };
+      allocation.quantity += placedCount;
+      for (const key of stock.usedBoardKeys) allocation.boardKeys.add(key);
+      lineAllocations.set(stock.item.id, allocation);
       allocations.set(stock.item.id, stock.item);
     }
     entry.remaining = remaining;
@@ -88,11 +92,12 @@ export function suggestRemnantAssignments(pieces = [], materials = [], { kerf = 
       result.push({ ...piece });
       continue;
     }
-    for (const [materialId, quantity] of lineAllocations) {
+    for (const [materialId, allocation] of lineAllocations) {
       const stock = allocations.get(materialId);
-      result.push({ ...piece, materialId, quantity });
-      assignments.push({ pieceIndex: index, pieceName: piece.name, materialId, materialName: stock.name, form: 'Ostatak', quantity });
-      assignedCount += quantity;
+      const remnantBoardKeys = [...allocation.boardKeys];
+      result.push({ ...piece, materialId, quantity: allocation.quantity, remnantBoardKeys });
+      assignments.push({ pieceIndex: index, pieceName: piece.name, materialId, materialName: stock.name, form: 'Ostatak', quantity: allocation.quantity, reservedQuantity: remnantBoardKeys.length });
+      assignedCount += allocation.quantity;
     }
     if (entry.remaining > 0) result.push({ ...piece, quantity: entry.remaining });
   }
