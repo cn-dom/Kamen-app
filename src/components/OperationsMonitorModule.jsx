@@ -68,6 +68,11 @@ export default function OperationsMonitorModule({ onBack }) {
     </section>
 
     <section className="panel" style={{padding:22,marginTop:20}}>
+      <div className="panel-heading"><div><h2>Prijedlozi rasporeda prema vještinama</h2><p>Sustav uspoređuje spremne komade, evidentirane vještine i prisutne radnike. Ne dodjeljuje poslove automatski.</p></div><span className="count-pill">{report.recommendations.length}</span></div>
+      {report.recommendations.length ? <div className="skill-recommendations">{report.recommendations.map(item => <article key={item.stage}><div><strong>{item.stage}</strong><span>{item.waiting} komada čeka početak</span></div><p>Radnici s odgovarajućom vještinom: <b>{item.workers.join(', ')}</b></p>{item.examples.length > 0 && <small>Primjer: {item.examples.map(row => row.orderId + ' · ' + row.label + ' #' + row.unitIndex).join(' / ')}</small>}</article>)}</div> : <div className="empty-state"><CheckCircle2 size={20}/><strong>Nema potvrđenih prijedloga</strong><span>Provjeri jesu li radnici prisutni, u radionici i imaju li unesene vještine koje odgovaraju fazama koje čekaju.</span></div>}
+    </section>
+
+    <section className="panel" style={{padding:22,marginTop:20}}>
       <div className="panel-heading"><div><h2>Evidencija radnika za danas</h2><p>Ovo je stvarni temelj za procjenu raspoloživog kapaciteta.</p></div></div>
       <div className="quick-actions">
         {report.workers.length ? report.workers.map(name => {
