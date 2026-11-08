@@ -2,9 +2,18 @@ import { PRODUCTION_STAGES, buildProductionUnits, blankPieceProductionRecord } f
 
 const COMPLETE = new Set(['Završeno', 'Nije potrebno']);
 const ACTIVE_ORDER = order => !['Završen', 'Otkazan'].includes(order?.status);
+const todayKey = () => {
+  const date = new Date();
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+};
 
 export function analyzeWorkshopCapacity(orders = [], production = {}) {
   const workers = [...new Set((Array.isArray(production.workers) ? production.workers : []).map(name => String(name || '').trim()).filter(Boolean))];
+  const attendance = production?.attendance?.date === todayKey() ? (production.attendance.statuses || {}) : {};
+  const presentWorkers = workers.filter(name => attendance[name] === 'Prisutan');
+  const absentWorkers = workers.filter(name => attendance[name] === 'Odsutan');
+  const offShiftWorkers = workers.filter(name => attendance[name] === 'Izvan smjene');
+  const unrecordedWorkers = workers.filter(name => !['Prisutan', 'Odsutan', 'Izvan smjene'].includes(attendance[name]));
   const units = buildProductionUnits(Array.isArray(orders) ? orders.filter(ACTIVE_ORDER) : []);
   const records = production?.pieces || {};
   const activeAssignments = new Map();
@@ -24,20 +33,28 @@ export function analyzeWorkshopCapacity(orders = [], production = {}) {
     const blockedByPrevious = rows.filter(row => !row.previousReady && !COMPLETE.has(row.stage.status));
     return { stage: stageName, inProgress: inProgress.length, waiting: waiting.length, blockedByPrevious: blockedByPrevious.length, assigned: inProgress.map(row => row.stage.assignedTo).filter(Boolean) };
   });
-  const idleWorkers = workers.filter(name => !activeAssignments.has(name));
+  const idleWorkers = presentWorkers.filter(name => !activeAssignments.has(name));
   const manual = stages.find(item => item.stage === 'Ostala obrada');
   const alerts = [];
-  if (workers.length && manual && manual.inProgress === 0) {
+  if (workers.length && unrecordedWorkers.length) alerts.push({
+    id: 'attendance-unrecorded',
+    severity: 'info',
+    title: 'Prisutnost radnika nije evidentirana',
+    description: `Za danas nije potvrđena prisutnost za ${unrecordedWorkers.length} od ${workers.length} evidentiranih radnika. Upozorenja o neiskorištenom kapacitetu računaju samo potvrđeno prisutne.`,
+    destination: 'Proizvodnja',
+    workers: unrecordedWorkers.length
+  });
+  if (presentWorkers.length && manual && manual.inProgress === 0) {
     alerts.push({
       id: 'manual-capacity-idle',
       severity: manual.waiting ? 'warning' : 'info',
       title: 'Ručna obrada nema aktivnog posla',
       description: manual.waiting
-        ? `Čeka ${manual.waiting} komada za ručnu obradu, a ${workers.length} radnika je evidentirano.`
-        : `Nema komada spremnih za ručnu obradu; ${workers.length} radnika je evidentirano.`,
+        ? `Čeka ${manual.waiting} komada za ručnu obradu, a ${presentWorkers.length} radnika je označeno kao prisutno.`
+        : `Nema komada spremnih za ručnu obradu; ${presentWorkers.length} radnika je označeno kao prisutno.`,
       destination: 'Proizvodnja',
       waiting: manual.waiting,
-      workers: workers.length
+      workers: presentWorkers.length
     });
   }
   stages.filter(item => item.waiting > 0 && item.stage !== 'Ostala obrada').forEach(item => alerts.push({
@@ -49,11 +66,10 @@ export function analyzeWorkshopCapacity(orders = [], production = {}) {
     waiting: item.waiting
   }));
   return {
-    workers,
+    workers, presentWorkers, absentWorkers, offShiftWorkers, unrecordedWorkers,
     idleWorkers,
-    activeWorkers: workers.length - idleWorkers.length,
-    stages,
-    alerts,
+    activeWorkers: presentWorkers.length - idleWorkers.length,
+    stages, alerts,
     summary: {
       activeOrders: (Array.isArray(orders) ? orders : []).filter(ACTIVE_ORDER).length,
       activePieces: units.length,

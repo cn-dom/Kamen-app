@@ -583,7 +583,7 @@ button:active { transform: translateY(1px); }
 .production-team-form input{flex:1;min-width:0;border:1px solid #dfe6ef;border-radius:8px;padding:9px 10px;background:#fff;color:#29384e;font-size:11px}
 .production-team-form .button{white-space:nowrap}
 .production-worker-chips{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:6px}
-.production-worker-chips>span{display:inline-flex;align-items:center;gap:7px;padding:5px 8px;border:1px solid #e2e8f1;border-radius:20px;background:#fff;color:#52627a;font-size:10px}
+.production-worker-chips>span{display:inline-flex;align-items:center;gap:7px;padding:5px 8px;border:1px solid #e2e8f1;border-radius:20px;background:#fff;color:#52627a;font-size:10px}.production-worker-chip select{max-width:145px;border:1px solid #e2e8f1;border-radius:12px;background:#f8fafc;color:#52627a;padding:3px 6px;font-size:9px}.production-attendance-note{grid-column:1/-1;margin:-2px 0 0;color:#8b96a6;font-size:10px}
 .production-worker-chips button{display:grid;place-items:center;width:16px;height:16px;border:0;border-radius:50%;background:#eef1f6;color:#778397;cursor:pointer}
 .production-worker-chips>small{font-size:10px;color:#929dad}
 .production-groups{display:grid;gap:12px;padding:14px 18px}
