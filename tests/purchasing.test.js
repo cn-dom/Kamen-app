@@ -31,9 +31,26 @@ test('predlaže dopunu aktivnih stavki do dvostruke minimalne zalihe',()=>{
  assert.equal(result.length,1);
  assert.equal(result[0].shortage,3);
  assert.equal(result[0].suggestedQuantity,8);
+ assert.equal(result[0].targetQuantity,10);
 });
 test('predlaže dopunu i kada je stanje točno na minimumu',()=>{
  const [item]=lowStockSuggestions([{name:'Ploča',quantity:4,min:4}]);
  assert.equal(item.shortage,0);
  assert.equal(item.suggestedQuantity,4);
+});
+
+test('narudžba rezervnog dijela koristi ciljnu zalihu umjesto dvostrukog minimuma',()=>{
+ const [item]=lowStockSuggestions([{id:'sp-1',name:'Ležaj',isSparePart:true,quantity:1,min:2,reorderTo:7,unit:'kom'}]);
+ assert.equal(item.targetQuantity,7);
+ assert.equal(item.suggestedQuantity,6);
+});
+test('rezervni dio bez posebnog cilja i dalje koristi dvostruki minimum',()=>{
+ const [item]=lowStockSuggestions([{id:'sp-2',name:'Filter',isSparePart:true,quantity:0,min:3,reorderTo:0}]);
+ assert.equal(item.targetQuantity,6);
+ assert.equal(item.suggestedQuantity,6);
+});
+test('obični materijal zanemaruje polje ciljne zalihe rezervnog dijela',()=>{
+ const [item]=lowStockSuggestions([{id:'m-1',name:'Granit',isSparePart:false,quantity:1,min:2,reorderTo:9}]);
+ assert.equal(item.targetQuantity,4);
+ assert.equal(item.suggestedQuantity,3);
 });
