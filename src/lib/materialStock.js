@@ -21,9 +21,17 @@ export function calculateMaterialReservation(stockItem, orderPieces = []) {
     sum + Math.max(0, Number(piece.length) || 0) * Math.max(0, Number(piece.width) || 0) * Math.max(0, Number(piece.quantity) || 0), 0);
   const stockAreaCm2 = materialAreaM2(stockItem) * 10000;
   if (!(stockAreaCm2 > 0) || !(areaCm2 > 0)) return 0;
-  // A remnant is a separately stored physical piece. Reserve whole remnants,
-  // never fractional pieces; the cutting planner then checks the actual layout.
-  if (stockItem.form === 'Ostatak') return Math.ceil(areaCm2 / stockAreaCm2 - 1e-9);
+  // When the cutting suggestion carries physical board keys, reserve the exact
+  // number of distinct remnants used. Area alone cannot predict packing waste.
+  if (stockItem.form === 'Ostatak') {
+    const rows = Array.isArray(orderPieces) ? orderPieces : [];
+    const keyedPieces = rows.filter(piece => Array.isArray(piece.remnantBoardKeys) && piece.remnantBoardKeys.length > 0);
+    const unkeyedAreaCm2 = rows.filter(piece => !Array.isArray(piece.remnantBoardKeys) || !piece.remnantBoardKeys.length)
+      .reduce((sum, piece) => sum + Math.max(0, Number(piece.length) || 0) * Math.max(0, Number(piece.width) || 0) * Math.max(0, Number(piece.quantity) || 0), 0);
+    const knownBoards = new Set(keyedPieces.flatMap(piece => piece.remnantBoardKeys)).size;
+    // Unplanned/manual additions are estimated separately and conservatively.
+    return knownBoards + Math.ceil(unkeyedAreaCm2 / stockAreaCm2 - 1e-9);
+  }
   // Full slabs retain the existing hundredth-slab reservation behavior.
   return Math.ceil((areaCm2 / stockAreaCm2) * 100 - 1e-9) / 100;
 }

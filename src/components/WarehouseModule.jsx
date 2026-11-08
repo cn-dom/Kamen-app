@@ -233,6 +233,7 @@ function buildCuttingPlan(boardLength, boardWidth, pieces, kerf, trim, allowRota
     const linkedOrder = cutForm.orderId ? readStored(WORK_ORDERS_KEY, []).find(order => order.id === cutForm.orderId && !['Završen', 'Otkazan'].includes(order.status)) : null;
     const reservedForOrder = linkedOrder ? (Array.isArray(linkedOrder.reservedMaterials) ? linkedOrder.reservedMaterials.filter(item => item.materialId === source?.id).reduce((sum, item) => sum + Number(item.quantity || 0), 0) : linkedOrder.reservedMaterialId === source?.id ? Number(linkedOrder.reservedMaterialQty || 0) : 0) : 0;
     const availableForCut = Number(source?.quantity || 0) + reservedForOrder;
+    if (source?.form === 'Ostatak' && !Number.isInteger(usedQty)) { flash('Uporabni ostatak vodi se kao cijeli fizički komad. Unesi cijeli broj ostataka.'); return; }
     if (!source || !Number.isFinite(usedQty) || usedQty <= 0 || Math.round(usedQty * 100) !== usedQty * 100 || usedQty > availableForCut + 1e-9) {
       flash('Provjeri ulazni materijal i količinu. Za povezani nalog koristi se njegova prethodno rezervirana količina.');
       return;
