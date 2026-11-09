@@ -28,9 +28,11 @@ const BACKUP_KEYS = [
   'kamen-app-access-audit-v1',
   'kamen-app-tools-v1',
   'kamen-app-tool-events-v1',
-  'kamen-app-documents-v1'
+  'kamen-app-documents-v1',
+  'kamen-app-company-settings-v1',
+  'kamen-app-settings-audit-v1'
 ];
-const OPTIONAL_BACKUP_KEYS = ['kamen-app-material-consumption-v1','kamen-app-schedule-v1', 'kamen-app-schedule-equipment-v1', 'kamen-app-suppliers-v1', 'kamen-app-purchase-orders-v1', 'kamen-app-quotes-v1', 'kamen-app-invoices-v1', 'kamen-app-company-profile-v1', 'kamen-app-delivery-notes-v1', 'kamen-app-payments-v1', 'kamen-app-service-records-v1', 'kamen-app-equipment-register-v1', 'kamen-app-maintenance-events-v1', 'kamen-app-team-members-v1', 'kamen-app-access-audit-v1', 'kamen-app-tools-v1', 'kamen-app-tool-events-v1', 'kamen-app-documents-v1'];
+const OPTIONAL_BACKUP_KEYS = ['kamen-app-material-consumption-v1','kamen-app-schedule-v1', 'kamen-app-schedule-equipment-v1', 'kamen-app-suppliers-v1', 'kamen-app-purchase-orders-v1', 'kamen-app-quotes-v1', 'kamen-app-invoices-v1', 'kamen-app-company-profile-v1', 'kamen-app-delivery-notes-v1', 'kamen-app-payments-v1', 'kamen-app-service-records-v1', 'kamen-app-equipment-register-v1', 'kamen-app-maintenance-events-v1', 'kamen-app-team-members-v1', 'kamen-app-access-audit-v1', 'kamen-app-tools-v1', 'kamen-app-tool-events-v1', 'kamen-app-documents-v1', 'kamen-app-company-settings-v1', 'kamen-app-settings-audit-v1'];
 const OBJECT_BACKUP_KEYS = ['kamen-app-company-profile-v1'];
 const APP_ID = 'kamen-app-local-data';
 const VERSION = 1;
