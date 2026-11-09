@@ -690,7 +690,7 @@ button:active { transform: translateY(1px); }
 .schedule-day.is-today>header strong{background:#426bd0;color:#fff}
 .schedule-day-list{display:flex;flex-direction:column;gap:8px;min-height:180px;padding:8px}
 .schedule-task{display:flex;flex-direction:column;gap:5px;padding:9px;border:1px solid #e5eaf2;border-left:3px solid #8da5d9;border-radius:8px;background:#fff;min-width:0}
-.schedule-task.active{border-left-color:#d39b3c;background:#fffdf8}.schedule-task.done{border-left-color:#4ca783;background:#f9fdfb;opacity:.82}.schedule-task.cancelled{border-left-color:#aab2bf;background:#f7f8fa;opacity:.65}
+.schedule-task.active{border-left-color:#d39b3c;background:#fffdf8}.schedule-task.blocked{border-left-color:#d97732;background:#fff9f4}.schedule-task-blocked-reason{display:flex;align-items:flex-start;gap:5px;color:#a34e1b!important;font-weight:700;line-height:1.35}.schedule-task.done{border-left-color:#4ca783;background:#f9fdfb;opacity:.82}.schedule-task.cancelled{border-left-color:#aab2bf;background:#f7f8fa;opacity:.65}
 .schedule-task-time{font-size:9px;font-weight:800;color:#4767a6}
 .schedule-task>strong{font-size:10px;line-height:1.35;color:#34445b;overflow-wrap:anywhere}
 .schedule-task>span{font-size:9px;color:#8995a5;overflow-wrap:anywhere}
