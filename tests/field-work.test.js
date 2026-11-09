@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { findFieldCrewConflicts, fieldJobInterval, normalizeFieldCrew, summarizeFieldWork } from '../src/lib/field-work.js';
+import { findFieldCrewConflicts, fieldJobInterval, normalizeFieldCrew, summarizeFieldWork, validateFieldJob, appendFieldEvent } from '../src/lib/field-work.js';
 
 test('normalizes modern crew arrays and legacy comma-separated team values', () => {
   assert.deepEqual(normalizeFieldCrew({ crew: [' Ana ', 'Ivan', 'Ana', ''] }), ['Ana', 'Ivan']);
