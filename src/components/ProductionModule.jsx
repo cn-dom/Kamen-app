@@ -495,6 +495,35 @@ export default function ProductionModule({ onBack, onCreateProject }) {
     }).sort((a,b) => b.deltaMs - a.deltaMs);
   }, [rowsWithRecords, selectedWorker, sawAssignments, clockNow]);
 
+  const exportTimeComparisonCsv = () => {
+    const headers = ['Vrsta zapisa', 'Radni centar', 'Radni nalog', 'Projekt', 'Komad', 'Radnik', 'Planirano minuta', 'Stvarno minuta', 'Odstupanje minuta', 'Broj usporedivih komada', 'Broj planiranih', 'Broj s evidencijom'];
+    const lines = [headers.map(csvCell).join(';')];
+    timeComparison.forEach(center => {
+      lines.push([
+        'SAŽETAK', center.id, '', '', '', selectedWorker || 'Svi radnici',
+        Math.round(center.plannedMs / 60000), Math.round(center.actualMs / 60000),
+        center.deltaMs === null ? '' : Math.round(center.deltaMs / 60000),
+        center.comparedCount, center.plannedCount, center.actualCount
+      ].map(csvCell).join(';'));
+    });
+    timeComparisonDetails.forEach(item => {
+      lines.push([
+        'KOMAD', item.stage, item.orderId, item.project, item.piece, item.worker,
+        Math.round(item.plannedMs / 60000), Math.round(item.actualMs / 60000),
+        Math.round(item.deltaMs / 60000), 1, 1, 1
+      ].map(csvCell).join(';'));
+    });
+    const blob = new Blob(['\\uFEFF' + lines.join('\\r\\n')], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'kamen-app-usporedba-vremena-' + new Date().toISOString().slice(0, 10) + '.csv';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
   const exportCsv = () => {
     const headers = ['Radni nalog', 'Kupac', 'Projekt', 'Komad', 'Redni broj', 'Materijal', 'Duljina cm', 'Širina cm', 'Debljina cm', 'Faza', 'Status', 'Radnik', 'Stroj / oprema', 'Početak', 'Završetak', 'Trajanje minuta', 'Razlog zastoja', 'Napomena', 'Kontrola kvalitete'];
     const lines = [headers.map(csvCell).join(';')];
@@ -594,6 +623,7 @@ export default function ProductionModule({ onBack, onCreateProject }) {
       <section className="production-time-board">
         <div className="production-station-heading">
           <div><span className="eyebrow">PLANIRANO · STVARNO</span><h3>Usporedba vremena rada</h3><p>Uspoređuju se planirani termini i zabilježeni radni intervali po radnim centrima.</p></div>
+          <button className="button button-secondary" onClick={exportTimeComparisonCsv}><Download size={15}/> Izvoz izvještaja CSV</button>
         </div>
         {selectedWorker && <p className="production-load-filter">Prikazano vrijeme za radnika: <strong>{selectedWorker}</strong></p>}
         <div className="production-time-table-wrap">
