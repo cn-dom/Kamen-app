@@ -4,6 +4,7 @@ import StocktakeModule from './StocktakeModule.jsx';
 import { createMaterialConsumptionRecord } from '../lib/materialConsumption.js';
 import { calculateStockCarryingValue } from '../lib/materialStock.js';
 import { getReservedQuantity, settleReservationForCut } from '../lib/workOrderStock.js';
+import { solve2d as solveSheets } from '@0xdoublesharp/bin-packing-wasm/two-d';
 import { ArrowDownToLine, ArrowUpFromLine, Boxes, Check, ChevronDown, ClipboardCheck, Layers3, Plus, Search, Scissors, X, Pencil, Archive, RotateCcw } from 'lucide-react';
 
 const seedMaterials = [];
@@ -42,55 +43,102 @@ function buildCuttingPlan(boardLength, boardWidth, pieces, kerf, trim, allowRota
   const usableLength = boardLength - trim * 2;
   const usableWidth = boardWidth - trim * 2;
   if (!(usableLength > 0 && usableWidth > 0)) return { boards: [], unplaced: pieces, error: 'Rubno obrezivanje je veće od dimenzija ploče.' };
-  const expanded = pieces.flatMap(piece => Array.from({ length: Math.max(0, Math.min(500, Number(piece.quantity) || 0)) }, (_, index) => ({
-    id: piece.id + '-' + index, name: piece.name, length: Number(piece.length), width: Number(piece.width), sourceIndex: piece.sourceIndex
-  }))).sort((a, b) => b.length * b.width - a.length * a.width);
-  const boards = [];
-  let remaining = [...expanded];
-  const intersects = (a, b) => a.x < b.x + b.w - 1e-7 && a.x + a.w > b.x + 1e-7 && a.y < b.y + b.h - 1e-7 && a.y + a.h > b.y + 1e-7;
-  const contains = (a, b) => b.x >= a.x - 1e-7 && b.y >= a.y - 1e-7 && b.x + b.w <= a.x + a.w + 1e-7 && b.y + b.h <= a.y + a.h + 1e-7;
-  for (let boardIndex = 0; boardIndex < maxBoards && remaining.length; boardIndex++) {
-    let free = [{ x: 0, y: 0, w: usableLength, h: usableWidth }];
-    const placed = [];
-    for (let p = 0; p < remaining.length;) {
-      const piece = remaining[p];
-      let best = null;
-      for (const rect of free) {
-        const orientations = [{ w: piece.length + kerf, h: piece.width + kerf, rotated: false }];
-        if (allowRotation && Math.abs(piece.length - piece.width) > 1e-7) orientations.push({ w: piece.width + kerf, h: piece.length + kerf, rotated: true });
-        for (const option of orientations) {
-          if (option.w <= rect.w + 1e-7 && option.h <= rect.h + 1e-7) {
-            const shortSide = Math.min(rect.w - option.w, rect.h - option.h);
-            const longSide = Math.max(rect.w - option.w, rect.h - option.h);
-            const score = shortSide * 100000 + longSide;
-            if (!best || score < best.score) best = { rect, option, score };
-          }
-        }
-      }
-      if (!best) { p++; continue; }
-      const placedRect = { x: best.rect.x, y: best.rect.y, w: best.option.w, h: best.option.h };
-      placed.push({ ...piece, x: placedRect.x, y: placedRect.y, w: best.option.rotated ? piece.width : piece.length, h: best.option.rotated ? piece.length : piece.width, rotated: best.option.rotated });
-      const nextFree = [];
-      for (const rect of free) {
-        if (!intersects(rect, placedRect)) { nextFree.push(rect); continue; }
-        // Guillotine split: two disjoint rectangles, so leftover dimensions are safe to record.
-        const rightX = placedRect.x + placedRect.w;
-        const rightWidth = rect.x + rect.w - rightX;
-        if (rightWidth > 1e-7) nextFree.push({ x: rightX, y: rect.y, w: rightWidth, h: rect.h });
-        const bottomY = placedRect.y + placedRect.h;
-        const bottomHeight = rect.y + rect.h - bottomY;
-        if (bottomHeight > 1e-7) nextFree.push({ x: rect.x, y: bottomY, w: placedRect.w, h: bottomHeight });
-      }
-      free = nextFree.filter(rect => rect.w > 1e-7 && rect.h > 1e-7);
-      remaining.splice(p, 1);
-    }
-    if (!placed.length) break;
-    const offcuts = free
-      .filter(rect => rect.w >= 20 && rect.h >= 20)
-      .map((rect, index) => ({ ...rect, id: `offcut-${boardIndex + 1}-${index + 1}` }));
-    boards.push({ index: boardIndex + 1, placed, offcuts, usableArea: usableLength * usableWidth, placedArea: placed.reduce((sum, item) => sum + item.length * item.width, 0) });
+  const boardLimit = Math.max(0, Math.floor(Number(maxBoards) || 0));
+  if (!boardLimit) return { boards: [], unplaced: pieces, error: 'Za ovaj nalog nema raspoložive rezervirane ploče.' };
+
+  const sourceById = new Map(pieces.map(piece => [piece.id, piece]));
+  const demands = pieces.map(piece => ({
+    name: piece.id,
+    width: Math.max(1, Math.round(Number(piece.length) * 10)),
+    height: Math.max(1, Math.round(Number(piece.width) * 10)),
+    quantity: Math.max(0, Math.min(500, Math.floor(Number(piece.quantity) || 0))),
+    can_rotate: Boolean(allowRotation)
+  })).filter(piece => piece.quantity > 0);
+
+  if (!demands.length) return { boards: [], unplaced: [], error: 'Nema preostalih komada za pilanje.' };
+
+  let solution;
+  try {
+    solution = solveSheets({
+      sheets: [{
+        name: 'Ulazna ploča',
+        width: Math.round(usableLength * 10),
+        height: Math.round(usableWidth * 10),
+        cost: 1,
+        quantity: boardLimit,
+        kerf: Math.max(0, Math.round(Number(kerf) * 10)),
+        edge_kerf_relief: false
+      }],
+      demands
+    }, {
+      algorithm: 'auto',
+      guillotine_required: true,
+      beam_width: 12,
+      min_usable_side: 200,
+      seed: 7
+    });
+  } catch (error) {
+    return { boards: [], unplaced: pieces, error: error?.message || 'Optimizator nije mogao izraditi raspored.' };
   }
-  return { boards, unplaced: remaining, error: '' };
+
+  const layouts = Array.isArray(solution.layouts) ? solution.layouts : [];
+  const boards = layouts.map((layout, boardIndex) => {
+    const placed = (layout.placements || []).flatMap((placement, placementIndex) => {
+      const source = sourceById.get(placement.name);
+      if (!source) return [];
+      return [{
+        id: source.id + '-' + placementIndex,
+        name: source.name,
+        sourceIndex: source.sourceIndex,
+        length: source.length,
+        width: source.width,
+        x: Number(placement.x || 0) / 10,
+        y: Number(placement.y || 0) / 10,
+        w: Number(placement.width || 0) / 10,
+        h: Number(placement.height || 0) / 10,
+        rotated: Boolean(placement.rotated)
+      }];
+    });
+
+    // Reconstruct conservative rectangular leftovers from the guillotine placements.
+    let free = [{ x: 0, y: 0, w: usableLength, h: usableWidth }];
+    const intersects = (a, b) => a.x < b.x + b.w - 1e-7 && a.x + a.w > b.x + 1e-7 && a.y < b.y + b.h - 1e-7 && a.y + a.h > b.y + 1e-7;
+    placed.forEach(piece => {
+      const occupied = { x: piece.x, y: piece.y, w: piece.w + kerf, h: piece.h + kerf };
+      const next = [];
+      free.forEach(rect => {
+        if (!intersects(rect, occupied)) { next.push(rect); return; }
+        const rightX = occupied.x + occupied.w;
+        const rightWidth = rect.x + rect.w - rightX;
+        if (rightWidth > 1e-7) next.push({ x: rightX, y: rect.y, w: rightWidth, h: rect.h });
+        const bottomY = occupied.y + occupied.h;
+        const bottomHeight = rect.y + rect.h - bottomY;
+        if (bottomHeight > 1e-7) next.push({ x: rect.x, y: bottomY, w: occupied.w, h: bottomHeight });
+      });
+      free = next.filter(rect => rect.w > 1e-7 && rect.h > 1e-7);
+    });
+    const offcuts = free.filter(rect => rect.w >= 20 && rect.h >= 20)
+      .map((rect, index) => ({ ...rect, id: `offcut-${boardIndex + 1}-${index + 1}` }));
+    return {
+      index: boardIndex + 1,
+      placed,
+      offcuts,
+      usableArea: usableLength * usableWidth,
+      placedArea: placed.reduce((sum, item) => sum + item.w * item.h, 0)
+    };
+  });
+
+  const unplaced = (solution.unplaced || []).flatMap(item => {
+    const source = sourceById.get(item.name);
+    if (!source) return [];
+    return Array.from({ length: Math.max(1, Math.min(500, Number(item.quantity) || 1)) }, (_, index) => ({
+      ...source,
+      id: source.id + '-unplaced-' + index,
+      quantity: 1
+    }));
+  });
+
+  return { boards, unplaced, error: '', optimizer: 'bin-packing-wasm', guillotine: Boolean(solution.guillotine) };
 }
 
   const [cutForm, setCutForm] = useState(initialCutForm);
