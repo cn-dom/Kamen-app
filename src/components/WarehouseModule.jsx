@@ -4,8 +4,10 @@ import StocktakeModule from './StocktakeModule.jsx';
 import { createMaterialConsumptionRecord } from '../lib/materialConsumption.js';
 import { calculateStockCarryingValue } from '../lib/materialStock.js';
 import { getReservedQuantity, settleReservationForCut } from '../lib/workOrderStock.js';
+import { appendInventoryMovements, applyMaterialStockAction, commitInventoryTransaction } from '../lib/inventoryLedger.js';
+import { getMaterialLineage } from '../lib/materialLineage.js';
 import { solve2d as solveSheets } from '@0xdoublesharp/bin-packing-wasm/two-d';
-import { ArrowDownToLine, ArrowUpFromLine, Boxes, Check, ChevronDown, ClipboardCheck, Layers3, Plus, Search, Scissors, X, Pencil, Archive, RotateCcw } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpFromLine, Boxes, Check, ChevronDown, ClipboardCheck, Layers3, Plus, Search, Scissors, X, Pencil, Archive, RotateCcw, Trash2 } from 'lucide-react';
 
 const seedMaterials = [];
 
@@ -36,7 +38,7 @@ export default function WarehouseModule({ onBack, mode = 'warehouse' }) {
   const [showCut, setShowCut] = useState(false);
   const sourceThicknessForCut = (items, id) => items.find(item => item.id === id)?.thickness ?? 0;
 const newOutput = () => ({ id: 'OUT-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7), name: '', type: 'Gotov komad', orderPieceIndex: '', length: '', width: '', thickness: '', quantity: '1', location: 'Polica O1', note: '' });
-  const initialCutForm = () => ({ sourceId: '', orderId: '', usedQty: '', note: '', outputs: [newOutput()] });
+  const initialCutForm = () => ({ operationId: 'CUT-' + Date.now() + '-' + Math.random().toString(36).slice(2, 9), sourceId: '', orderId: '', usedQty: '', note: '', outputs: [newOutput()] });
 const parseQuantity = value => Number(String(value ?? '').trim().replace(',', '.'));
 const formatQuantity = value => Number(value || 0).toLocaleString('hr-HR', { maximumFractionDigits: 2 });
 
@@ -159,6 +161,7 @@ function buildCuttingPlan(boardLength, boardWidth, pieces, kerf, trim, allowRota
     return buildCuttingPlan(Number(selectedCutSource.length), Number(selectedCutSource.width), pieces, kerf, trim, allowRotation, Math.floor(Number(selectedCutSource.quantity || 0) + (Array.isArray(selectedCutOrder.reservedMaterials) ? selectedCutOrder.reservedMaterials.filter(item => item.materialId === selectedCutSource.id).reduce((sum, item) => sum + Number(item.quantity || 0), 0) : Number(selectedCutOrder.reservedMaterialId === selectedCutSource.id ? selectedCutOrder.reservedMaterialQty || 0 : 0))));
   }, [selectedCutSource, selectedCutOrder, cutKerf, cutTrim, allowRotation]);
   const [movementQty, setMovementQty] = useState('1');
+  const [movementReason, setMovementReason] = useState('');
   const [saleLength, setSaleLength] = useState('');
   const [saleWidth, setSaleWidth] = useState('');
   const [salePieces, setSalePieces] = useState('1');
@@ -237,13 +240,53 @@ function buildCuttingPlan(boardLength, boardWidth, pieces, kerf, trim, allowRota
     const normalized = { ...form, salePricePerM2, vatRate, thickness: Number(form.thickness) || 0, length: Number(form.length) || 0, width: Number(form.width) || 0, quantity, pricePerM2, min: Number(form.min) || 0 };
     if (editingId) {
       const previous = materials.find(item => item.id === editingId);
-      setMaterials(current => current.map(item => item.id === editingId ? { ...normalized, id: editingId } : item));
-      if (previous && previous.quantity !== quantity) setMovements(current => [{ id: timestamp, material: normalized.name, kind: 'Korekcija zalihe', quantity: quantity - previous.quantity, location: normalized.location, date: new Date().toLocaleDateString('hr-HR') }, ...current].slice(0, 100));
+      const next = { ...normalized, id: editingId, parentMaterialId: previous?.parentMaterialId || null, sourceMaterialId: previous?.sourceMaterialId || null, originMaterialId: previous?.originMaterialId || null, sourceCutOperationId: previous?.sourceCutOperationId || null, sourceOrderId: previous?.sourceOrderId || null, sourceOutputId: previous?.sourceOutputId || null };
+      const nextMaterials = materials.map(item => item.id === editingId ? next : item);
+      if (previous && Number(previous.quantity || 0) !== quantity) {
+        const reason = window.prompt('Obrazloži promjenu količine zalihe za ' + previous.name + ':');
+        if (!String(reason || '').trim()) { flash('Korekcija količine nije spremljena bez obveznog razloga.'); return; }
+        const operationId = 'MAT-EDIT-' + editingId + '-' + timestamp;
+        const entry = {
+          id: operationId, operationId, material: normalized.name,
+          kind: 'Korekcija zalihe',
+          quantity: Number((quantity - Number(previous.quantity || 0)).toFixed(4)),
+          previousQuantity: Number(previous.quantity || 0),
+          nextQuantity: quantity,
+          reason: String(reason).trim(), location: normalized.location,
+          date: new Date().toLocaleDateString('hr-HR')
+        };
+        try {
+          const committed = commitInventoryTransaction(window.localStorage, {
+            operationId,
+            writes: [{ key: MATERIALS_KEY, value: nextMaterials }],
+            movements: [entry]
+          });
+          if (committed.duplicate) { flash('Ova korekcija već je evidentirana.'); return; }
+          setMovements(committed.movements);
+        } catch (error) { flash(error?.message || 'Korekcija nije spremljena. Zaliha nije promijenjena.'); return; }
+      } else {
+        try { window.localStorage.setItem(MATERIALS_KEY, JSON.stringify(nextMaterials)); }
+        catch { flash('Nije moguće spremiti promjene materijala.'); return; }
+      }
+      setMaterials(nextMaterials);
       flash('Promjene stavke su spremljene.');
     } else {
       const next = { ...normalized, id: 'MAT-' + String(timestamp).slice(-6) };
-      setMaterials(current => [next, ...current]);
-      setMovements(current => [{ id: timestamp, material: next.name, kind: 'Zaprimanje', quantity, location: next.location, date: new Date().toLocaleDateString('hr-HR') }, ...current].slice(0, 100));
+      const nextMaterials = [next, ...materials];
+      const operationId = 'MAT-RECEIPT-' + next.id;
+      try {
+        const committed = commitInventoryTransaction(window.localStorage, {
+          operationId,
+          writes: [{ key: MATERIALS_KEY, value: nextMaterials }],
+          movements: [{
+            id: operationId, operationId, material: next.name, kind: 'Zaprimanje',
+            quantity, previousQuantity: 0, nextQuantity: quantity, location: next.location, date: new Date().toLocaleDateString('hr-HR')
+          }]
+        });
+        if (committed.duplicate) { flash('Ovaj primitak već je evidentiran.'); return; }
+        setMaterials(nextMaterials);
+        setMovements(committed.movements);
+      } catch (error) { flash(error?.message || 'Materijal nije spremljen. Zaliha nije promijenjena.'); return; }
       flash('Materijal je dodan u skladišnu evidenciju.');
     }
     setShowForm(false); setEditingId(null); setForm(emptyForm);
@@ -266,13 +309,13 @@ function buildCuttingPlan(boardLength, boardWidth, pieces, kerf, trim, allowRota
     if (isReferenced) { flash('Materijal je povezan s radnim nalogom koji još nije završen.'); return; }
     if (!window.confirm('Arhivirati stavku ' + item.name + '? Povijest i povezani zapisi ostaju sačuvani.')) return;
     setMaterials(current => current.map(row => row.id === item.id ? { ...row, archived: true, archivedAt: new Date().toISOString() } : row));
-    setMovements(current => [{ id: Date.now(), material: item.name, kind: 'Arhiviranje stavke', quantity: 0, location: item.location, date: new Date().toLocaleDateString('hr-HR') }, ...current].slice(0, 100));
+    setMovements(current => appendInventoryMovements(current, [{ id: 'ARCH-' + Date.now(), material: item.name, kind: 'Arhiviranje stavke', quantity: 0, location: item.location, date: new Date().toLocaleDateString('hr-HR') }]));
     flash('Stavka je arhivirana. Povijesni podaci nisu obrisani.');
   }
   function restoreMaterial(item) {
     if (!window.confirm('Vratiti stavku ' + item.name + ' iz arhive?')) return;
     setMaterials(current => current.map(row => row.id === item.id ? { ...row, archived: false, archivedAt: null } : row));
-    setMovements(current => [{ id: Date.now(), material: item.name, kind: 'Vraćanje iz arhive', quantity: 0, location: item.location, date: new Date().toLocaleDateString('hr-HR') }, ...current].slice(0, 100));
+    setMovements(current => appendInventoryMovements(current, [{ id: 'RESTORE-' + Date.now(), material: item.name, kind: 'Vraćanje iz arhive', quantity: 0, location: item.location, date: new Date().toLocaleDateString('hr-HR') }]));
     flash('Stavka je vraćena u aktivno skladište.');
   }
 
@@ -312,13 +355,20 @@ function buildCuttingPlan(boardLength, boardWidth, pieces, kerf, trim, allowRota
       if (exceedsPlan) { flash('Količina gotovih komada prelazi preostalu naručenu količinu. Provjeri povezane komade.'); return; }
     }
     const timestamp = Date.now();
-    const date = new Date().toLocaleDateString('hr-HR');
+    const date = new Date(timestamp).toLocaleDateString('hr-HR');
+    const operationId = cutForm.operationId;
     const outputMaterials = cutForm.outputs.map((output, index) => {
       const kind = output.type;
       const formType = kind === 'Ostatak' ? 'Ostatak' : kind === 'Otpad' ? 'Otpad' : 'Komad';
       const materialType = kind === 'Otpad' ? 'Otpad' : source.type;
       return {
         id: 'MAT-' + String(timestamp + index).slice(-6),
+        parentMaterialId: source.id,
+        sourceMaterialId: source.id,
+        originMaterialId: source.originMaterialId || source.sourceMaterialId || source.id,
+        sourceCutOperationId: operationId,
+        sourceOrderId: linkedOrder?.id || '',
+        sourceOutputId: output.id,
         name: output.name.trim(),
         type: materialType,
         form: formType,
@@ -336,29 +386,33 @@ function buildCuttingPlan(boardLength, boardWidth, pieces, kerf, trim, allowRota
         note: [cutForm.note.trim(), output.note.trim(), linkedOrder ? 'Radni nalog ' + linkedOrder.id : '', linkedOrder && output.type === 'Gotov komad' ? 'Komad: ' + (linkedOrder.pieces[Number(output.orderPieceIndex)]?.name || '') : '', 'Nastalo pilanjem materijala ' + source.id].filter(Boolean).join(' · ')
       };
     });
-    {
-      try {
-        const consumption = createMaterialConsumptionRecord({
-          id: 'UT-' + timestamp,
-          orderId: linkedOrder?.id || 'SKLADIŠTE',
-          materialId: source.id,
-          materialName: source.name,
-          usedQuantity: usedQty,
-          boardLengthCm: source.length,
-          boardWidthCm: source.width,
-          pricePerM2: source.pricePerM2,
-          outputs: outputMaterials,
-          date: new Date(timestamp).toISOString()
-        });
-        const currentLedger = readStored(MATERIAL_CONSUMPTION_KEY, []);
-        window.localStorage.setItem(MATERIAL_CONSUMPTION_KEY, JSON.stringify([consumption, ...currentLedger]));
-      } catch (error) {
-        flash(error?.message || 'Nije moguće spremiti obračun pilanja. Pilanje nije evidentirano.');
-        return;
-      }
+
+    let consumption;
+    try {
+      consumption = createMaterialConsumptionRecord({
+        id: 'UT-' + timestamp,
+        orderId: linkedOrder?.id || 'SKLADIŠTE',
+        materialId: source.id,
+        materialName: source.name,
+        usedQuantity: usedQty,
+        boardLengthCm: source.length,
+        boardWidthCm: source.width,
+        pricePerM2: source.pricePerM2,
+        outputs: outputMaterials,
+        date: new Date(timestamp).toISOString()
+      });
+    } catch (error) {
+      flash(error?.message || 'Nije moguće spremiti obračun pilanja. Pilanje nije evidentirano.');
+      return;
     }
+
     const finishedOutputs = outputMaterials.filter(item => item.form === 'Komad').map(item => ({
       id: 'GP-' + item.id,
+      parentMaterialId: item.parentMaterialId,
+      sourceMaterialId: item.sourceMaterialId,
+      originMaterialId: item.originMaterialId,
+      sourceCutOperationId: item.sourceCutOperationId,
+      sourceOutputId: item.sourceOutputId,
       name: item.name,
       category: item.orderPieceName || 'Ostalo',
       material: source.name,
@@ -378,44 +432,63 @@ function buildCuttingPlan(boardLength, boardWidth, pieces, kerf, trim, allowRota
       note: item.note,
       createdAt: new Date(timestamp).toISOString()
     }));
-    if (finishedOutputs.length) {
-      try {
-        const currentFinished = readStored('kamen-app-finished-products-v1', []);
-        window.localStorage.setItem('kamen-app-finished-products-v1', JSON.stringify([...finishedOutputs, ...currentFinished]));
-      } catch { /* Warehouse cutting is still recorded if the finished goods list cannot be updated. */ }
+
+    const nextMaterials = [
+      ...materials.map(item => item.id === source.id
+        ? { ...item, quantity: Math.max(0, Number((Number(item.quantity || 0) + settlement.stockDelta).toFixed(2))) }
+        : item),
+      ...outputMaterials.filter(item => item.form !== 'Komad')
+    ];
+    const currentFinished = readStored('kamen-app-finished-products-v1', []);
+    const nextFinished = [...finishedOutputs, ...currentFinished];
+    const currentConsumption = readStored(MATERIAL_CONSUMPTION_KEY, []);
+    const nextConsumption = [consumption, ...currentConsumption];
+    let nextOrders = readStored(WORK_ORDERS_KEY, []);
+    if (linkedOrder) {
+      nextOrders = nextOrders.map(order => {
+        if (order.id !== linkedOrder.id) return order;
+        const updatedPieces = (order.pieces || []).map((piece, index) => {
+          const added = outputMaterials.filter(item => item.form === 'Komad' && item.orderPieceIndex === index).reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+          return added ? { ...piece, producedQuantity: Number(piece.producedQuantity || 0) + added } : piece;
+        });
+        const allProduced = updatedPieces.every(piece => Number(piece.producedQuantity || 0) >= Number(piece.quantity || 0));
+        const remainingReservations = Array.isArray(order.reservedMaterials) ? order.reservedMaterials.filter(item => item.materialId !== source.id) : (order.reservedMaterialId === source.id ? [] : order.reservedMaterials);
+        const allReservationsUsed = Array.isArray(order.reservedMaterials) ? remainingReservations.length === 0 : order.reservedMaterialId === source.id;
+        return { ...order, reservedMaterials: remainingReservations, reservedMaterialQty: allReservationsUsed ? 0 : order.reservedMaterialQty, reservedMaterialId: allReservationsUsed ? null : order.reservedMaterialId, pieces: updatedPieces, status: allProduced ? 'Čeka kontrolu' : 'U tijeku' };
+      });
     }
-    const stockDelta = settlement.stockDelta;
-    setMaterials(current => [...current.map(item => item.id === source.id ? { ...item, quantity: Math.max(0, Number((item.quantity + stockDelta).toFixed(2))) } : item), ...outputMaterials.filter(item => item.form !== 'Komad')]);
     const outputMovements = outputMaterials.map((item, index) => ({
-      id: timestamp + index + 2,
+      id: operationId + ':' + (index + 1),
+      operationId,
       material: item.name,
       kind: item.form === 'Otpad' ? 'Nastali otpad' : item.form === 'Ostatak' ? 'Nastali ostatak' : 'Gotov komad',
       quantity: item.quantity,
+      previousQuantity: 0,
+      nextQuantity: item.quantity,
       location: item.location,
       orderId: linkedOrder?.id || '',
       date
     }));
-    setMovements(current => [
-      { id: timestamp + 1, material: source.name, kind: 'Potrošnja za pilanje', quantity: usedQty, location: source.location, orderId: linkedOrder?.id || '', date },
-      ...(reservedForOrder > 0 && reservedForOrder > usedQty ? [{ id: timestamp + 2, material: source.name, kind: 'Povrat neiskorištene rezervacije', quantity: Number((reservedForOrder - usedQty).toFixed(2)), location: source.location, orderId: linkedOrder?.id || '', date }] : []),
-      ...outputMovements,
-      ...current
-    ].slice(0, 100));
-    if (linkedOrder) {
-      try {
-        const currentOrders = JSON.parse(window.localStorage.getItem(WORK_ORDERS_KEY) || '[]');
-        window.localStorage.setItem(WORK_ORDERS_KEY, JSON.stringify(currentOrders.map(order => {
-          if (order.id !== linkedOrder.id) return order;
-          const updatedPieces = (order.pieces || []).map((piece, index) => {
-            const added = outputMaterials.filter(item => item.form === 'Komad' && item.orderPieceIndex === index).reduce((sum, item) => sum + Number(item.quantity || 0), 0);
-            return added ? { ...piece, producedQuantity: Number(piece.producedQuantity || 0) + added } : piece;
-          });
-          const allProduced = updatedPieces.every(piece => Number(piece.producedQuantity || 0) >= Number(piece.quantity || 0));
-          const remainingReservations = Array.isArray(order.reservedMaterials) ? order.reservedMaterials.filter(item => item.materialId !== source.id) : (order.reservedMaterialId === source.id ? [] : order.reservedMaterials);
-          const allReservationsUsed = Array.isArray(order.reservedMaterials) ? remainingReservations.length === 0 : order.reservedMaterialId === source.id;
-          return { ...order, reservedMaterials: remainingReservations, reservedMaterialQty: allReservationsUsed ? 0 : order.reservedMaterialQty, reservedMaterialId: allReservationsUsed ? null : order.reservedMaterialId, pieces: updatedPieces, status: allProduced ? 'Čeka kontrolu' : 'U tijeku' };
-        })));
-      } catch { /* The cutting record remains saved locally even if order status cannot be updated. */ }
+    const transactionMovements = [
+      { id: operationId + ':0', operationId, material: source.name, kind: 'Potrošnja za pilanje', quantity: usedQty, previousQuantity: Number(source.quantity || 0), nextQuantity: Math.max(0, Number((Number(source.quantity || 0) + settlement.stockDelta).toFixed(2))), location: source.location, orderId: linkedOrder?.id || '', date },
+      ...(reservedForOrder > 0 && reservedForOrder > usedQty ? [{ id: operationId + ':return', operationId, material: source.name, kind: 'Povrat neiskorištene rezervacije', quantity: Number((reservedForOrder - usedQty).toFixed(2)), location: source.location, orderId: linkedOrder?.id || '', date }] : []),
+      ...outputMovements
+    ];
+    const writes = [
+      { key: MATERIALS_KEY, value: nextMaterials },
+      { key: 'kamen-app-finished-products-v1', value: nextFinished },
+      { key: MATERIAL_CONSUMPTION_KEY, value: nextConsumption }
+    ];
+    if (linkedOrder) writes.push({ key: WORK_ORDERS_KEY, value: nextOrders });
+    try {
+      const committed = commitInventoryTransaction(window.localStorage, { operationId, writes, movements: transactionMovements });
+      if (committed.duplicate) { flash('Ovaj postupak pilanja već je evidentiran. Zaliha nije ponovno promijenjena.'); return; }
+      setMaterials(nextMaterials);
+      setMovements(committed.movements);
+      window.dispatchEvent(new CustomEvent('kamen:finished-products-updated', { detail: nextFinished }));
+    } catch (error) {
+      flash(error?.message || 'Nije moguće sigurno spremiti pilanje. Zaliha nije promijenjena.');
+      return;
     }
     setShowCut(false);
     setCutForm(initialCutForm());
@@ -426,10 +499,13 @@ function buildCuttingPlan(boardLength, boardWidth, pieces, kerf, trim, allowRota
     event.preventDefault();
     const item = materials.find(row => row.id === movement?.id);
     if (!item || !movement) return;
-    const timestamp = Date.now();
+    const operationId = movement.operationId;
     let qty = parseQuantity(movementQty);
     let stockDelta;
     let movementDetails = {};
+    let nextMaterial;
+    let entry;
+
     if (movement.kind === 'Prodaja') {
       const length = parseQuantity(saleLength);
       const width = parseQuantity(saleWidth);
@@ -445,37 +521,122 @@ function buildCuttingPlan(boardLength, boardWidth, pieces, kerf, trim, allowRota
       stockDelta = item.unit === 'm²' ? -areaM2 : -(areaM2 / stockArea);
       if (Math.abs(stockDelta) > Number(item.quantity || 0) + 1e-9) { flash('Nema dovoljno raspoloživog materijala za ovu prodaju.'); return; }
       movementDetails = { areaM2: qty, unit: 'm²', lengthCm: length, widthCm: width, pieces, pricePerM2: price, vatRate: Number(item.vatRate ?? 25), saleNetAmount: Number((areaM2 * price).toFixed(2)), saleVatAmount: Number((areaM2 * price * Number(item.vatRate ?? 25) / 100).toFixed(2)), saleAmount: Number((areaM2 * price * (1 + Number(item.vatRate ?? 25) / 100)).toFixed(2)), stockDeduction: Number((-stockDelta).toFixed(4)), stockUnit: item.unit };
+      const nextQuantity = Number(Math.max(0, Number(item.quantity || 0) + stockDelta).toFixed(4));
+      nextMaterial = { ...item, quantity: nextQuantity, updatedAt: new Date().toISOString() };
+      entry = {
+        id: operationId, operationId, material: item.name, materialId: item.id,
+        kind: movement.kind, quantity: qty,
+        previousQuantity: Number(item.quantity || 0), nextQuantity,
+        location: item.location, date: new Date().toLocaleDateString('hr-HR'),
+        ...movementDetails
+      };
     } else {
-      qty = parseQuantity(movementQty);
-      if (!Number.isFinite(qty) || qty <= 0 || Math.round(qty * 100) !== qty * 100) { flash('Količina mora biti veća od nule (najviše dvije decimale).'); return; }
-      if (movement.kind === 'Izdavanje' && qty > item.quantity) { flash('Nema dovoljno zalihe za izdavanje.'); return; }
-      stockDelta = movement.kind === 'Zaprimanje' ? qty : -qty;
+      if (movement.kind === 'Otpis' && !window.confirm('Odobravaš otpis materijala „' + item.name + '”? Ova radnja će trajno umanjiti evidentiranu zalihu i ostaviti zapis u dnevniku.')) return;
+      const result = applyMaterialStockAction(item, {
+        operationId,
+        kind: movement.kind,
+        quantity: qty,
+        reason: movementReason,
+        date: new Date().toISOString()
+      });
+      if (result.error) { flash(result.error); return; }
+      nextMaterial = result.material;
+      entry = result.movement;
     }
-    setMaterials(current => current.map(row => row.id === movement.id ? { ...row, quantity: Number(Math.max(0, row.quantity + stockDelta).toFixed(4)) } : row));
-    setMovements(current => [{ id: timestamp, material: item.name, kind: movement.kind, quantity: qty, location: item.location, date: new Date().toLocaleDateString('hr-HR'), ...movementDetails }, ...current].slice(0, 100));
+
+    const nextMaterials = materials.map(row => row.id === movement.id ? nextMaterial : row);
+    try {
+      const committed = commitInventoryTransaction(window.localStorage, {
+        operationId,
+        writes: [{ key: MATERIALS_KEY, value: nextMaterials }],
+        movements: [entry]
+      });
+      if (committed.duplicate) { flash('Ova skladišna radnja već je evidentirana. Zaliha nije ponovno promijenjena.'); setMovement(null); return; }
+      setMaterials(nextMaterials);
+      setMovements(committed.movements);
+    } catch (error) {
+      flash(error?.message || 'Skladišna radnja nije spremljena. Zaliha nije promijenjena.');
+      return;
+    }
     setMovement(null);
     setMovementQty('1');
+    setMovementReason('');
     setSaleLength(''); setSaleWidth(''); setSalePieces('1');
-    flash(movement.kind === 'Prodaja' ? 'Prodaja evidentirana. Zaliha je umanjena prema prodanoj površini.' : movement.kind + ' je evidentirano.');
+    flash(movement.kind === 'Prodaja' ? 'Prodaja evidentirana. Zaliha je umanjena prema prodanoj površini.' : movement.kind === 'Otpis' ? 'Otpis je potvrđen i evidentiran.' : movement.kind + ' je evidentirano.');
   }
 
-  function applyStocktake(differences) {
-    const timestamp = Date.now();
-    const date = new Date().toLocaleDateString('hr-HR');
-    const byId = new Map(differences.map(row => [row.materialId, row]));
-    setMaterials(current => current.map(item => byId.has(item.id) ? { ...item, quantity: Number(byId.get(item.id).countedQuantity) } : item));
-    if (differences.length) setMovements(current => [
-      ...differences.map((row, index) => ({
-        id: timestamp + index,
+  function applyStocktake(materialDifferences, finishedDifferences = [], operationId = 'INV-' + Date.now()) {
+    const materialRows = Array.isArray(materialDifferences) ? materialDifferences : [];
+    const finishedRows = Array.isArray(finishedDifferences) ? finishedDifferences : [];
+    const entries = [
+      ...materialRows.map((row, index) => ({
+        id: operationId + ':material:' + index,
+        operationId,
         material: row.name,
-        kind: row.difference > 0 ? 'Inventurna korekcija +' : 'Inventurna korekcija −',
-        quantity: Math.abs(row.difference),
+        kind: row.difference > 0 ? 'Inventurna korekcija (+)' : 'Inventurna korekcija (−)',
+        quantity: row.difference,
+        previousQuantity: Number(row.expectedQuantity || 0),
+        nextQuantity: Number(row.countedQuantity),
         location: row.location,
         reason: row.reason,
-        date
+        date: new Date().toLocaleDateString('hr-HR'),
+        materialId: row.materialId
       })),
-      ...current
-    ].slice(0, 100));
+      ...finishedRows.map((row, index) => ({
+        id: operationId + ':finished:' + index,
+        operationId,
+        material: row.name,
+        kind: row.difference > 0 ? 'Inventurna korekcija (+)' : 'Inventurna korekcija (−)',
+        quantity: row.difference,
+        previousQuantity: Number(row.expectedQuantity || 0),
+        nextQuantity: Number(row.countedQuantity),
+        location: row.location,
+        reason: row.reason,
+        date: new Date().toLocaleDateString('hr-HR'),
+        productId: row.materialId
+      }))
+    ];
+    if (!entries.length) return;
+    const byMaterialId = new Map(materialRows.map(row => [row.materialId, row]));
+    const nextMaterials = materials.map(item => byMaterialId.has(item.id)
+      ? { ...item, quantity: Number(byMaterialId.get(item.id).countedQuantity) }
+      : item);
+    const finishedNow = readStored('kamen-app-finished-products-v1', []);
+    const byFinishedId = new Map(finishedRows.map(row => [row.materialId, row]));
+    const nextFinished = finishedNow.map(item => {
+      const change = byFinishedId.get(item.id);
+      if (!change) return item;
+      const counted = Number(change.countedQuantity);
+      const wasClosed = ['Ugrađen', 'Prodano'].includes(item.status);
+      const transaction = {
+        id: operationId + ':' + item.id,
+        operationId,
+        kind: change.difference > 0 ? 'Inventurna korekcija (+)' : 'Inventurna korekcija (−)',
+        quantity: change.difference,
+        reason: change.reason.trim(),
+        date: new Date().toISOString()
+      };
+      return {
+        ...item,
+        stockQuantity: counted,
+        status: wasClosed && counted > 0 ? 'Na zalihi' : item.status,
+        transactions: [...(item.transactions || []), transaction],
+        updatedAt: transaction.date
+      };
+    });
+    const writes = [
+      { key: MATERIALS_KEY, value: nextMaterials },
+      { key: 'kamen-app-finished-products-v1', value: nextFinished }
+    ];
+    try {
+      const committed = commitInventoryTransaction(window.localStorage, { operationId, writes, movements: entries });
+      if (committed.duplicate) return;
+      setMaterials(nextMaterials);
+      setMovements(committed.movements);
+      window.dispatchEvent(new CustomEvent('kamen:finished-products-updated', { detail: nextFinished }));
+    } catch (error) {
+      throw new Error(error?.message || 'Inventura nije spremljena. Zaliha nije promijenjena.');
+    }
   }
 
   const warehouseSubnav = <div className="warehouse-subnav">
@@ -511,13 +672,13 @@ function buildCuttingPlan(boardLength, boardWidth, pieces, kerf, trim, allowRota
           <label className="warehouse-filter"><span>Oblik stavke</span><select value={category} onChange={e => setCategory(e.target.value)}><option>Sve</option><option>Ploča</option><option>Komad</option><option>Ostatak</option><option>Otpad</option></select><ChevronDown size={14}/></label>
         </div>
         <div className="orders-table-wrap"><table className="orders-table warehouse-table"><thead><tr><th>MATERIJAL</th><th>DIMENZIJE (D × Š × T)</th><th>KOLIČINA</th><th>LOKACIJA</th><th>STANJE</th><th>RADNJE</th></tr></thead><tbody>
-          {filtered.length ? filtered.map(item => <tr key={item.id}><td><div className="order-name"><span className="order-symbol blue"><Layers3 size={16}/></span><div><strong>{item.name}</strong><small>{item.id} · {item.type} · {item.form}{item.isSparePart ? ' · REZERVNI DIO' : ''}{item.pricePerM2 != null ? ' · Nabava ' + Number(item.pricePerM2).toLocaleString('hr-HR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €/m²' : ''}{item.form === 'Ostatak' ? ' · Vrijednost zalihe ' + (calculateStockCarryingValue(item) == null ? 'nije poznata' : new Intl.NumberFormat('hr-HR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2 }).format(calculateStockCarryingValue(item))) : ''}{item.salePricePerM2 != null ? ' · Prodaja bez PDV-a ' + Number(item.salePricePerM2).toLocaleString('hr-HR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €/m² · s PDV-om ' + (Number(item.salePricePerM2) * (1 + Number(item.vatRate ?? 25) / 100)).toLocaleString('hr-HR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €/m² (' + Number(item.vatRate ?? 25) + '%)' : ''}</small></div></div></td><td>{item.length && item.width ? <span>{item.length} × {item.width} × {item.thickness} cm</span> : <span className="muted-icon">Nije navedeno</span>}</td><td><strong>{formatQuantity(item.quantity)}</strong> <span className="muted-icon">{item.unit}</span></td><td>{item.location}</td><td><span className={'stock-status ' + (item.archived ? 'low' : item.form === 'Otpad' ? 'warn' : item.quantity <= item.min ? 'low' : 'good')}><i/>{item.archived ? 'Arhivirano' : item.form === 'Otpad' ? 'Otpad' : item.quantity <= item.min ? 'Niska zaliha' : 'Dostupno'}</span></td><td><div className="warehouse-row-actions">{item.archived ? <button className="row-action" title="Vrati iz arhive" aria-label={'Vrati ' + item.name + ' iz arhive'} onClick={() => restoreMaterial(item)}><RotateCcw size={15}/></button> : <><button className="row-action" title="Zaprimanje" aria-label={'Zaprimanje ' + item.name} onClick={() => { setMovement({ id: item.id, kind: 'Zaprimanje' }); setMovementQty('1'); }}><ArrowDownToLine size={15}/></button><button className="row-action" title="Izdavanje" aria-label={'Izdavanje ' + item.name} disabled={item.quantity < 1 || item.form === 'Otpad'} onClick={() => { setMovement({ id: item.id, kind: 'Izdavanje' }); setMovementQty('1'); }}><ArrowUpFromLine size={15}/></button><button className="row-action" title="Prodaja po m²" aria-label={'Prodaja ' + item.name} disabled={item.quantity <= 0 || item.form === 'Otpad'} onClick={() => { setMovement({ id: item.id, kind: 'Prodaja' }); setSaleLength(String(item.length || '')); setSaleWidth(String(item.width || '')); setSalePieces('1'); }}><span style={{fontSize:11,fontWeight:800}}>€</span></button><button className="row-action" title="Uredi stavku" aria-label={'Uredi ' + item.name} onClick={() => editMaterial(item)}><Pencil size={15}/></button><button className="row-action" title="Arhiviraj stavku" aria-label={'Arhiviraj ' + item.name} onClick={() => archiveMaterial(item)}><Archive size={15}/></button></>}</div></td></tr>) : <tr><td colSpan="6"><div className="empty-state"><Search size={22}/><strong>Nema pronađenih stavki</strong><span>Promijeni pojam ili vrstu stavke.</span></div></td></tr>}
+          {filtered.length ? filtered.map(item => <tr key={item.id}><td><div className="order-name"><span className="order-symbol blue"><Layers3 size={16}/></span><div><strong>{item.name}</strong><small>{item.id} · {item.type} · {item.form}{item.isSparePart ? ' · REZERVNI DIO' : ''}{item.parentMaterialId ? ' · PORIJEKLO: ' + getMaterialLineage(item, materials).map(row => row.id).join(' ← ') : ''}{item.pricePerM2 != null ? ' · Nabava ' + Number(item.pricePerM2).toLocaleString('hr-HR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €/m²' : ''}{item.form === 'Ostatak' ? ' · Vrijednost zalihe ' + (calculateStockCarryingValue(item) == null ? 'nije poznata' : new Intl.NumberFormat('hr-HR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2 }).format(calculateStockCarryingValue(item))) : ''}{item.salePricePerM2 != null ? ' · Prodaja bez PDV-a ' + Number(item.salePricePerM2).toLocaleString('hr-HR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €/m² · s PDV-om ' + (Number(item.salePricePerM2) * (1 + Number(item.vatRate ?? 25) / 100)).toLocaleString('hr-HR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €/m² (' + Number(item.vatRate ?? 25) + '%)' : ''}</small></div></div></td><td>{item.length && item.width ? <span>{item.length} × {item.width} × {item.thickness} cm</span> : <span className="muted-icon">Nije navedeno</span>}</td><td><strong>{formatQuantity(item.quantity)}</strong> <span className="muted-icon">{item.unit}</span></td><td>{item.location}</td><td><span className={'stock-status ' + (item.archived ? 'low' : item.form === 'Otpad' ? 'warn' : item.quantity <= item.min ? 'low' : 'good')}><i/>{item.archived ? 'Arhivirano' : item.form === 'Otpad' ? 'Otpad' : item.quantity <= item.min ? 'Niska zaliha' : 'Dostupno'}</span></td><td><div className="warehouse-row-actions">{item.archived ? <button className="row-action" title="Vrati iz arhive" aria-label={'Vrati ' + item.name + ' iz arhive'} onClick={() => restoreMaterial(item)}><RotateCcw size={15}/></button> : <><button className="row-action" title="Zaprimanje" aria-label={'Zaprimanje ' + item.name} onClick={() => { setMovement({ id: item.id, kind: 'Zaprimanje', operationId: 'MOV-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) }); setMovementQty('1'); setMovementReason(''); }}><ArrowDownToLine size={15}/></button><button className="row-action" title="Izdavanje" aria-label={'Izdavanje ' + item.name} disabled={item.quantity < 1 || item.form === 'Otpad'} onClick={() => { setMovement({ id: item.id, kind: 'Izdavanje', operationId: 'MOV-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) }); setMovementQty('1'); setMovementReason(''); }}><ArrowUpFromLine size={15}/></button><button className="row-action" title="Prodaja po m²" aria-label={'Prodaja ' + item.name} disabled={item.quantity <= 0 || item.form === 'Otpad'} onClick={() => { setMovement({ id: item.id, kind: 'Prodaja', operationId: 'MOV-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) }); setSaleLength(String(item.length || '')); setSaleWidth(String(item.width || '')); setSalePieces('1'); }}><span style={{fontSize:11,fontWeight:800}}>€</span></button><button className="row-action" title="Uredi stavku" aria-label={'Uredi ' + item.name} onClick={() => editMaterial(item)}><Pencil size={15}/></button><button className="row-action" title="Otpis uz razlog i potvrdu" aria-label={'Otpis ' + item.name} disabled={item.quantity <= 0 || item.form === 'Otpad'} onClick={() => { setMovement({ id: item.id, kind: 'Otpis', operationId: 'WRITEOFF-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) }); setMovementQty('1'); setMovementReason(''); }}><Trash2 size={15}/></button><button className="row-action" title="Arhiviraj stavku" aria-label={'Arhiviraj ' + item.name} onClick={() => archiveMaterial(item)}><Archive size={15}/></button></>}</div></td></tr>) : <tr><td colSpan="6"><div className="empty-state"><Search size={22}/><strong>Nema pronađenih stavki</strong><span>Promijeni pojam ili vrstu stavke.</span></div></td></tr>}
         </tbody></table></div>
         <div className="panel-foot"><span>Prikazano {filtered.length} od {materials.length} stavki</span><span>Podaci se spremaju lokalno u ovaj preglednik.</span></div>
       </section>
 
       <section className="panel warehouse-movements"><div className="panel-heading"><div><h2>{productionMode ? 'Proizvodni dnevnik' : 'Zadnja kretanja'}</h2><p>{productionMode ? 'Utrošak ploča, gotovi komadi, ostatci i otpad iz postupaka pilanja.' : 'Ogledni dnevnik zaprimanja i izdavanja.'}</p></div><ClipboardCheck size={19} className="muted-icon"/></div>
-        {movements.length ? <div className="warehouse-movement-list">{movements.map(row => <div className="warehouse-movement" key={row.id}><span className={'movement-icon ' + (['Zaprimanje','Nastali ostatak','Nastali otpad','Gotov komad','Povrat gotovog proizvoda na zalihu'].includes(row.kind) ? 'movement-in' : 'movement-out')}>{['Zaprimanje','Nastali ostatak','Nastali otpad','Gotov komad','Povrat gotovog proizvoda na zalihu'].includes(row.kind) ? <ArrowDownToLine size={16}/> : <ArrowUpFromLine size={16}/>}</span><div><strong>{row.kind}: {row.material}</strong><small>{row.date} · {row.location}{row.saleAmount != null ? ' · ' + row.pieces + ' kom × ' + row.lengthCm + ' × ' + row.widthCm + ' cm · bez PDV-a ' + Number(row.saleNetAmount).toLocaleString('hr-HR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' € · PDV ' + Number(row.saleVatAmount).toLocaleString('hr-HR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' € · ukupno ' + Number(row.saleAmount).toLocaleString('hr-HR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' €' : ''}</small></div><b>{['Zaprimanje','Nastali ostatak','Nastali otpad','Gotov komad','Povrat gotovog proizvoda na zalihu','Povrat neiskorištene rezervacije'].includes(row.kind) ? '+' : '−'}{formatQuantity(row.quantity)}</b></div>)}</div> : <div className="warehouse-empty"><ClipboardCheck size={24}/><strong>Nema evidentiranih kretanja</strong><span>Odaberi zaprimanje ili izdavanje u tablici materijala.</span></div>}
+        {movements.length ? <div className="warehouse-movement-list">{movements.map(row => <div className="warehouse-movement" key={row.id}><span className={'movement-icon ' + (['Zaprimanje','Nastali ostatak','Nastali otpad','Gotov komad','Povrat gotovog proizvoda na zalihu'].includes(row.kind) ? 'movement-in' : 'movement-out')}>{['Zaprimanje','Nastali ostatak','Nastali otpad','Gotov komad','Povrat gotovog proizvoda na zalihu'].includes(row.kind) ? <ArrowDownToLine size={16}/> : <ArrowUpFromLine size={16}/>}</span><div><strong>{row.kind}: {row.material}</strong><small>{row.date} · {row.location}{row.reason ? ' · Razlog: ' + row.reason : ''}{row.previousQuantity != null && row.nextQuantity != null ? ' · Stanje ' + formatQuantity(row.previousQuantity) + ' → ' + formatQuantity(row.nextQuantity) : ''}{row.saleAmount != null ? ' · ' + row.pieces + ' kom × ' + row.lengthCm + ' × ' + row.widthCm + ' cm · bez PDV-a ' + Number(row.saleNetAmount).toLocaleString('hr-HR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' € · PDV ' + Number(row.saleVatAmount).toLocaleString('hr-HR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' € · ukupno ' + Number(row.saleAmount).toLocaleString('hr-HR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' €' : ''}</small></div><b>{Number(row.quantity) === 0 ? '' : (['Zaprimanje','Nastali ostatak','Nastali otpad','Gotov komad','Povrat gotovog proizvoda na zalihu','Povrat gotovog proizvoda','Povrat neiskorištene rezervacije','Povrat rezervacije - otkazivanje naloga','Inventurna korekcija (+)','Korekcija zalihe (+)'].includes(row.kind) || (row.kind === 'Korekcija zalihe' && Number(row.quantity) > 0) || (row.kind === 'Inventurna korekcija (−)' && Number(row.quantity) > 0) ? '+' : '−')}{formatQuantity(Math.abs(Number(row.quantity || 0)))}</b></div>)}</div> : <div className="warehouse-empty"><ClipboardCheck size={24}/><strong>Nema evidentiranih kretanja</strong><span>Odaberi zaprimanje ili izdavanje u tablici materijala.</span></div>}
       </section>
 
       <div className="module-notice"><Boxes size={17}/><span>Početno stanje je prazno. Unosi materijal koji stvarno zaprimiš; količine se vode u ovom pregledniku i još se ne sinkroniziraju između uređaja.</span></div>
@@ -526,7 +687,7 @@ function buildCuttingPlan(boardLength, boardWidth, pieces, kerf, trim, allowRota
 
 
       {showCut && <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setShowCut(false); }}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="cut-modal-title"><div className="modal-head"><div><span className="modal-kicker">PROIZVODNJA · SKLADIŠTE</span><h2 id="cut-modal-title">Evidentiraj pilanje</h2><p>Utroši ulazni materijal i evidentiraj nastali ostatak ili otpad.</p></div><button className="icon-button" onClick={() => setShowCut(false)} aria-label="Zatvori"><X size={19}/></button></div><form onSubmit={saveCut}><label>Radni nalog (nije obavezno)<select value={cutForm.orderId} onChange={e => setCutForm(current => ({ ...current, orderId: e.target.value }))}><option value="">Bez povezivanja s nalogom</option>{availableOrders.map(order => <option key={order.id} value={order.id}>{order.id} — {order.project} · {order.customer}</option>)}</select></label>{cutForm.orderId && availableOrders.find(order => order.id === cutForm.orderId) && <div className="modal-note"><ClipboardCheck size={16}/><span>{availableOrders.find(order => order.id === cutForm.orderId).material} · {availableOrders.find(order => order.id === cutForm.orderId).pieces.filter(piece => !piece.materialId || piece.materialId === cutForm.sourceId).reduce((sum, piece) => sum + Number(piece.quantity || 0), 0)} komada za odabrani materijal. Nakon evidentiranja pilanja nalog prelazi na „Čeka kontrolu”.</span></div>}<label>Ulazni materijal<select value={cutForm.sourceId} onChange={e => setCutForm(current => ({ ...current, sourceId: e.target.value }))} required><option value="">Odaberi ploču ili ostatak iz skladišta</option>{materials.filter(item => { if (item.archived || !['Ploča', 'Ostatak'].includes(item.form)) return false; const order = availableOrders.find(entry => entry.id === cutForm.orderId); if (!order) return Number(item.quantity) > 0; const assigned = Array.isArray(order.materialAllocations) ? order.materialAllocations.some(group => group.materialId === item.id) : order.reservedMaterialId === item.id; const reserved = Array.isArray(order.reservedMaterials) ? order.reservedMaterials.some(entry => entry.materialId === item.id && Number(entry.quantity || 0) > 0) : order.reservedMaterialId === item.id && Number(order.reservedMaterialQty || 0) > 0; return assigned && (Number(item.quantity) > 0 || reserved); }).map(item => <option key={item.id} value={item.id}>{item.form === 'Ostatak' ? 'OSTATAK · ' : 'PLOČA · '}{item.name} — {item.length} × {item.width} cm — {formatQuantity(item.quantity)} {item.unit} dostupno</option>)}</select></label>{cutForm.orderId && selectedCutSource && <section className="cutting-planner"><div className="cutting-planner-head"><div><span className="modal-kicker">PLANIRANJE REZA</span><h3>Prijedlog rasporeda komada</h3><p>Prikaz je informativan i ne mijenja zalihu dok ne evidentiraš pilanje.</p></div><span className="cutting-planner-tag">BETA</span></div><div className="form-row cutting-settings"><label>Širina reza pile (cm)<input type="number" min="0" step="0.1" value={cutKerf} onChange={e => setCutKerf(e.target.value)}/></label><label>Rubno obrezivanje (cm po strani)<input type="number" min="0" step="0.1" value={cutTrim} onChange={e => setCutTrim(e.target.value)}/></label></div><label className="cutting-rotation"><input type="checkbox" checked={allowRotation} onChange={e => setAllowRotation(e.target.checked)}/> Dopusti rotaciju komada za 90°</label>{cuttingPlan?.error ? <div className="cutting-plan-warning">{cuttingPlan.error}</div> : cuttingPlan && <><div className="cutting-plan-summary"><div><strong>{cuttingPlan.boards.length}</strong><span>ploča u prijedlogu</span></div><div><strong>{cuttingPlan.unplaced.length}</strong><span>komada nije raspoređeno</span></div><div><strong>{cuttingPlan.boards.reduce((sum, board) => sum + board.placed.length, 0)}</strong><span>komada raspoređeno</span></div><div><strong>{cuttingPlan.boards.reduce((sum, board) => sum + board.offcuts.length, 0)}</strong><span>upotrebljivih ostataka</span></div></div><button type="button" className="button button-secondary cutting-fill-button" onClick={populateCutOutputsFromPlan} disabled={!cuttingPlan.boards.length}>Popuni izlazne stavke iz plana</button>{cuttingPlan.boards.map(board => <div className="cutting-board-preview" key={board.index}><div className="cutting-board-label"><strong>Ploča {board.index}</strong><span>{board.placed.length} komada · {board.offcuts.length} ostataka · iskorištenje površine {board.usableArea ? Math.round(board.placedArea / board.usableArea * 100) : 0}%</span></div><svg viewBox={`0 0 ${selectedCutSource.length} ${selectedCutSource.width}`} role="img" aria-label={`Plan rasporeda na ploči ${board.index}`}><rect x="0" y="0" width={selectedCutSource.length} height={selectedCutSource.width} rx="1" className="cutting-board-outline"/><rect x={Number(cutTrim)} y={Number(cutTrim)} width={Math.max(0, Number(selectedCutSource.length) - Number(cutTrim) * 2)} height={Math.max(0, Number(selectedCutSource.width) - Number(cutTrim) * 2)} className="cutting-board-usable"/>{board.offcuts.map(offcut => <rect key={offcut.id} x={offcut.x + Number(cutTrim)} y={offcut.y + Number(cutTrim)} width={offcut.w} height={offcut.h} className="cutting-offcut-rect"/>)}{board.placed.map(piece => <g key={piece.id}><rect x={piece.x + Number(cutTrim)} y={piece.y + Number(cutTrim)} width={piece.w} height={piece.h} className="cutting-piece-rect"/><text x={piece.x + Number(cutTrim) + piece.w / 2} y={piece.y + Number(cutTrim) + piece.h / 2} textAnchor="middle" dominantBaseline="middle">{piece.name.slice(0, 18)}</text></g>)}</svg></div>)}{cuttingPlan.unplaced.length > 0 && <div className="cutting-plan-warning">Nisu svi komadi stali u raspoložive cijele ploče. Nedostaje raspoloživih ploča ili treba promijeniti raspored / dimenzije.</div>}<p className="cutting-plan-footnote">Ostatci su pravokutni slobodni dijelovi dimenzija najmanje 20 × 20 cm. Provjeri ih fizički prije potvrde pilanja.</p></>}</section>}<div className="form-row"><label>Potrošnja za ovaj rez (broj ploča)<input type="text" inputMode="decimal" placeholder="Npr. 0,2" value={cutForm.usedQty} onChange={e => setCutForm(current => ({ ...current, usedQty: e.target.value }))} required/></label><label>Napomena za postupak<input value={cutForm.note} onChange={e => setCutForm(current => ({ ...current, note: e.target.value }))} placeholder="Opcionalno"/></label></div><div className="cut-outputs-heading"><div><strong>Izlazne stavke</strong><p>Dodaj svaki gotov komad, upotrebljivi ostatak ili otpad.</p></div><button type="button" className="button button-secondary" onClick={addCutOutput}><Plus size={15}/> Dodaj stavku</button></div>{cutForm.outputs.map((output, index) => <section className="cut-output-card" key={output.id}><div className="cut-output-card-head"><strong>Izlazna stavka {index + 1}</strong>{cutForm.outputs.length > 1 && <button type="button" className="icon-button" onClick={() => removeCutOutput(output.id)} aria-label={'Ukloni izlaznu stavku ' + (index + 1)}><X size={16}/></button>}</div><label>Naziv komada / ostatka / otpada<input value={output.name} onChange={e => updateCutOutput(output.id, 'name', e.target.value)} placeholder="Npr. Gazište 1 ili ostatak Bračkog kamena" required/></label><div className="form-row"><label>Vrsta stavke<select value={output.type} onChange={e => updateCutOutput(output.id, 'type', e.target.value)}><option>Gotov komad</option><option>Ostatak</option><option>Otpad</option></select></label><label>Količina (kom)<input type="number" min="1" step="1" value={output.quantity} onChange={e => updateCutOutput(output.id, 'quantity', e.target.value)} required/></label></div>{cutForm.orderId && output.type === 'Gotov komad' && <label>Poveži s naručenim komadom *<select value={output.orderPieceIndex} onChange={e => updateCutOutput(output.id, 'orderPieceIndex', e.target.value)} required><option value="">Odaberi komad iz naloga</option>{(availableOrders.find(order => order.id === cutForm.orderId)?.pieces || []).map((piece, pieceIndex) => { const remaining = Math.max(0, Number(piece.quantity || 0) - Number(piece.producedQuantity || 0)); return <option key={pieceIndex} value={pieceIndex} disabled={remaining === 0}>{piece.name} — preostalo {remaining} od {piece.quantity}</option>; })}</select></label>}<div className="form-row"><label>Dužina (cm)<input type="number" min="0" step="0.1" value={output.length} onChange={e => updateCutOutput(output.id, 'length', e.target.value)} required/></label><label>Širina (cm)<input type="number" min="0" step="0.1" value={output.width} onChange={e => updateCutOutput(output.id, 'width', e.target.value)} required/></label></div><div className="form-row"><label>Debljina (cm)<input type="number" min="0" step="0.1" value={output.thickness || sourceThicknessForCut(materials, cutForm.sourceId)} onChange={e => updateCutOutput(output.id, 'thickness', e.target.value)} required/></label><label>Lokacija<input value={output.location} onChange={e => updateCutOutput(output.id, 'location', e.target.value)} required/></label></div><label>Napomena<input value={output.note} onChange={e => updateCutOutput(output.id, 'note', e.target.value)} placeholder="Opcionalno"/></label></section>)}<div className="modal-note"><Scissors size={16}/><span>Svaki zapis pilanja evidentira stvarnu potrošnju ploča ili cijelih fizičkih ostataka. Neiskorišteni dio rezervacije vraća se na raspoloživu zalihu; gotovi komadi, novi ostaci i otpad vode se zasebno.</span></div><div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setShowCut(false)}>Odustani</button><button type="submit" className="button button-primary"><Check size={16}/> Evidentiraj pilanje</button></div></form></section></div>}
-      {movement && <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setMovement(null); }}><section className="modal movement-modal" role="dialog" aria-modal="true" aria-labelledby="movement-title"><div className="modal-head"><div><span className="modal-kicker">SKLADIŠNO KRETANJE</span><h2 id="movement-title">{movement.kind}</h2><p>{materials.find(row => row.id === movement.id)?.name}</p></div><button className="icon-button" onClick={() => setMovement(null)} aria-label="Zatvori"><X size={19}/></button></div><form onSubmit={saveMovement}>{movement.kind === 'Prodaja' ? <>{(() => { const item = materials.find(row => row.id === movement.id); const area = Math.max(0, parseQuantity(saleLength) * parseQuantity(saleWidth) / 10000 * parseQuantity(salePieces)); const stockArea = Number(item?.length || 0) * Number(item?.width || 0) / 10000; const deduction = item?.unit === 'm²' ? area : stockArea > 0 ? area / stockArea : 0; const net = area * Number(item?.salePricePerM2 || 0); const vatRate = Number(item?.vatRate ?? 25); const vatAmount = net * vatRate / 100; const total = net + vatAmount; return <><div className="form-row"><label>Duljina prodanog komada (cm)<input type="text" inputMode="decimal" value={saleLength} onChange={e => setSaleLength(e.target.value)} required/></label><label>Širina prodanog komada (cm)<input type="text" inputMode="decimal" value={saleWidth} onChange={e => setSaleWidth(e.target.value)} required/></label></div><label>Broj prodanih komada<input type="number" min="1" step="1" value={salePieces} onChange={e => setSalePieces(e.target.value)} required/></label><div className="sale-calculation"><div><span>Prodana površina</span><strong>{area.toLocaleString('hr-HR',{minimumFractionDigits:2,maximumFractionDigits:4})} m²</strong></div><div><span>Cijena bez PDV-a / m²</span><strong>{Number(item?.salePricePerM2 || 0).toLocaleString('hr-HR',{minimumFractionDigits:2,maximumFractionDigits:2})} €</strong></div><div><span>Cijena s PDV-om / m²</span><strong>{(Number(item?.salePricePerM2 || 0) * (1 + vatRate / 100)).toLocaleString('hr-HR',{minimumFractionDigits:2,maximumFractionDigits:2})} €</strong></div><div><span>Iznos bez PDV-a</span><strong>{net.toLocaleString('hr-HR',{minimumFractionDigits:2,maximumFractionDigits:2})} €</strong></div><div><span>PDV ({vatRate} %)</span><strong>{vatAmount.toLocaleString('hr-HR',{minimumFractionDigits:2,maximumFractionDigits:2})} €</strong></div><div><span>Ukupno s PDV-om</span><strong>{total.toLocaleString('hr-HR',{minimumFractionDigits:2,maximumFractionDigits:2})} €</strong></div><div><span>Umanjenje zalihe</span><strong>{deduction.toLocaleString('hr-HR',{minimumFractionDigits:2,maximumFractionDigits:4})} {item?.unit === 'm²' ? 'm²' : item?.unit || 'jed.'}</strong></div></div><div className="modal-note"><ClipboardCheck size={16}/><span>Prodana površina računa se iz duljine × širine × broj komada. Zaliha se umanjuje za istu površinu, pretvorenu u dio izvorne ploče/komada. Obračun ne zamjenjuje račun ili fiskalizaciju.</span></div></>; })()}</> : <><label>Količina<input type="text" inputMode="decimal" placeholder="Npr. 0,5" value={movementQty} onChange={e => setMovementQty(e.target.value)} required/></label><div className="modal-note"><ClipboardCheck size={16}/><span>Trenutna količina: {formatQuantity(materials.find(row => row.id === movement.id)?.quantity)}. Podaci se spremaju u ovu preglednicu.</span></div></>}<div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setMovement(null)}>Odustani</button><button type="submit" className="button button-primary"><Check size={16}/> {movement.kind === 'Prodaja' ? 'Potvrdi prodaju' : 'Potvrdi'}</button></div></form></section></div>}
+      {movement && <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setMovement(null); }}><section className="modal movement-modal" role="dialog" aria-modal="true" aria-labelledby="movement-title"><div className="modal-head"><div><span className="modal-kicker">SKLADIŠNO KRETANJE</span><h2 id="movement-title">{movement.kind}</h2><p>{materials.find(row => row.id === movement.id)?.name}</p></div><button className="icon-button" onClick={() => setMovement(null)} aria-label="Zatvori"><X size={19}/></button></div><form onSubmit={saveMovement}>{movement.kind === 'Prodaja' ? <>{(() => { const item = materials.find(row => row.id === movement.id); const area = Math.max(0, parseQuantity(saleLength) * parseQuantity(saleWidth) / 10000 * parseQuantity(salePieces)); const stockArea = Number(item?.length || 0) * Number(item?.width || 0) / 10000; const deduction = item?.unit === 'm²' ? area : stockArea > 0 ? area / stockArea : 0; const net = area * Number(item?.salePricePerM2 || 0); const vatRate = Number(item?.vatRate ?? 25); const vatAmount = net * vatRate / 100; const total = net + vatAmount; return <><div className="form-row"><label>Duljina prodanog komada (cm)<input type="text" inputMode="decimal" value={saleLength} onChange={e => setSaleLength(e.target.value)} required/></label><label>Širina prodanog komada (cm)<input type="text" inputMode="decimal" value={saleWidth} onChange={e => setSaleWidth(e.target.value)} required/></label></div><label>Broj prodanih komada<input type="number" min="1" step="1" value={salePieces} onChange={e => setSalePieces(e.target.value)} required/></label><div className="sale-calculation"><div><span>Prodana površina</span><strong>{area.toLocaleString('hr-HR',{minimumFractionDigits:2,maximumFractionDigits:4})} m²</strong></div><div><span>Cijena bez PDV-a / m²</span><strong>{Number(item?.salePricePerM2 || 0).toLocaleString('hr-HR',{minimumFractionDigits:2,maximumFractionDigits:2})} €</strong></div><div><span>Cijena s PDV-om / m²</span><strong>{(Number(item?.salePricePerM2 || 0) * (1 + vatRate / 100)).toLocaleString('hr-HR',{minimumFractionDigits:2,maximumFractionDigits:2})} €</strong></div><div><span>Iznos bez PDV-a</span><strong>{net.toLocaleString('hr-HR',{minimumFractionDigits:2,maximumFractionDigits:2})} €</strong></div><div><span>PDV ({vatRate} %)</span><strong>{vatAmount.toLocaleString('hr-HR',{minimumFractionDigits:2,maximumFractionDigits:2})} €</strong></div><div><span>Ukupno s PDV-om</span><strong>{total.toLocaleString('hr-HR',{minimumFractionDigits:2,maximumFractionDigits:2})} €</strong></div><div><span>Umanjenje zalihe</span><strong>{deduction.toLocaleString('hr-HR',{minimumFractionDigits:2,maximumFractionDigits:4})} {item?.unit === 'm²' ? 'm²' : item?.unit || 'jed.'}</strong></div></div><div className="modal-note"><ClipboardCheck size={16}/><span>Prodana površina računa se iz duljine × širine × broj komada. Zaliha se umanjuje za istu površinu, pretvorenu u dio izvorne ploče/komada. Obračun ne zamjenjuje račun ili fiskalizaciju.</span></div></>; })()}</> : <><label>Količina<input type="text" inputMode="decimal" placeholder="Npr. 0,5" value={movementQty} onChange={e => setMovementQty(e.target.value)} required/></label>{movement.kind === 'Otpis' && <label>Razlog otpisa *<textarea rows="3" value={movementReason} onChange={e => setMovementReason(e.target.value)} placeholder="Npr. lom ploče, oštećenje, neupotrebljiv ostatak..." required/></label>}<div className="modal-note"><ClipboardCheck size={16}/><span>Trenutna količina: {formatQuantity(materials.find(row => row.id === movement.id)?.quantity)}. {movement.kind === 'Otpis' ? 'Otpis se izvršava tek nakon unosa razloga i potvrde vlasnika u ovom pregledniku.' : 'Podaci se spremaju u ovu preglednicu.'}</span></div></>}<div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => setMovement(null)}>Odustani</button><button type="submit" className="button button-primary"><Check size={16}/> {movement.kind === 'Prodaja' ? 'Potvrdi prodaju' : movement.kind === 'Otpis' ? 'Potvrdi otpis' : 'Potvrdi'}</button></div></form></section></div>}
       {toast && <div className="toast"><Check size={17}/>{toast}<button onClick={() => setToast('')} aria-label="Zatvori poruku"><X size={15}/></button></div>}
     </div>
   );

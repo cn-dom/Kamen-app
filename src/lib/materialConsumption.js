@@ -19,7 +19,7 @@ export function createMaterialConsumptionRecord({ id, orderId, materialId, mater
     const outputWidth = Number(output.width || 0);
     const areaM2 = roundArea(outputLength * outputWidth / 10000 * quantity);
     const type = output.form === 'Ostatak' ? 'Ostatak' : output.form === 'Otpad' ? 'Otpad' : 'Gotov komad';
-    return { id: output.id, name: String(output.name || 'Izlazna stavka'), type, quantity, lengthCm: outputLength, widthCm: outputWidth, areaM2, value: price === null ? null : roundMoney(areaM2 * price), location: output.location || '' };
+    return { id: output.id, name: String(output.name || 'Izlazna stavka'), type, quantity, lengthCm: outputLength, widthCm: outputWidth, areaM2, value: price === null ? null : roundMoney(areaM2 * price), location: output.location || '', parentMaterialId: output.parentMaterialId || materialId, originMaterialId: output.originMaterialId || output.sourceMaterialId || materialId, sourceCutOperationId: output.sourceCutOperationId || id, orderId: output.orderId || orderId };
   });
   const sumType = type => roundArea(outputRows.filter(row => row.type === type).reduce((sum, row) => sum + row.areaM2, 0));
   const finishedAreaM2 = sumType('Gotov komad');

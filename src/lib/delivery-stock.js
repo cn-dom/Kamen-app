@@ -21,13 +21,17 @@ export function applyDeliveryToFinishedProducts(delivery, products = [], movemen
     }
     const remaining = Math.max(0, Number((available - quantity).toFixed(4)));
     const transactionId = delivery.id + '-' + line.quoteLineId;
+    const operationId = 'DELIVERY-' + delivery.id;
     product.stockQuantity = remaining;
     product.soldQuantity = Number(product.soldQuantity || 0) + quantity;
     product.status = remaining === 0 ? 'Prodano' : product.status;
     product.transactions.push({
       id: transactionId,
+      operationId,
       kind: 'Isporuka gotovog proizvoda',
       quantity,
+      previousQuantity: available,
+      nextQuantity: remaining,
       reason: 'Otpremnica ' + delivery.number,
       date: delivery.date,
       deliveryId: delivery.id
@@ -35,9 +39,12 @@ export function applyDeliveryToFinishedProducts(delivery, products = [], movemen
     product.updatedAt = new Date().toISOString();
     nextMovements.unshift({
       id: transactionId,
+      operationId,
       material: product.name,
       kind: 'Isporuka gotovog proizvoda',
       quantity,
+      previousQuantity: available,
+      nextQuantity: remaining,
       reason: 'Otpremnica ' + delivery.number,
       location: product.location || '',
       date: delivery.date,
@@ -48,5 +55,5 @@ export function applyDeliveryToFinishedProducts(delivery, products = [], movemen
     });
     applied += quantity;
   }
-  return { products: nextProducts, movements: nextMovements.slice(0, 500), applied };
+  return { products: nextProducts, movements: nextMovements, applied };
 }

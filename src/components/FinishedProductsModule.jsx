@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { getMaterialLineage } from '../lib/materialLineage.js';
+import { applyFinishedProductStockAction, commitInventoryTransaction } from '../lib/inventoryLedger.js';
 import { PackageCheck, Plus, Search, X, Ruler, Boxes, Hammer, ClipboardList, Image as ImageIcon, CheckCircle2 } from 'lucide-react';
 
 const STORAGE_KEY = 'kamen-app-finished-products-v1';
@@ -85,7 +87,7 @@ export default function FinishedProductsModule({ onBack }) {
   };
 
   const openStockAction = (item, kind, direction = null) => {
-    setStockAction({ id: item.id, kind, direction });
+    setStockAction({ id: item.id, kind, direction, operationId: 'GP-' + Date.now() + '-' + Math.random().toString(36).slice(2, 9) });
     setActionQuantity('1');
     setActionReason('');
     setActionError('');
@@ -94,49 +96,33 @@ export default function FinishedProductsModule({ onBack }) {
   const confirmStockAction = event => {
     event.preventDefault();
     const item = items.find(row => row.id === stockAction?.id);
-    const quantity = Number(actionQuantity);
-    const available = item ? Number(item.stockQuantity ?? item.quantity) : 0;
-    const isAdjustment = ['Povrat', 'Korekcija'].includes(stockAction?.kind);
-    const isDecrease = isAdjustment && stockAction.direction === 'minus';
-    const isInstall = stockAction?.kind === 'Ugradnja';
-    const isSale = stockAction?.kind === 'Prodaja';
-    const wholeUnit = item && ['kom', 'par', 'set'].includes(item.unit);
-    const exceedsStock = (isSale || isInstall || isDecrease) && quantity > available;
-    if (!item || !Number.isFinite(quantity) || quantity <= 0 || exceedsStock || (wholeUnit && !Number.isInteger(quantity))) {
-      setActionError(wholeUnit ? 'Unesi cijeli broj koji nije veći od raspoložive količine.' : 'Unesi valjanu količinu; kod izdavanja ili umanjenja ne može biti veća od raspoložive zalihe.');
-      return;
-    }
-    if (isAdjustment && !actionReason.trim()) {
-      setActionError('Za povrat ili korekciju obavezno upiši razlog.');
-      return;
-    }
-    const delta = isAdjustment ? (isDecrease ? -quantity : quantity) : -quantity;
-    const remaining = Math.max(0, Number((available + delta).toFixed(4)));
-    const timestamp = new Date().toISOString();
-    const kind = isAdjustment
-      ? (stockAction.kind === 'Povrat' ? 'Povrat gotovog proizvoda' : (isDecrease ? 'Korekcija zalihe (-)' : 'Korekcija zalihe (+)'))
+    if (!item || !stockAction) return;
+    const actionKind = stockAction.kind === 'Korekcija'
+      ? (stockAction.direction === 'minus' ? 'Korekcija −' : 'Korekcija +')
       : stockAction.kind;
-    const transaction = { id: item.id + '-' + timestamp, kind, quantity: isAdjustment ? delta : quantity, reason: actionReason.trim(), date: timestamp };
-    const wasClosed = ['Ugrađen', 'Prodano'].includes(item.status);
-    setItems(current => current.map(row => row.id !== item.id ? row : {
-      ...row,
-      stockQuantity: remaining,
-      status: remaining === 0 && (isSale || isInstall)
-        ? (isInstall ? 'Ugrađen' : 'Prodano')
-        : (wasClosed && isAdjustment && remaining > 0 ? 'Na zalihi' : row.status),
-      installedQuantity: Number(row.installedQuantity || 0) + (isInstall ? quantity : 0),
-      soldQuantity: Number(row.soldQuantity || 0) + (isSale ? quantity : 0),
-      transactions: [...(row.transactions || []), transaction],
-      updatedAt: timestamp
-    }));
+    const result = applyFinishedProductStockAction(item, {
+      operationId: stockAction.operationId,
+      kind: actionKind,
+      quantity: actionQuantity,
+      reason: actionReason,
+      date: new Date().toISOString()
+    });
+    if (result.error) { setActionError(result.error); return; }
+    if (result.duplicate) { setStockAction(null); return; }
+
+    const nextItems = items.map(row => row.id === item.id ? result.product : row);
     try {
-      const movements = readJson(MOVEMENTS_KEY, []);
-      window.localStorage.setItem(MOVEMENTS_KEY, JSON.stringify([{
-        id: transaction.id, material: item.name, kind, quantity: transaction.quantity,
-        reason: actionReason.trim(), location: item.location || '', date: new Date(timestamp).toLocaleDateString('hr-HR'),
-        productId: item.id, orderId: item.orderId || ''
-      }, ...movements].slice(0, 100)));
-    } catch { /* The product balance is saved independently; local movement history may be unavailable. */ }
+      const committed = commitInventoryTransaction(window.localStorage, {
+        operationId: stockAction.operationId,
+        writes: [{ key: STORAGE_KEY, value: nextItems }],
+        movements: [result.movement]
+      });
+      if (committed.duplicate) { setStockAction(null); return; }
+    } catch (error) {
+      setActionError(error?.message || 'Skladišna promjena nije spremljena. Pokušaj ponovno.');
+      return;
+    }
+    setItems(nextItems);
     setStockAction(null);
     setActionError('');
     setActionReason('');
@@ -172,7 +158,7 @@ export default function FinishedProductsModule({ onBack }) {
             <h3>{item.name}</h3><p className="finished-product-category">{item.category} · {item.material}</p>
             <div className="finished-product-specs"><span><Ruler size={14}/>{[item.length, item.width, item.thickness].some(v => v) ? [item.length, item.width, item.thickness].map(v => v || '—').join(' × ') + ' cm' : 'Dimenzije nisu unesene'}</span><strong>{availableQuantity(item)} {item.unit} na zalihi</strong></div>
             {item.processes?.length > 0 && <div className="finished-process-list">{item.processes.map(p => <span key={p}>{p}</span>)}</div>}
-            <div className="finished-product-meta">{item.orderId && <span>Nalog: {item.orderId}</span>}{item.customer && <span>Kupac: {item.customer}</span>}<span>Lokacija: {item.location}</span></div>
+            <div className="finished-product-meta">{item.orderId && <span>Nalog: {item.orderId}</span>}{item.customer && <span>Kupac: {item.customer}</span>}{item.parentMaterialId && <span>Porijeklo: {getMaterialLineage(item, materials).map(row => row.name).join(' ← ')}</span>}<span>Lokacija: {item.location}</span></div>
             {item.note && <p className="finished-product-note">{item.note}</p>}
             <div className="finished-stock-actions">
               {['Ugrađen', 'Prodano'].includes(item.status) ? <span className="finished-status-control">Stavka je zatvorena · preostalo 0</span> : <label className="finished-status-control">Status<select value={item.status} onChange={e => updateStatus(item.id, e.target.value)}>{statuses.filter(status => !['Ugrađen', 'Prodano'].includes(status)).map(status => <option key={status}>{status}</option>)}</select></label>}

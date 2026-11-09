@@ -1,7 +1,7 @@
 # Kamen-app — testni scenariji
 
-**Verzija:** 1.0  
-**Status:** Kriteriji prihvaćanja i plan testiranja. Automatizirani testovi pokrivaju temeljne pomoćne funkcije proizvodnje; ostali scenariji i dalje zahtijevaju ručno testiranje. CI pokreće `npm test` i Vite build. Za poznate rizike pogledati [reviziju](AUDIT-POSTOJECEG-STANJA.md).
+**Verzija:** 1.1  
+**Status:** Kriteriji prihvaćanja i plan testiranja. CI Build #261 prošao je s 129 testova (129 uspješnih, 0 neuspješnih) i uspješnim Vite buildom na commitu `3e390004de4c31a1e50f68170106b0aed7d318e9` u PR-u #85. Automatizacija ne zamjenjuje ručno testiranje sučelja na telefonu i računalu. Za poznate rizike pogledati [reviziju](AUDIT-POSTOJECEG-STANJA.md).
 
 Svi scenariji su kriteriji koje će aplikacija morati zadovoljiti. Njihovo navođenje ne znači da je funkcionalnost već izrađena ili provjerena.
 
@@ -211,3 +211,31 @@ Testovi sadrže izmišljene testne podatke. Ne koristiti stvarne podatke klijena
 ### PRD-010 — izvoz proizvodnje
 **Koraci:** Filtrirati proizvodnju i izvesti CSV.
 **Očekivano:** Izvoz sadrži radni nalog, kupca, projekt, komad, dimenzije, materijal, fazu, radnika, početak, završetak, trajanje, zastoj i kontrolu kvalitete.
+
+
+## Status cjelina 1 — skladište i sljedivost
+
+**Implementirano u PR-u #85; automatizirani CI prolaz: 129/129 testova i build uspješan.**
+
+Automatizirani testovi uključuju:
+- dnevnik kretanja bez rezanja povijesti, grupirane događaje jedne operacije i zaštitu od dvostrukog knjiženja;
+- rollback svih povezanih zapisa ako jedan dio spremanja ne uspije;
+- zaštitu od prepisivanja neispravnog postojećeg dnevnika;
+- djelomičnu prodaju i ugradnju gotovih proizvoda, povrat, korekcije i odbijanje prevelikog izdavanja;
+- otpis materijala s obveznim razlogom, kontrolu raspoložive količine i cijele komade ostataka;
+- lanac porijekla ploča, ostataka i komada te zaštitu od kružnih/nedostajućih veza;
+- postojeće testove rezervacije, potrošnje i isporuke.
+
+**Obvezni ručni prihvatni prolaz prije spajanja u `main`:**
+1. Zaprimiti ploču i provjeriti stanje i zapis primitka.
+2. Izraditi radni nalog, rezervirati materijal i provjeriti raspoloživu zalihu.
+3. Otkazati probni nalog i provjeriti povrat neiskorištene rezervacije.
+4. Evidentirati pilanje: stvarnu potrošnju, gotove komade, ostatak i otpad; zatim provjeriti lanac porijekla.
+5. Ponovno izrezati nastali ostatak i provjeriti da se izvorna ploča i roditeljski ostatak i dalje mogu pratiti.
+6. Djelomično prodati/ugraditi gotov proizvod i provjeriti da preostala količina ostaje na zalihi.
+7. Napraviti otpremnicu s djelomičnim izdavanjem i provjeriti da se ne može dvaput proknjižiti.
+8. Provesti inventuru materijala i gotovih proizvoda, uključujući obvezno obrazloženje razlike.
+9. Pokušati otpis bez razloga, zatim s razlogom i potvrdom; provjeriti zapis u dnevniku.
+10. Ponoviti ključne korake na mobitelu i računalu. Sinkronizacija između uređaja nije podržana dok se ne uvede zajednička pohrana.
+
+**Ograničenje:** potvrda otpisa trenutačno je lokalna potvrda u pregledniku, ne poslužiteljsko odobrenje vlasnika/managera.

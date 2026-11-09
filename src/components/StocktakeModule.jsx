@@ -67,28 +67,11 @@ export default function StocktakeModule({ materials, onApply }) {
     if (stale) { flash('Zaliha stavke „' + stale.name + '” promijenila se nakon otvaranja inventure. Neću primijeniti stare brojke. Otvori novu inventuru i ponovno prebroji.'); return; }
     const materialDifferences = differences.filter(row => row.kind !== 'finished');
     const finishedDifferences = differences.filter(row => row.kind === 'finished');
-    onApply(materialDifferences);
-    if (finishedDifferences.length) {
-      const timestamp = new Date().toISOString();
-      const byId = new Map(finishedDifferences.map(row => [row.materialId, row]));
-      const updated = finishedNow.map(item => {
-        const change = byId.get(item.id);
-        if (!change) return item;
-        const counted = Number(change.countedQuantity);
-        const wasClosed = ['Ugrađen', 'Prodano'].includes(item.status);
-        const transaction = { id: item.id + '-INV-' + Date.now(), kind: change.difference > 0 ? 'Inventurna korekcija (+)' : 'Inventurna korekcija (−)', quantity: change.difference, reason: change.reason.trim(), date: timestamp };
-        return { ...item, stockQuantity: counted, status: wasClosed && counted > 0 ? 'Na zalihi' : item.status, transactions: [...(item.transactions || []), transaction], updatedAt: timestamp };
-      });
-      window.localStorage.setItem(FINISHED_KEY, JSON.stringify(updated));
-      const oldMovements = (() => { try { return JSON.parse(window.localStorage.getItem(MOVEMENTS_KEY) || '[]'); } catch { return []; } })();
-      const newMovements = finishedDifferences.map((row, index) => ({
-        id: 'INV-' + timestamp + '-' + index, material: row.name,
-        kind: row.difference > 0 ? 'Inventurna korekcija (+)' : 'Inventurna korekcija (−)',
-        quantity: row.difference, reason: row.reason.trim(), location: row.location,
-        date: new Date(timestamp).toLocaleDateString('hr-HR'), productId: row.materialId
-      }));
-      window.localStorage.setItem(MOVEMENTS_KEY, JSON.stringify([...newMovements, ...oldMovements].slice(0, 100)));
-      window.dispatchEvent(new CustomEvent('kamen:finished-products-updated', { detail: updated }));
+    try {
+      onApply(materialDifferences, finishedDifferences, 'INV-' + active.id);
+    } catch (error) {
+      flash(error?.message || 'Inventura nije spremljena. Zaliha nije promijenjena.');
+      return;
     }
     const completed = { ...active, status: 'Provedena', completedAt: new Date().toISOString(), differenceCount: differences.length };
     persist(sessions.map(session => session.id === active.id ? completed : session));
