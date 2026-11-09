@@ -6,7 +6,13 @@ import {
   normalizeProductionRecords,
   calculateStageElapsedMs,
   calculatePieceProgress,
-  isProductionOrderComplete
+  isProductionOrderComplete,
+  startProductionStage,
+  pauseProductionStage,
+  finishProductionStage,
+  calculateStageDowntimeMs,
+  isValidProductionWorkCenter,
+  PRODUCTION_WORK_CENTERS
 } from '../src/lib/production.js';
 
 test('proizvodnja stvara zaseban zapis za svaki fizički komad', () => {
@@ -97,4 +103,35 @@ test('radni nalog se može zatvoriti tek nakon kontrole svakog fizičkog komada'
   records.pieces[keys[0]].stages[PRODUCTION_STAGES[2]].status = 'U tijeku';
   assert.equal(isProductionOrderComplete(order, records), false);
   assert.equal(isProductionOrderComplete({ id: 'RN-007', pieces: [] }, records), false);
+});
+
+
+test('proizvodna pauza prekida aktivni radni interval i mjeri zastoj odvojeno', () => {
+  const started = startProductionStage({ status: 'Nije započeto', sessions: [], downtime: [] }, '2026-11-09T08:00:00.000Z');
+  const paused = pauseProductionStage(started, '2026-11-09T09:15:00.000Z', 'Kvar pile');
+  assert.equal(paused.status, 'Zastoj');
+  assert.equal(calculateStageElapsedMs(paused, new Date('2026-11-09T10:00:00.000Z').getTime()), 75 * 60 * 1000);
+  assert.equal(calculateStageDowntimeMs(paused, new Date('2026-11-09T10:00:00.000Z').getTime()), 45 * 60 * 1000);
+  assert.equal(paused.downtime[0].reason, 'Kvar pile');
+});
+
+test('nastavak zatvara zastoj i završetak zatvara drugi radni interval', () => {
+  const first = startProductionStage({ status: 'Nije započeto', sessions: [], downtime: [] }, '2026-11-09T08:00:00.000Z');
+  const paused = pauseProductionStage(first, '2026-11-09T09:00:00.000Z', 'Čekanje materijala');
+  const resumed = startProductionStage(paused, '2026-11-09T09:30:00.000Z');
+  const done = finishProductionStage(resumed, '2026-11-09T10:30:00.000Z');
+  assert.equal(done.status, 'Završeno');
+  assert.equal(done.sessions.length, 2);
+  assert.equal(done.sessions[1].endedAt, '2026-11-09T10:30:00.000Z');
+  assert.equal(done.downtime[0].endedAt, '2026-11-09T09:30:00.000Z');
+  assert.equal(calculateStageElapsedMs(done), 120 * 60 * 1000);
+  assert.equal(calculateStageDowntimeMs(done), 30 * 60 * 1000);
+});
+
+test('svaka faza ima obvezan odgovarajući radni centar', () => {
+  for (const [stage, centers] of Object.entries(PRODUCTION_WORK_CENTERS)) {
+    assert.equal(isValidProductionWorkCenter(stage, ''), false);
+    for (const center of centers) assert.equal(isValidProductionWorkCenter(stage, center), true);
+  }
+  assert.equal(isValidProductionWorkCenter('nepoznata faza', ''), true);
 });
