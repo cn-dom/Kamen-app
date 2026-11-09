@@ -426,7 +426,7 @@ export default function ProductionModule({ onBack, onCreateProject }) {
       { id: 'Teren · montaža grobnica', stage: 'Ostala obrada', workCenter: 'Terenski rad / montaža grobnica' }
     ];
     return centers.map(center => {
-      const result = { ...center, plannedMs: 0, actualMs: 0, plannedCount: 0, actualCount: 0, comparedCount: 0 };
+      const result = { ...center, plannedMs: 0, actualMs: 0, plannedCount: 0, actualCount: 0, comparedCount: 0, comparedPlannedMs: 0, comparedActualMs: 0 };
       rowsWithRecords.forEach(row => {
         if (row.order.status === 'Otkazan') return;
         const stage = row.record.stages?.[center.stage] || blankStage();
@@ -440,9 +440,9 @@ export default function ProductionModule({ onBack, onCreateProject }) {
         const actual = hasSessions ? elapsedMs(stage, clockNow) : null;
         if (hasPlan) { result.plannedMs += end - start; result.plannedCount += 1; }
         if (hasSessions) { result.actualMs += actual; result.actualCount += 1; }
-        if (hasPlan && hasSessions) result.comparedCount += 1;
+        if (hasPlan && hasSessions) { result.comparedCount += 1; result.comparedPlannedMs += end - start; result.comparedActualMs += actual; }
       });
-      result.deltaMs = result.comparedCount ? result.actualMs - result.plannedMs : null;
+      result.deltaMs = result.comparedCount ? result.comparedActualMs - result.comparedPlannedMs : null;
       return result;
     });
   }, [rowsWithRecords, selectedWorker, sawAssignments, clockNow]);
