@@ -1,6 +1,15 @@
 const roundMoney = value => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
 const roundArea = value => Math.round(Number(value) * 10000) / 10000;
 
+export function createMaterialOutputId(operationId, index) {
+  const operation = String(operationId || '').trim();
+  const position = Number(index);
+  if (!operation || !Number.isInteger(position) || position < 0) {
+    throw new Error('Za izlazni materijal nedostaje valjana oznaka operacije ili redni broj.');
+  }
+  return 'MAT-' + operation + '-' + (position + 1);
+}
+
 export function createMaterialConsumptionRecord({ id, orderId, materialId, materialName, usedQuantity, boardLengthCm, boardWidthCm, pricePerM2, outputs = [], date = new Date().toISOString() }) {
   const used = Number(usedQuantity);
   const length = Number(boardLengthCm);
