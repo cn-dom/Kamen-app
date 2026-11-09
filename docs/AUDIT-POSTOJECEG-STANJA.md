@@ -89,3 +89,8 @@ Obuhvat zatvaranja cjeline:
 - pregled opterećenja radnih centara i usporedba planiranog i stvarnog vremena.
 
 **Ograničenja:** podaci su i dalje lokalni u pregledniku. Ovo nije automatsko upravljanje strojevima, senzorima ili evidencijom radnog vremena zaposlenika. Raspored i proizvodna evidencija ne predstavljaju obračun plaće. Potrebna je ručna provjera stvarnih tokova u radionici.
+
+
+### Preciziranje proizvodnih faza
+
+Proizvodni tijek ima zasebne faze **Ručna obrada** i **Terenski rad / montaža**. Time se ručni završni zahvati u radionici više ne miješaju s montažom na groblju. Postojeći zapisi iz starije faze „Ostala obrada” migriraju se bez gubitka: poznata montaža prelazi u terensku fazu, a ostali zapisi u ručnu obradu. Stari zapisi čuvaju se i u polju naslijeđenih podataka.
