@@ -77,7 +77,9 @@ function App(){
     setFilter('Svi nalozi');
     setQuery('');
   };
-  const title = activeNav==='Pregled'?'Dobro jutro!':activeNav;
+  const currentHour = new Date().getHours();
+  const greeting = currentHour >= 5 && currentHour < 11 ? 'Dobro jutro!' : currentHour >= 11 && currentHour < 18 ? 'Dobar dan!' : 'Dobra večer!';
+  const title = activeNav==='Pregled'?greeting:activeNav;
   const activeInventory = inventory.filter(item => !item.archived);
   const visibleInventory = showAllInventory ? activeInventory : activeInventory.slice(0,3);
 
