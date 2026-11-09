@@ -239,3 +239,19 @@ Automatizirani testovi uključuju:
 10. Ponoviti ključne korake na mobitelu i računalu. Sinkronizacija između uređaja nije podržana dok se ne uvede zajednička pohrana.
 
 **Ograničenje:** potvrda otpisa trenutačno je lokalna potvrda u pregledniku, ne poslužiteljsko odobrenje vlasnika/managera.
+
+### FIN-003 — razrada stvarnih troškova
+**Koraci:** Za jedan radni nalog evidentirati rad, prijevoz, vanjsku obradu, montažu, najam stroja i potrošni materijal.  
+**Očekivano:** Svaka kategorija prikazuje se odvojeno, a ukupni stvarni trošak ne zbraja istu stavku dvaput kada je označeno više kategorija.
+
+### FIN-004 — automatski obračun rada
+**Koraci:** Unijeti stvarne sate i cijenu sata bez ručnog ukupnog iznosa.  
+**Očekivano:** Iznos stavke računa se kao sati × cijena sata i sprema s podacima o satima, cijeni sata i izvoru izračuna.
+
+### FIN-005 — procjena marže iz prihvaćene ponude
+**Koraci:** Povezati prihvaćenu ponudu s radnim nalogom, unijeti troškove i usporediti s odbijenom ponudom istog naloga.  
+**Očekivano:** Koristi se samo prihvaćena ponuda; prikazuju se neto vrijednost, PDV, bruto vrijednost i procijenjena marža. Odbijene i nacrt ponude ne ulaze u izračun.
+
+### FIN-006 — ostvarena marža na računima
+**Koraci:** Izdati račun s neto i bruto iznosom, zatim evidentirati stvarne troškove.  
+**Očekivano:** PDV se prikazuje kao razlika bruto i neto računa, a ostvarena marža računa se kao neto prihod umanjen za stvarne troškove. Bez izdanog računa marža se ne prikazuje kao ostvarena.
