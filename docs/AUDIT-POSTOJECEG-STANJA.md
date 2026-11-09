@@ -47,8 +47,8 @@ Otpis trenutačno zahtijeva razlog i izričitu potvrdu u istom pregledniku. To j
 
 - **Cjelina 2 — obračun radnog naloga:** stvarna potrošnja materijala, nabavna cijena, obrada, radni sati, teren, prijevoz, montaža, prodajna cijena, PDV i marža.
 - **Cjelina 3 — proizvodnja:** planiranje po pojedinom fizičkom komadu i radnom centru, kapaciteti strojeva, radnici, zastoji i kontrola kvalitete.
-- **Cjelina 4 — poslovni tijek:** kupac → ponuda → nalog → proizvodnja → isporuka → račun/uplata → zatvaranje projekta.
-- **Cjelina 5 — pristup i rad na više uređaja:** prijava, stvarne uloge, odvajanje tvrtki, sinkronizacija i poslužiteljski revizijski trag.
+- **Cjelina 4 — poslovni tijek: ZAVRŠENO u aplikacijskom opsegu.** Prihvaćena ponuda povezuje se s jednim radnim nalogom; isporuke prate ugovorene količine; gotovi proizvodi skidaju se sa zalihe bez dvostrukog knjiženja; izdaje se nepromjenjiva snimka računa; uplate prate saldo i dospijeće; završni kontrolni popis blokira zatvaranje dok nisu završeni proizvodnja/kvaliteta, isporuka, povezani terenski nalozi i naplata. Automatizirani testovi dodani su u `tests/business-flow.test.js`.
+- **Cjelina 5 — pristup i rad na više uređaja:** prijava, stvarne uloge, odvajanje tvrtki, sinkronizacija i poslužiteljski revizijski trag. Ne započinjati bez izričite odluke o backendu.
 
 Ne uvoditi Supabase niti drugi backend bez izričite odluke korisnika.
 
