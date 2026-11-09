@@ -384,6 +384,37 @@ export default function ProductionModule({ onBack, onCreateProject }) {
     return [];
   }), [workerLoads, records.attendance, records.deployment]);
 
+  const workshopLoad = useMemo(() => {
+    const centers = [
+      { id: 'Pila 1', stage: 'Pilanje', machine: '1' },
+      { id: 'Pila 2', stage: 'Pilanje', machine: '2' },
+      { id: 'Kanterica · obline', stage: 'Kanterica / obrada rubova' },
+      { id: 'Polirka · šmuse i okapnice', stage: 'Poliranje', workCenter: 'Polirka za šmuse i okapnice' },
+      { id: 'Vanjska polirka · ravne površine', stage: 'Poliranje', workCenter: 'Vanjska polirka za ravne spomenike i obloge' },
+      { id: 'Ručna obrada', stage: 'Ostala obrada', workCenter: 'Ručna obrada' },
+      { id: 'Teren · montaža grobnica', stage: 'Ostala obrada', workCenter: 'Terenski rad / montaža grobnica' }
+    ];
+    return centers.map(center => {
+      const jobs = rowsWithRecords.flatMap(row => {
+        const stage = row.record.stages?.[center.stage] || blankStage();
+        const index = stages.indexOf(center.stage);
+        const ready = stages.slice(0, index).every(previous => ['Završeno', 'Nije potrebno'].includes(row.record.stages?.[previous]?.status));
+        const assignedSaw = (sawAssignments[row.key] || '1') === center.machine;
+        const matchesCenter = center.machine ? assignedSaw : center.workCenter ? stage.workCenter === center.workCenter : true;
+        const matchesWorker = !selectedWorker || stage.assignedTo === selectedWorker;
+        if (!ready || !matchesCenter || !matchesWorker || ['Završeno', 'Nije potrebno'].includes(stage.status) || row.order.status === 'Otkazan') return [];
+        return [{ status: stage.status, key: row.key }];
+      });
+      return {
+        ...center,
+        total: jobs.length,
+        active: jobs.filter(job => job.status === 'U tijeku').length,
+        blocked: jobs.filter(job => job.status === 'Zastoj').length,
+        queued: jobs.filter(job => !['U tijeku', 'Zastoj'].includes(job.status)).length
+      };
+    });
+  }, [rowsWithRecords, sawAssignments, selectedWorker]);
+
   const exportCsv = () => {
     const headers = ['Radni nalog', 'Kupac', 'Projekt', 'Komad', 'Redni broj', 'Materijal', 'Duljina cm', 'Širina cm', 'Debljina cm', 'Faza', 'Status', 'Radnik', 'Stroj / oprema', 'Početak', 'Završetak', 'Trajanje minuta', 'Razlog zastoja', 'Napomena', 'Kontrola kvalitete'];
     const lines = [headers.map(csvCell).join(';')];
@@ -464,6 +495,21 @@ export default function ProductionModule({ onBack, onCreateProject }) {
         })}{!(records.workers || []).length && <small>Još nema unesenih radnika. Ime se može upisati i izravno u fazi.</small>}</div>
 <p className="production-attendance-note">Prisutnost i raspored vode se odvojeno za današnji datum. Radnik na terenu nije slobodan kapacitet radionice.</p>
         <datalist id="production-worker-list">{(records.workers || []).map(worker => <option key={worker} value={worker}/>)}</datalist></div></details>
+      </section>
+      <section className="production-load-board">
+        <div className="production-station-heading">
+          <div><span className="eyebrow">PREGLED KAPACITETA</span><h3>Opterećenje radnih centara</h3><p>Koliko komada trenutačno radi, čeka ili je u zastoju na svakoj stanici.</p></div>
+          <span className="production-saw-count">{workshopLoad.reduce((sum, center) => sum + center.total, 0)} raspoređenih komada</span>
+        </div>
+        {selectedWorker && <p className="production-load-filter">Prikazano opterećenje za radnika: <strong>{selectedWorker}</strong></p>}
+        <div className="production-load-grid">
+          {workshopLoad.map(center => <article className="production-load-card" key={center.id}>
+            <div className="production-load-card-head"><strong>{center.id}</strong><b>{center.total}</b></div>
+            <div className="production-load-track"><i style={{width: (center.total ? Math.max(5, center.active / center.total * 100) : 0) + '%'}} /></div>
+            <div className="production-load-counts"><span className="load-active">{center.active} u tijeku</span><span className="load-queued">{center.queued} čeka</span>{center.blocked > 0 && <span className="load-blocked">{center.blocked} zastoj</span>}</div>
+          </article>)}
+        </div>
+        <small className="production-saw-footnote">Broje se komadi koji su došli do faze pojedinog centra. „Čeka” uključuje faze koje još nisu pokrenute; prikaz ne procjenjuje sate rada.</small>
       </section>
       <section className="production-saw-board">
         <div className="production-saw-board-heading"><div><span className="eyebrow">RADNA PLOČA · PILANJE</span><h3>Dvije mostne pile</h3><p>Poslovi se preuzimaju iz radnih naloga. Odaberi pilu, a nakon fizičkog rezanja potvrdi završetak.</p></div><span className="production-saw-count">{rowsWithRecords.filter(row => !['Završeno','Nije potrebno'].includes(row.record.stages?.['Pilanje']?.status)).length} za pilanje</span></div>
