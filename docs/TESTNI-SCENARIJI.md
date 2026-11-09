@@ -160,6 +160,28 @@ Svi scenariji su kriteriji koje će aplikacija morati zadovoljiti. Njihovo navo�
 **Koraci:** Prekinuti vezu tijekom unosa i potom vratiti vezu.  
 **Očekivano:** Ako je izvanmrežni način dio opsega, korisnik vidi što je spremljeno lokalno, a sinkronizacija ne udvostručuje skladišne događaje.
 
+## H. Cjelina 4 — poslovni tijek projekta
+
+### BIZ-001 — jedinstveno povezivanje ponude i radnog naloga
+**Koraci:** Prihvatiti poslanu ponudu i povezati je s radnim nalogom. Pokušati isti nalog povezati s drugom ponudom ili promijeniti već postojeću vezu.
+**Očekivano:** Jedan radni nalog može biti povezan samo s jednom ponudom; već spremljena veza ostaje zaključana kroz uobičajeno sučelje.
+
+### BIZ-002 — kontrolirani statusi ponude
+**Koraci:** Pokušati promijeniti nacrt izravno u prihvaćenu ponudu ili odbiti već prihvaćenu ponudu.
+**Očekivano:** Dopušten je slijed Nacrt → Poslana → Prihvaćena/Odbijena. Svaka promjena statusa bilježi prethodni status i vrijeme, a prihvaćanje sprema datum.
+
+### BIZ-003 — djelomične i potpune isporuke
+**Koraci:** Izdati otpremnicu za dio stavki, zatim za preostale količine. Pokušati isporučiti više od ugovorene količine.
+**Očekivano:** Sustav prikazuje preostalu količinu po svakoj stavci, dopušta više djelomičnih otpremnica, ali odbija prekoračenje. Povezani gotovi proizvodi skidaju se samo jednom sa zalihe.
+
+### BIZ-004 — račun i djelomične uplate
+**Koraci:** Izdati račun iz prihvaćene ponude, pokušati izdati drugi račun za istu ponudu, zatim evidentirati više djelomičnih uplata.
+**Očekivano:** Izdaje se samo jedan račun po ponudi; račun čuva snimku stavki i iznosa. Uplate se vežu uz račun, ažuriraju saldo i ne mogu prijeći preostali dug.
+
+### BIZ-005 — zatvaranje projekta tek nakon svih obveza
+**Koraci:** Pokušati zatvoriti projekt s nedovršenom proizvodnjom, nepotpunom isporukom, otvorenim terenskim nalogom, bez računa ili s neplaćenim saldom. Nakon dovršetka svih koraka zatvoriti projekt.
+**Očekivano:** Svaki nedovršeni korak blokira zatvaranje i jasno je prikazan na kontrolnom popisu. Potpuno dovršen projekt sprema završni kontrolni popis, broj računa i iznos naplate; ponovno zatvaranje nije dopušteno.
+
 ## Kriterij završetka
 
 Modul se ne smatra spremnim samo zato što se ekran otvara. Mora proći odgovarajuće funkcionalne, ovlastne i regresijske testove. Testovi izolacije tvrtki i zaštite financijskih podataka blokiraju objavu ako padnu.
