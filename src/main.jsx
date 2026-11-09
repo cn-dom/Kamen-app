@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   Activity, AlertTriangle, ArrowDownRight, ArrowRight, ArrowUpRight,
-  Bell, Boxes, CalendarDays, Check, CheckCircle2, ChevronDown, ChevronRight,
+  Bell, Boxes, CalendarDays, Check, CheckCircle2, ChevronDown, ChevronRight, Archive,
   CircleHelp, Clock3, Command, Factory, FileText, Filter, Hammer, LayoutDashboard,
   Menu, MoreHorizontal, Package, Plus, Search, Settings2, ShieldCheck, Wrench,
   Truck, Users, Wallet, X, HardHat, ShoppingCart, ClipboardList, Layers3, PackageCheck, Sparkles
@@ -39,6 +39,7 @@ const nav = [
   {label:'Alati i oprema', icon:Hammer},
   {label:'Dokumenti', icon:FileText, section:'DOKUMENTACIJA'},
   {label:'Obavijesti', icon:Bell},
+  {label:'Sigurnosna kopija', icon:Archive, section:'ADMINISTRACIJA'},
   {label:'Skladište', icon:Boxes},
   {label:'Terenski rad', icon:Truck},
   {label:'Kupci', icon:Users},
