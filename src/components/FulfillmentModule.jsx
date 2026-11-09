@@ -3,6 +3,7 @@ import { ArrowLeft, CheckCircle2, ClipboardList, CreditCard, FileText, PackageCh
 import { calculateQuote } from '../lib/quotes.js';
 import { paymentSummary, validateDelivery, validatePayment, deliveryQuantityRemaining } from '../lib/fulfillment.js';
 import { applyDeliveryToFinishedProducts } from '../lib/delivery-stock.js';
+import { commitInventoryTransaction } from '../lib/inventoryLedger.js';
 import { createInvoiceFromQuote, summarizeInvoice, getInvoiceReceivables } from '../lib/invoices.js';
 
 const QUOTES='kamen-app-quotes-v1', INVOICES='kamen-app-invoices-v1', NOTES='kamen-app-delivery-notes-v1', PAYMENTS='kamen-app-payments-v1', ORDERS='kamen-app-work-orders-v1', PROFILE='kamen-app-company-profile-v1', FINISHED='kamen-app-finished-products-v1', MOVEMENTS='kamen-app-movements-v1';
@@ -12,6 +13,7 @@ const dateNow=()=>new Date().toISOString().slice(0,10);
 const dateLabel=d=>d?new Date(d+'T12:00:00').toLocaleDateString('hr-HR'):'—';
 const plusDays=(date,n)=>{const d=new Date(date+'T12:00:00');d.setDate(d.getDate()+n);return d.toISOString().slice(0,10)};
 const makeId=prefix=>prefix+'-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,5).toUpperCase();
+const dataLineId=(deliveryId,index)=>String(deliveryId||'OTP')+'-ST-'+index;
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function printDocument(title,number,date,profile,customer,rows,footer){
  const html='<!doctype html><html lang="hr"><head><meta charset="utf-8"><title>'+esc(number)+'</title><style>body{font:13px Arial;color:#243247;padding:38px}header{display:flex;justify-content:space-between;border-bottom:3px solid #253e65;padding-bottom:20px}h1{font-size:22px;color:#253e65;margin:0 0 7px}h2{font-size:24px;letter-spacing:1px;color:#253e65;margin:0}.muted{color:#78879a;font-size:11px;line-height:1.6}.meta{display:grid;grid-template-columns:1fr 1fr;gap:30px;margin:28px 0}.meta h3{font-size:10px;color:#8290a3;letter-spacing:1px}table{width:100%;border-collapse:collapse;margin-top:25px}th{background:#f1f4f8;text-align:left;color:#617087;font-size:10px;padding:11px}td{padding:12px 11px;border-bottom:1px solid #e8edf3}.right{text-align:right}.note{margin-top:30px;padding-top:15px;border-top:1px solid #e8edf3;color:#637187;line-height:1.6}@media print{body{padding:0}@page{size:A4;margin:18mm}}</style></head><body><header><div><h1>'+esc(profile.name||'PONUDITELJ')+'</h1><div class="muted">'+[profile.address,profile.city,profile.oib?'OIB: '+profile.oib:'',profile.phone,profile.email].filter(Boolean).map(esc).join('<br>')+'</div></div><div style="text-align:right"><h2>'+esc(title)+'</h2><strong>'+esc(number)+'</strong><div class="muted">Datum: '+dateLabel(date)+'</div></div></header><section class="meta"><div><h3>PONUDITELJ</h3><strong>'+esc(profile.name||'')+'</strong><div class="muted">'+esc(profile.address||'')+'<br>'+esc(profile.city||'')+'</div></div><div><h3>KUPAC</h3><strong>'+esc(customer.name||'')+'</strong><div class="muted">'+esc(customer.address||'')+'<br>'+esc(customer.oib||'')+'</div></div></section><table><thead><tr>'+(rows.some(r=>r.unitPrice!==undefined)?'<th>OPIS</th><th class="right">KOLIČINA</th><th>JEDINICA</th><th class="right">CIJENA</th><th class="right">NETO</th><th class="right">PDV</th><th class="right">UKUPNO</th>':'<th>OPIS</th><th class="right">KOLIČINA</th><th>JEDINICA</th><th>NAPOMENA</th>')+'</tr></thead><tbody>'+rows.map(r=>r.unitPrice!==undefined?'<tr><td>'+esc(r.description)+'</td><td class="right">'+Number(r.quantity||0).toLocaleString('hr-HR')+'</td><td>'+esc(r.unit||'kom')+'</td><td class="right">'+money(r.unitPrice)+'</td><td class="right">'+money(r.net)+'</td><td class="right">'+Number(r.vatRate||0)+'% · '+money(r.vat)+'</td><td class="right">'+money(r.gross)+'</td></tr>':'<tr><td>'+esc(r.description)+'</td><td class="right">'+Number(r.quantity||0).toLocaleString('hr-HR')+'</td><td>'+esc(r.unit||'kom')+'</td><td>'+esc(r.note||'')+'</td></tr>').join('')+'</tbody></table><div class="note">'+esc(footer||'')+'</div><p style="margin-top:60px;color:#8995a5;font-size:10px">Potpis i pečat ponuditelja: ___________________________</p><script>window.onload=()=>setTimeout(()=>window.print(),250)<\/script></body></html>';
@@ -54,9 +56,30 @@ export default function FulfillmentModule({onBack}){
  const overdue=receivables.filter(row=>row.isOverdue);
  const filtered=accepted.filter(q=>[q.number,q.customerName,q.orderId].join(' ').toLocaleLowerCase('hr').includes(query.toLocaleLowerCase('hr')));
  const selectDeliveryQuote=id=>{const q=accepted.find(x=>x.id===id);setDeliveryQuoteId(id);setDelivery({...delivery,items:q?(q.items||[]).map((line,index)=>{const quoteLineId=id+'-'+index;const remaining=deliveryQuantityRemaining({id:quoteLineId,quantity:line.quantity},notes);return {quoteLineId,description:line.description,quantity:String(remaining),remaining,unit:line.unit||'kom',note:'',productId:''}}):[]});setError('')};
- const openDelivery=()=>{setDeliveryQuoteId('');setDelivery({date:dateNow(),location:'',vehicle:'',driver:'',note:'',items:[]});setError('');setShowDelivery(true)};
+ const openDelivery=()=>{setDeliveryQuoteId('');setDelivery({id:makeId('OTP'),date:dateNow(),location:'',vehicle:'',driver:'',note:'',items:[]});setError('');setShowDelivery(true)};
  const openPayment=q=>{setPaymentQuoteId(q.id);setPayment({date:dateNow(),amount:String(balance(q).due.toFixed(2)),method:'Transakcijski račun',reference:'',note:''});setError('');setShowPayment(true)};
- const saveDelivery=e=>{e.preventDefault();const q=accepted.find(x=>x.id===deliveryQuoteId);const data={...delivery,quoteId:deliveryQuoteId,quoteNumber:q?.number,customerName:q?.customerName,customerAddress:q?.customerAddress,customerOib:q?.customerOib,orderId:q?.orderId||'',id:makeId('OTP'),number:'OTP-'+String(notes.length+1).padStart(4,'0'),items:delivery.items.filter(x=>Number(x.quantity)>0).map(x=>({...x,id:makeId('ST'),quantity:Number(x.quantity)})),createdAt:new Date().toISOString()};const issue=validateDelivery(data);if(issue){setError(issue);return}try{const posted=applyDeliveryToFinishedProducts(data,finishedProducts,movements);setFinishedProducts(posted.products);setMovements(posted.movements);setNotes(prev=>[data,...prev]);setShowDelivery(false);setError('');setMessage('Otpremnica '+data.number+' je spremljena.'+(posted.applied?' · Sa zalihe je izdano '+posted.applied+' jedinica gotovih proizvoda.':''))}catch(err){setError(err.message||'Nije moguće povezati isporuku sa zalihom.')}};
+ const saveDelivery=e=>{
+  e.preventDefault();
+  const q=accepted.find(x=>x.id===deliveryQuoteId);
+  const data={...delivery,quoteId:deliveryQuoteId,quoteNumber:q?.number,customerName:q?.customerName,customerAddress:q?.customerAddress,customerOib:q?.customerOib,orderId:q?.orderId||'',id:delivery.id||makeId('OTP'),number:'OTP-'+String(notes.length+1).padStart(4,'0'),items:delivery.items.filter(x=>Number(x.quantity)>0).map((x,index)=>({...x,id:dataLineId(delivery.id,index),quantity:Number(x.quantity)})),createdAt:new Date().toISOString()};
+  const issue=validateDelivery(data);
+  if(issue){setError(issue);return}
+  try{
+    const posted=applyDeliveryToFinishedProducts(data,finishedProducts,movements);
+    const operationId='DELIVERY-'+data.id;
+    const stockEvents=posted.movements.filter(move=>move.deliveryId===data.id);
+    const movementsToCommit=stockEvents.length?stockEvents:[{id:operationId,operationId,material:'Otpremnica '+data.number,kind:'Otpremnica bez skladišnog izdavanja',quantity:0,orderId:data.orderId,date:data.date}];
+    const nextNotes=[data,...notes];
+    const committed=commitInventoryTransaction(localStorage,{operationId,writes:[{key:FINISHED,value:posted.products},{key:NOTES,value:nextNotes}],movements:movementsToCommit});
+    if(committed.duplicate){setError('Ova otpremnica već je proknjižena. Zaliha nije ponovno promijenjena.');return}
+    setFinishedProducts(posted.products);
+    setMovements(committed.movements);
+    setNotes(nextNotes);
+    setShowDelivery(false);
+    setError('');
+    setMessage('Otpremnica '+data.number+' je spremljena.'+(posted.applied?' · Sa zalihe je izdano '+posted.applied+' jedinica gotovih proizvoda.':''));
+  }catch(err){setError(err.message||'Nije moguće povezati isporuku sa zalihom.')}
+};
  const savePayment=e=>{e.preventDefault();const q=accepted.find(x=>x.id===paymentQuoteId);const issue=validatePayment({...payment,quoteId:paymentQuoteId},q?balance(q).due:0);if(issue){setError(issue);return}const invoice=invoiceFor(q);const data={...payment,id:makeId('UPL'),quoteId:paymentQuoteId,invoiceId:invoice?.id||'',invoiceNumber:invoice?.number||'',quoteNumber:q.number,customerName:q.customerName,amount:Number(payment.amount),createdAt:new Date().toISOString()};setPayments(prev=>[data,...prev]);setShowPayment(false);setMessage('Uplata je evidentirana.')};
  const changeDue=(q,date)=>{setQuotes(prev=>prev.map(x=>x.id===q.id?{...x,paymentDueDate:date}:x));setMessage('Rok plaćanja je spremljen.')};
  const docFor=note=>{const q=quotes.find(x=>x.id===note.quoteId);printDocument('OTPREMNICA',note.number,note.date,profile,{name:note.customerName,address:note.customerAddress,oib:note.customerOib},note.items,'Povezano s ponudom '+note.quoteNumber+(note.orderId?' · Radni nalog '+note.orderId:'')+(note.location?' · Mjesto isporuke: '+note.location:'')+(note.driver?' · Preuzeo / vozač: '+note.driver:'')+(note.vehicle?' · Vozilo: '+note.vehicle:'')+(note.note?' · '+note.note:''))};
