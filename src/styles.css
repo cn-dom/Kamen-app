@@ -1840,3 +1840,15 @@ button:active{transform:translateY(1px)}
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}
 }
+
+/* Popravak kontrasta gumba u zaglavlju radnog pregleda. */
+.main-area .welcome-row .button-primary{
+  background:#fff;
+  border-color:#fff;
+  color:#2459bd;
+}
+.main-area .welcome-row .button-primary:hover{
+  background:#f3f7ff;
+  border-color:#f3f7ff;
+  color:#1d4da8;
+}
