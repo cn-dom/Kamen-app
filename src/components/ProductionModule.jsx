@@ -538,6 +538,7 @@ export default function ProductionModule({ onBack, onCreateProject }) {
                     }}><Check size={14}/> Gotovo</button>
                   </div>
                   {stage.status === 'U tijeku' && <small>U tijeku · {stage.assignedTo || 'Radnik nije naveden'}</small>}
+                  {stage.plannedEnd && new Date(stage.plannedEnd).getTime() < clockNow && !['Završeno','Nije potrebno'].includes(stage.status) && <small className="production-overdue-flag"><AlertTriangle size={13}/> Rok je prošao</small>}
                 </article>;
               }) : <p className="production-saw-empty">Nema poslova na čekanju.</p>}
             </section>;
@@ -602,6 +603,7 @@ export default function ProductionModule({ onBack, onCreateProject }) {
                   <span>{row.material} · {row.piece.length} × {row.piece.width} × {row.piece.thickness} cm</span>
                   <small className={'production-station-status status-' + stage.status.toLowerCase().replaceAll(' ','-')}>{stage.status} · {stage.assignedTo || 'Radnik nije dodijeljen'}</small>
                   {stage.plannedStart && <small className="production-station-status">Termin: {formatDate(stage.plannedStart)}{stage.plannedEnd ? ' – ' + new Date(stage.plannedEnd).toLocaleTimeString('hr-HR',{hour:'2-digit',minute:'2-digit'}) : ''}{stage.scheduledMachine ? ' · ' + stage.scheduledMachine : ''}</small>}
+                  {stage.plannedEnd && new Date(stage.plannedEnd).getTime() < clockNow && !['Završeno','Nije potrebno'].includes(stage.status) && <small className="production-overdue-flag"><AlertTriangle size={13}/> Rok je prošao</small>}
                   <div className="production-station-actions">
                     <button type="button" className="button button-secondary" onClick={() => { setExpandedOrders(current => ({...current,[row.order.id]:true})); setExpandedUnits(current => ({...current,[row.key]:true})); }}>Otvori fazu</button>
                     {stage.status === 'U tijeku' && <button type="button" className="button button-success" onClick={() => finishStage(row.key,stageName)}><Check size={14}/> Gotovo</button>}
