@@ -34,14 +34,23 @@ export function getProjectClosureChecklist({
   const invoiceTotal = round(invoice?.grossTotal || 0);
   const paymentComplete = invoiceIssued && invoiceTotal > 0 && paid + 0.005 >= invoiceTotal;
   const relatedFieldJobs = fieldJobs.filter(job => job.orderId === quote?.orderId);
-  const fieldComplete = relatedFieldJobs.every(job => TERMINAL_FIELD_STATUSES.has(job.status));
+  const requiresFieldWork = quoteLines.some(line =>
+    line.requiresFieldWork === true || String(line.category || '').trim().toLocaleLowerCase('hr') === 'montaža'
+  );
+  const fieldJobsComplete = relatedFieldJobs.every(job => TERMINAL_FIELD_STATUSES.has(job.status));
+  const fieldComplete = fieldJobsComplete && (!requiresFieldWork || relatedFieldJobs.length > 0);
+  const fieldDetail = relatedFieldJobs.length
+    ? relatedFieldJobs.length + ' terenskih naloga · ' + (fieldJobsComplete ? 'svi zaključeni' : 'postoji otvoren terenski nalog')
+    : requiresFieldWork
+      ? 'Ponuda uključuje montažu, ali terenski nalog nije evidentiran'
+      : 'Nije evidentiran zaseban terenski nalog';
 
   const checks = [
     { id: 'accepted', label: 'Ponuda je prihvaćena', complete: accepted, detail: accepted ? quote.number : 'Ponuda još nije prihvaćena' },
     { id: 'order', label: 'Radni nalog je povezan', complete: linkedOrder, detail: linkedOrder ? order.id : 'Poveži prihvaćenu ponudu s radnim nalogom' },
     { id: 'production', label: 'Proizvodnja i kontrola kvalitete su završene', complete: productionComplete, detail: productionComplete ? 'Radni nalog je završen' : (order ? 'Status naloga: ' + order.status : 'Nedostaje povezani radni nalog') },
     { id: 'delivery', label: 'Sve ugovorene stavke su isporučene', complete: deliveryComplete, detail: deliveryChecks.map(line => line.description + ': ' + line.delivered + '/' + line.required).join(' · ') || 'Ponuda nema stavki' },
-    { id: 'field', label: 'Terenski rad i montaža su zaključeni', complete: fieldComplete, detail: relatedFieldJobs.length ? relatedFieldJobs.length + ' terenskih naloga · ' + (fieldComplete ? 'svi zaključeni' : 'postoji otvoren terenski nalog') : 'Nije evidentiran zaseban terenski nalog' },
+    { id: 'field', label: 'Terenski rad i montaža su zaključeni', complete: fieldComplete, detail: fieldDetail },
     { id: 'invoice', label: 'Račun je izdan', complete: invoiceIssued, detail: invoice ? invoice.number : 'Račun nije izdan' },
     { id: 'payment', label: 'Račun je u cijelosti naplaćen', complete: paymentComplete, detail: invoiceIssued ? 'Naplaćeno ' + paid.toFixed(2) + ' / ' + invoiceTotal.toFixed(2) + ' €' : 'Čeka izdavanje računa' }
   ];
