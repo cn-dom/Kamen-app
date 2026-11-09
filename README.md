@@ -132,3 +132,8 @@ Modul **Proizvodnja** prati svaki fizički komad zasebno kroz pilanje, kantericu
 ## Korisnici i ovlasti — pripremni modul
 
 Modul Korisnici i ovlasti omogućuje lokalni popis članova, dodjelu pet početnih uloga, pojedinačne ovlasti, pregled prava i dnevnik promjena. Članovi i lokalni dnevnik uključeni su u JSON sigurnosnu kopiju. Ovo nije prijava ni stvarna autorizacija: svi podaci i postavke ostaju u jednom pregledniku. Sigurni računi, odvajanje tvrtki, poslužiteljska provjera i sinkronizacija uvode se tek u završnoj fazi povezivanja backenda.
+
+
+## Alati i oprema
+
+Modul **Alati i oprema** vodi lokalni registar ručnog i električnog alata, mjerne, zaštitne i transportne opreme. Za svaki alat evidentiraju se inventarna oznaka, serijski broj, lokacija i stanje. Izdavanje veže alat uz osobu/ekipu, radni nalog i očekivani datum povrata; povrat bilježi stanje i napomenu. Oštećen ili neispravan alat automatski prelazi u status **Na popravku**. Zakašnjela zaduženja prikazuju se kao upozorenje. Povijest izdavanja, povrata i otpisa ostaje zabilježena; registar i događaji uključeni su u JSON sigurnosnu kopiju. Podaci su lokalni u pregledniku, bez sinkronizacije i bez poslužiteljske kontrole pristupa.

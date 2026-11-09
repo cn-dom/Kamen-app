@@ -107,3 +107,19 @@ Proizvodni tijek ima zasebne faze **Ručna obrada** i **Terenski rad / montaža*
 - Novi lokalni podaci uključeni su u JSON sigurnosnu kopiju.
 
 **Odgođeno za završnu backend fazu:** stvarni računi, prijava, reset lozinke, sesije, poslužiteljska autorizacija, sigurno odvajanje tvrtki, sinkronizacija uređaja i nepromjenjivi revizijski trag. Trenutačni modul je samo prototip u jednom pregledniku; ne smije se koristiti kao kontrola pristupa stvarnim poslovnim podacima.
+
+
+## 8. Cjelina 6 — alati i oprema
+
+**Implementirano u zasebnoj grani; čeka CI provjeru i pregled prije spajanja.**
+
+- Registar alata s kategorijom, inventarnom oznakom, serijskim brojem, lokacijom, stanjem i napomenom.
+- Zaduživanje jednoj osobi/ekipi uz radni nalog/projekt, datum izdavanja i obvezan rok povrata.
+- Kontrola dvostrukog zaduživanja i zabrana otpisa alata koji je još zadužen.
+- Povrat s evidentiranjem stanja i napomene o oštećenju/kvaru.
+- Oštećen ili neispravan alat automatski dobiva status „Na popravku”.
+- Upozorenja za zakašnjela zaduženja, filtri, pretraga, CSV izvoz i kronološka povijest događaja.
+- Podaci registra i događaja uključeni su u JSON sigurnosnu kopiju.
+- Bez Supabasea i bez backenda; svi podaci su lokalni u pregledniku.
+
+**Ograničenja:** nema skeniranja QR/barcode oznaka, GPS praćenja, automatskih push obavijesti, poslužiteljske potvrde zaduženja ni sinkronizacije između uređaja. Oprema u ovom registru nije isto što i strojevi u modulu Održavanje strojeva.

@@ -290,3 +290,17 @@ Automatizirani testovi uključuju:
 - [ ] Sigurnosna kopija uključuje popis članova i dnevnik ovlasti.
 - [ ] Sučelje jasno upozorava da lokalni profili nisu stvarni računi i ne štite podatke.
 - [ ] U backend fazi testirati izolaciju dviju tvrtki, ukidanje sesije, odbijanje neovlaštenih API poziva i sinkronizaciju uređaja.
+
+
+## Cjelina 6 — alati i oprema
+
+- [ ] Dodavanje i uređivanje alata s inventarnom oznakom i serijskim brojem.
+- [ ] Odbijanje duplikata inventarne oznake.
+- [ ] Zaduživanje zahtijeva osobu/ekipu i datum povrata.
+- [ ] Zaduženi alat ne može se ponovno zadužiti.
+- [ ] Zaduženi alat ne može se otpisati prije povrata.
+- [ ] Povrat sprema datum, osobu i stanje.
+- [ ] Oštećen/neispravan povrat stavlja alat na popravak.
+- [ ] Vraćeni alat ne ostaje označen kao zakašnjeli.
+- [ ] CSV izvoz uključuje stanje registra.
+- [ ] JSON sigurnosna kopija uključuje registar i povijest događaja.

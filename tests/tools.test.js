@@ -1,0 +1,13 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {issueTool,normalizeTools,returnTool,toolIsOverdue,toolSummary,validateToolIssue} from '../src/lib/tools.js';
+const sample={id:'AL-1',name:'Kutna brusilica',status:'Dostupan',condition:'Ispravno'};
+test('normalizira nepoznati status i stanje alata',()=>{const [t]=normalizeTools([{...sample,status:'???',condition:'???'}]);assert.equal(t.status,'Dostupan');assert.equal(t.condition,'Ispravno')});
+test('ne dopušta zaduživanje bez osobe ili roka',()=>{assert.match(validateToolIssue({tool:sample,person:'',dueDate:'2026-11-10'}),/osobu/);assert.match(validateToolIssue({tool:sample,person:'Ivan',dueDate:''}),/datum/)});
+test('zaduživanje veže alat uz osobu, nalog i rok',()=>{const r=issueTool(sample,{person:'Ivan',workOrder:'RN-10',dueDate:'2026-11-10'},new Date('2026-11-09T10:00:00Z'));assert.equal(r.tool.status,'Zadužen');assert.equal(r.issue.person,'Ivan');assert.equal(r.issue.workOrder,'RN-10');assert.equal(r.event.kind,'Izdavanje')});
+test('ne dopušta dvostruko zaduživanje istog alata',()=>{const issued={...sample,status:'Zadužen'};assert.throws(()=>issueTool(issued,{person:'Ivan',dueDate:'2026-11-10'}),/nije dostupan/)});
+test('ispravan povrat vraća alat u dostupno stanje',()=>{const issue={id:'ZAD-1',returnedAt:null,person:'Ivan'};const r=returnTool({...sample,status:'Zadužen'},issue,{condition:'Ispravno'},new Date('2026-11-10T10:00:00Z'));assert.equal(r.tool.status,'Dostupan');assert.ok(r.issue.returnedAt)});
+test('oštećen ili neispravan povrat šalje alat na popravak',()=>{const issue={id:'ZAD-1',returnedAt:null,person:'Ivan'};assert.equal(returnTool({...sample,status:'Zadužen'},issue,{condition:'Oštećeno'}).tool.status,'Na popravku');assert.equal(returnTool({...sample,status:'Zadužen'},issue,{condition:'Neispravno'}).tool.status,'Na popravku')});
+test('ne dopušta povrat bez otvorenog zaduženja',()=>{assert.throws(()=>returnTool(sample,null),/nema otvorenog/)});
+test('prepoznaje zakašnjela zaduženja bez lažnog označavanja vraćenih',()=>{assert.equal(toolIsOverdue({dueDate:'2026-11-08',returnedAt:null},'2026-11-09'),true);assert.equal(toolIsOverdue({dueDate:'2026-11-08',returnedAt:'2026-11-09'},'2026-11-09'),false)});
+test('sažetak broji aktivne, dostupne, zadužene, servisne i zakašnjele alate',()=>{const tools=[sample,{id:'2',status:'Zadužen'},{id:'3',status:'Na popravku'},{id:'4',status:'Otpisan'}];const issues=[{dueDate:'2026-11-08',returnedAt:null}];assert.deepEqual(toolSummary(tools,issues,'2026-11-09'),{total:3,available:1,issued:1,repair:1,overdue:1})});
