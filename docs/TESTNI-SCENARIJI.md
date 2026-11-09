@@ -350,3 +350,20 @@ Automatizirani testovi uključuju:
 - [ ] Odabir obavijesti vodi u odgovarajući modul.
 - [ ] Sučelje jasno navodi da su dokumenti i obavijesti lokalni, bez push poruka i sinkronizacije.
 
+
+
+## Cjelina 10 — postavke tvrtke
+
+- [ ] Otvaranje Postavki prikazuje zaseban modul, a ne sigurnosnu kopiju.
+- [ ] Profil tvrtke sprema i ponovno učitava naziv, adresu, mjesto, OIB, kontakt, IBAN i web-stranicu.
+- [ ] Neispravan OIB i e-pošta odbijaju se uz razumljivu poruku.
+- [ ] Logotip prihvaća slikovnu datoteku do 1 MB i odbija veće/ne-slikovne datoteke.
+- [ ] Dodavanje i uklanjanje skladišne lokacije, vrste materijala i jedinice mjere.
+- [ ] Skladišni obrazac nudi konfigurirane vrste, lokacije i jedinice kao prijedloge.
+- [ ] Postavke smjene odbijaju završetak prije početka i pauzu dulju od smjene.
+- [ ] Troškovne stope ne prihvaćaju negativne vrijednosti; koeficijent prekovremenog rada ograničen je na 1–3.
+- [ ] Promjene postavki ostavljaju lokalni zapis u povijesti.
+- [ ] JSON sigurnosna kopija uključuje profil, šifrarnike, pravila i dnevnik.
+- [ ] Starija sigurnosna kopija bez novih ključeva može se vratiti uz sigurne zadane vrijednosti.
+- [ ] Sigurnosna kopija dostupna je kao zasebna stavka navigacije.
+- [ ] Sučelje jasno navodi lokalnu pohranu i ograničenja prototipa.
