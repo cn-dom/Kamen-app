@@ -127,3 +127,8 @@ Ovo je operativna evidencija, a ne fiskalizacija, zakonski e-račun, knjigovodst
 ### Proizvodni tijek i radni centri
 
 Modul **Proizvodnja** prati svaki fizički komad zasebno kroz pilanje, kantericu, poliranje, ručnu obradu i terenski rad/montažu. Za početak faze obvezni su odgovarajući radni centar i odgovorni radnik. Radni centri obuhvaćaju dvije pile, kantericu za obline, polirku za šmuse i okapnice, vanjsku polirku za ravne elemente, ručnu obradu i montažu grobnica. Aktivni radni intervali i zastoji vode se odvojeno, uključujući razlog i trajanje zastoja. Stara faza „Ostala obrada” migrira se u odvojene faze bez brisanja izvornog zapisa.
+
+
+## Korisnici i ovlasti — pripremni modul
+
+Modul Korisnici i ovlasti omogućuje lokalni popis članova, dodjelu pet početnih uloga, pojedinačne ovlasti, pregled prava i dnevnik promjena. Članovi i lokalni dnevnik uključeni su u JSON sigurnosnu kopiju. Ovo nije prijava ni stvarna autorizacija: svi podaci i postavke ostaju u jednom pregledniku. Sigurni računi, odvajanje tvrtki, poslužiteljska provjera i sinkronizacija uvode se tek u završnoj fazi povezivanja backenda.
