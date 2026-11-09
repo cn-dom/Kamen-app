@@ -475,7 +475,6 @@ export default function ProductionModule({ onBack, onCreateProject }) {
             { id:'Nije raspoređeno', title:'Čeka raspored', stage:null }
           ].map(center => {
             const stationRows = rowsWithRecords.filter(row => {
-              const stageName = center.stage || (['Poliranje','Ostala obrada'].includes(stages.find(name => !['Završeno','Nije potrebno'].includes(row.record.stages?.[name]?.status)) || '') ? '' : '');
               if (!center.stage) {
                 return ['Poliranje','Ostala obrada'].some(name => {
                   const stage = row.record.stages?.[name] || blankStage();
