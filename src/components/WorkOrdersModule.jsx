@@ -3,6 +3,7 @@ import { ClipboardList, Plus, Search, X, CalendarDays, UserRound, Ruler, Chevron
 import { isProductionOrderComplete } from '../lib/production.js';
 import { calculateMaterialReservation } from '../lib/materialStock.js';
 import { releaseOrderReservations } from '../lib/workOrderStock.js';
+import { commitInventoryTransaction } from '../lib/inventoryLedger.js';
 import { suggestRemnantAssignments } from '../lib/remnantPlanner.js';
 import { buildCuttingPlanGroups, summarizeCuttingPlan, createSavedCuttingPlan } from '../lib/cuttingPlan.js';
 import { solve2d, plan2dCuts } from '@0xdoublesharp/bin-packing-wasm';
@@ -39,6 +40,7 @@ export default function WorkOrdersModule({ onBack, openCreate = false, onCreateO
   const [remnantSuggestion, setRemnantSuggestion] = useState('');
   const [cutPlanPreview, setCutPlanPreview] = useState([]);
   const [cutPlanError, setCutPlanError] = useState('');
+  const [createOperationId, setCreateOperationId] = useState(() => 'RN-CREATE-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8));
   useEffect(() => { try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(orders)); } catch { /* Browser storage may be disabled or full. */ } }, [orders]);
   useEffect(() => {
     if (!openCreate) return;
@@ -140,19 +142,38 @@ export default function WorkOrdersModule({ onBack, openCreate = false, onCreateO
     const id = 'RN-2026-' + String(Math.max(0, ...orders.map(o => Number(o.id.split('-').at(-1)) || 0)) + 1).padStart(3, '0');
     const reservationRecords = allocations.map(group => ({ materialId: group.materialId, material: group.material, form: group.stock.form || 'Ploča', quantity: group.quantity }));
     const order = { ...form, material: allocations.map(group => group.material).join(', '), materialAllocations: allocations, materialAreaM2: Math.round(calculatedAreaM2 * 10000) / 10000, estimatedMaterialCost: allocations.some(group => group.cost == null) ? null : Math.round(allocations.reduce((sum, group) => sum + group.cost, 0) * 100) / 100, reservedMaterials: reservationRecords, reservedMaterialId: allocations.length === 1 ? allocations[0].materialId : null, reservedMaterialQty: allocations.length === 1 ? allocations[0].quantity : 0, cuttingPlan: createSavedCuttingPlan(cutPlanPreview), id, status: 'U pripremi', pieces: pieces.map(p => ({ ...p, length: Number(p.length), width: Number(p.width), thickness: Number(p.thickness), quantity: Number(p.quantity) })) };
-    setOrders(prev => [order, ...prev]);
+    const nextOrders = [order, ...orders];
     const nextMaterials = materials.map(item => {
       const allocation = allocations.find(group => group.materialId === item.id);
       return allocation ? { ...item, quantity: Math.round((Number(item.quantity) - allocation.quantity) * 100) / 100 } : item;
     });
-    setMaterials(nextMaterials);
-    try { window.localStorage.setItem(MATERIALS_KEY, JSON.stringify(nextMaterials)); } catch {}
+    const reservationMovements = allocations.map((group, index) => ({
+      id: createOperationId + ':' + index,
+      operationId: createOperationId,
+      material: group.material,
+      kind: 'Rezervacija za radni nalog',
+      quantity: group.quantity,
+      location: materials.find(item => item.id === group.materialId)?.location || '',
+      orderId: id,
+      date: new Date().toLocaleDateString('hr-HR')
+    }));
     try {
-      const key = 'kamen-app-movements-v1';
-      const log = JSON.parse(window.localStorage.getItem(key) || '[]');
-      const entries = allocations.map((group, index) => ({ id: Date.now() + index, material: group.material, kind: 'Rezervacija za radni nalog', quantity: group.quantity, location: materials.find(item => item.id === group.materialId)?.location, orderId: id, date: new Date().toLocaleDateString('hr-HR') }));
-      window.localStorage.setItem(key, JSON.stringify([...entries, ...log].slice(0, 100)));
-    } catch {}
+      const committed = commitInventoryTransaction(window.localStorage, {
+        operationId: createOperationId,
+        writes: [
+          { key: STORAGE_KEY, value: nextOrders },
+          { key: MATERIALS_KEY, value: nextMaterials }
+        ],
+        movements: reservationMovements
+      });
+      if (committed.duplicate) { setError('Ovaj radni nalog već je spremljen. Osvježi popis prije novog unosa.'); return; }
+    } catch (error) {
+      setError(error?.message || 'Nije moguće sigurno spremiti radni nalog i rezervaciju.');
+      return;
+    }
+    setOrders(nextOrders);
+    setMaterials(nextMaterials);
+    setCreateOperationId('RN-CREATE-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8));
     setExpanded(id); setShowForm(false); setForm(blankForm); setPieces([blankPiece()]); setError('');
   };
   const changeStatus = (id, status) => {
@@ -181,27 +202,46 @@ export default function WorkOrdersModule({ onBack, openCreate = false, onCreateO
       ? 'Neiskorištene rezervacije svih materijala bit će vraćene u skladište.'
       : 'Već utrošeni materijal neće se vraćati.';
     if (!window.confirm('Otkazati nalog ' + order.id + '? ' + explanation)) return;
-    if (pending.length) {
-      setMaterials(released.materials);
-      try { window.localStorage.setItem(MATERIALS_KEY, JSON.stringify(released.materials)); } catch {}
-      try {
-        const key = 'kamen-app-movements-v1';
-        const log = JSON.parse(window.localStorage.getItem(key) || '[]');
-        const entries = pending.map((entry, index) => ({
-          id: Date.now() + index,
-          material: entry.material || materials.find(item => item.id === entry.materialId)?.name || 'Materijal',
-          kind: 'Povrat rezervacije - otkazivanje naloga',
-          quantity: entry.quantity,
-          location: materials.find(item => item.id === entry.materialId)?.location,
-          orderId: order.id,
-          date: new Date().toLocaleDateString('hr-HR')
-        }));
-        window.localStorage.setItem(key, JSON.stringify([...entries, ...log].slice(0, 100)));
-      } catch {}
-    }
-    setOrders(prev => prev.map(item => item.id === id
+
+    const operationId = 'RN-CANCEL-' + id;
+    const nextOrders = orders.map(item => item.id === id
       ? { ...item, status: 'Otkazan', reservedMaterialQty: 0, reservedMaterials: [], cancelledAt: new Date().toISOString() }
-      : item));
+      : item);
+    const nextMaterials = released.materials;
+    const entries = pending.length ? pending.map((entry, index) => ({
+      id: operationId + ':' + index,
+      operationId,
+      material: entry.material || materials.find(item => item.id === entry.materialId)?.name || 'Materijal',
+      kind: 'Povrat rezervacije - otkazivanje naloga',
+      quantity: entry.quantity,
+      location: materials.find(item => item.id === entry.materialId)?.location || '',
+      orderId: order.id,
+      date: new Date().toLocaleDateString('hr-HR')
+    })) : [{
+      id: operationId,
+      operationId,
+      material: 'Radni nalog ' + order.id,
+      kind: 'Otkazivanje radnog naloga',
+      quantity: 0,
+      orderId: order.id,
+      date: new Date().toLocaleDateString('hr-HR')
+    }];
+    try {
+      const committed = commitInventoryTransaction(window.localStorage, {
+        operationId,
+        writes: [
+          { key: MATERIALS_KEY, value: nextMaterials },
+          { key: STORAGE_KEY, value: nextOrders }
+        ],
+        movements: entries
+      });
+      if (committed.duplicate) return;
+    } catch (error) {
+      window.alert(error?.message || 'Nije moguće sigurno otkazati nalog.');
+      return;
+    }
+    setMaterials(nextMaterials);
+    setOrders(nextOrders);
   };
   const pieceCount = orders.reduce((sum, order) => sum + order.pieces.reduce((n, p) => n + p.quantity, 0), 0);
   return <div className="page-content workorders-page">
