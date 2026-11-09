@@ -42,6 +42,7 @@ export default function ProductionModule({ onBack, onCreateProject }) {
   const [records, setRecords] = useState(() => normalizeRecords(readJson(PRODUCTION_KEY, {}), readJson(ORDERS_KEY, [])));
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('Aktivni');
+  const [selectedWorker, setSelectedWorker] = useState('');
   const [expandedOrders, setExpandedOrders] = useState({});
   const [expandedUnits, setExpandedUnits] = useState({});
   const [newWorker, setNewWorker] = useState('');
@@ -269,6 +270,10 @@ export default function ProductionModule({ onBack, onCreateProject }) {
   };
 
   const rowsWithRecords = useMemo(() => rows.map(row => ({ ...row, record: records.pieces?.[row.key] || blankUnit() })), [rows, records]);
+  const workerHasTask = (row, stageNames = stages) => !selectedWorker || stageNames.some(stageName => {
+    const stage = row.record.stages?.[stageName] || blankStage();
+    return stage.assignedTo === selectedWorker && !['Završeno','Nije potrebno'].includes(stage.status);
+  });
   const visibleRows = useMemo(() => rowsWithRecords.filter(row => {
     const record = row.record;
     const search = [row.order.id, row.order.project, row.order.customer, row.label, row.material].join(' ').toLocaleLowerCase('hr');
@@ -283,8 +288,8 @@ export default function ProductionModule({ onBack, onCreateProject }) {
       (filter === 'Zastoj' && blocked) ||
       (filter === 'Kontrola' && done && record.quality.status !== 'Prošlo') ||
       (filter === 'Završeni' && done && record.quality.status === 'Prošlo');
-    return matchesQuery && matchesFilter && row.order.status !== 'Otkazan';
-  }), [rowsWithRecords, query, filter]);
+    return matchesQuery && matchesFilter && workerHasTask(row) && row.order.status !== 'Otkazan';
+  }), [rowsWithRecords, query, filter, selectedWorker]);
   const activeOrders = orders.filter(order => !['Završen', 'Otkazan'].includes(order.status));
   const inProgress = rowsWithRecords.reduce((sum, row) => sum + stages.filter(stage => row.record.stages?.[stage]?.status === 'U tijeku').length, 0);
   const blocked = rowsWithRecords.reduce((sum, row) => sum + stages.filter(stage => row.record.stages?.[stage]?.status === 'Zastoj').length, 0);
@@ -426,7 +431,7 @@ export default function ProductionModule({ onBack, onCreateProject }) {
         <div className="production-saw-board-heading"><div><span className="eyebrow">RADNA PLOČA · PILANJE</span><h3>Dvije mostne pile</h3><p>Poslovi se preuzimaju iz radnih naloga. Odaberi pilu, a nakon fizičkog rezanja potvrdi završetak.</p></div><span className="production-saw-count">{rowsWithRecords.filter(row => !['Završeno','Nije potrebno'].includes(row.record.stages?.['Pilanje']?.status)).length} za pilanje</span></div>
         <div className="production-saw-columns">
           {[1,2].map(machine => {
-            const machineRows = rowsWithRecords.filter(row => !['Završeno','Nije potrebno'].includes(row.record.stages?.['Pilanje']?.status) && (sawAssignments[row.key] || '1') === String(machine));
+            const machineRows = rowsWithRecords.filter(row => workerHasTask(row, ['Pilanje']) && !['Završeno','Nije potrebno'].includes(row.record.stages?.['Pilanje']?.status) && (sawAssignments[row.key] || '1') === String(machine));
             return <section className="production-saw-lane" key={machine}>
               <h4><Factory size={16}/> Pila {machine}<small>{machineRows.length} poslova</small></h4>
               {machineRows.length ? machineRows.map(row => {
@@ -475,6 +480,8 @@ export default function ProductionModule({ onBack, onCreateProject }) {
             { id:'Nije raspoređeno', title:'Čeka raspored', stage:null }
           ].map(center => {
             const stationRows = rowsWithRecords.filter(row => {
+              if (selectedWorker && center.stage && !workerHasTask(row, [center.stage])) return false;
+              if (selectedWorker && !center.stage && !workerHasTask(row, ['Poliranje','Ostala obrada'])) return false;
               if (!center.stage) {
                 return ['Poliranje','Ostala obrada'].some(name => {
                   const stage = row.record.stages?.[name] || blankStage();
@@ -524,6 +531,7 @@ export default function ProductionModule({ onBack, onCreateProject }) {
       </section>
       <div className="warehouse-toolbar production-toolbar">
         <label className="warehouse-search"><Search size={16}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Traži nalog, kupca, projekt ili komad..."/></label>
+        <label className="warehouse-filter"><span>Radnik</span><select value={selectedWorker} onChange={event => setSelectedWorker(event.target.value)}><option value="">Svi radnici</option>{(records.workers || []).map(worker => <option key={worker} value={worker}>{worker}</option>)}</select></label>
         <label className="warehouse-filter"><span>Prikaz</span><select value={filter} onChange={event => setFilter(event.target.value)}><option>Aktivni</option><option>U tijeku</option><option>Zastoj</option><option>Kontrola</option><option>Završeni</option><option>Svi</option></select></label>
       </div>
       <div className="production-groups">
