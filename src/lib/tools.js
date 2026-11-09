@@ -4,7 +4,7 @@ export function normalizeTools(value){return Array.isArray(value)?value.filter(x
 export function validateToolIssue({tool,person,dueDate}){if(!tool||tool.status!=='Dostupan')return 'Alat nije dostupan za zaduživanje.';if(!String(person||'').trim())return 'Odaberi osobu ili ekipu kojoj se alat izdaje.';if(!dueDate)return 'Unesi očekivani datum povrata.';return ''}
 export function issueTool(tool,{person,workOrder='',dueDate,condition='Ispravno',notes='',issuedBy='Vlasnik'},now=new Date()){
  const error=validateToolIssue({tool,person,dueDate});if(error)throw new Error(error);
- const issue={id:'ZAD-'+now.getTime(),toolId:tool.id,person:String(person).trim(),workOrder:String(workOrder).trim(),dueDate,condition,notes,issuedBy,issuedAt:now.toISOString(),returnedAt:null,returnCondition:null,returnNotes:''};
+ const issue={id:'ZAD-'+now.getTime(),kind:'Izdavanje',toolId:tool.id,person:String(person).trim(),workOrder:String(workOrder).trim(),dueDate,condition,notes,issuedBy,issuedAt:now.toISOString(),createdAt:now.toISOString(),returnedAt:null,returnCondition:null,returnNotes:''};
  return {tool:{...tool,status:'Zadužen',currentIssueId:issue.id},issue,event:{id:'ALAT-'+now.getTime(),toolId:tool.id,kind:'Izdavanje',person:issue.person,workOrder:issue.workOrder,condition,notes,dueDate,createdAt:now.toISOString()}};
 }
 export function returnTool(tool,issue,{condition='Ispravno',notes='',returnedBy='Vlasnik'},now=new Date()){
