@@ -155,3 +155,8 @@ Modul **Dokumenti** omogućuje lokalno spremanje datoteka uz naziv, vrstu, datum
 
 Modul **Obavijesti** pri otvaranju izračunava upozorenja iz lokalnih podataka: približavanje i prekoračenje roka, blokirani poslovi, niske zalihe, zakašnjeli povrat alata, nadolazeće održavanje, zastoji proizvodnih faza i današnji terenski poslovi. Obavijesti se mogu filtrirati i označiti pročitanima; odabir vodi u pripadajući modul. Ovo nije push sustav niti kontinuirani nadzor u pozadini. Prikaz upozorenja nije zamjena za pregled izvornog zapisa.
 
+
+
+## Postavke tvrtke — Cjelina 10
+
+Modul **Postavke tvrtke** sadrži profil tvrtke (naziv, adresa, mjesto, OIB, kontakt, IBAN, web-stranica i logotip), skladišne lokacije, vrste materijala, jedinice mjere te osnovna pravila smjene i troškovne stope. Skladišni obrazac koristi spremljene vrste materijala, lokacije i jedinice kao prijedloge pri unosu. Postojeći podaci ponuditelja u ponudama koriste isti profil tvrtke. Zasebna stavka **Sigurnosna kopija** ostaje dostupna u navigaciji; JSON kopija obuhvaća i nove postavke te njihov lokalni dnevnik. Sve je lokalno u pregledniku, bez sinkronizacije i bez stvarne poslužiteljske autorizacije. Pravila rada služe konfiguraciji i planiranju, ne obračunu plaće niti zakonskoj evidenciji radnog vremena.
