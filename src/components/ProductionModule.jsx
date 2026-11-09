@@ -157,12 +157,14 @@ export default function ProductionModule({ onBack, onCreateProject }) {
     const occupied = Object.entries(records.pieces || {}).flatMap(([otherKey, otherUnit]) => stages.flatMap(otherStageName => {
       const otherStage = otherUnit.stages?.[otherStageName] || blankStage();
       if (otherStage.status !== 'U tijeku' || (otherKey === key && otherStageName === stageName)) return [];
-      return [{ key: otherKey, stageName: otherStageName, worker: String(otherStage.assignedTo || '').trim().toLocaleLowerCase('hr'), equipmentId: otherStage.equipmentId || '' }];
+      const otherWorkCenter = otherStage.workCenter || (otherStageName === 'Pilanje' ? ((sawAssignments[otherKey] || '1') === '2' ? 'Pila 2' : 'Pila 1') : '');
+      return [{ key: otherKey, stageName: otherStageName, worker: String(otherStage.assignedTo || '').trim().toLocaleLowerCase('hr'), equipmentId: otherStage.equipmentId || '', workCenter: otherWorkCenter }];
     }));
     if (occupied.some(item => item.worker && item.worker === workerName)) { window.alert('Sukob rasporeda: ovaj radnik već ima drugu fazu u tijeku.'); return; }
+    if (selectedWorkCenter && occupied.some(item => item.workCenter === selectedWorkCenter)) { window.alert('Sukob radnog centra: ' + selectedWorkCenter + ' već se koristi u drugoj aktivnoj fazi.'); return; }
     if (currentEquipmentId && occupied.some(item => item.equipmentId === currentEquipmentId)) { window.alert('Sukob stroja: odabrani stroj već se koristi u drugoj aktivnoj fazi.'); return; }
-    const selectedEquipment = equipment.find(item => item.id === currentEquipmentId);
-    if (selectedEquipment && selectedEquipment.status === 'Izvan pogona') { window.alert('Odabrani stroj je označen kao izvan pogona.'); return; }
+    const selectedEquipment = equipment.find(item => item.id === currentEquipmentId) || equipment.find(item => item.name === selectedWorkCenter);
+    if (selectedEquipment && selectedEquipment.status === 'Izvan pogona') { window.alert('Odabrani stroj ili radni centar označen je kao izvan pogona.'); return; }
     const stageIndex = stages.indexOf(stageName);
     if (stages.slice(0, stageIndex).some(previousStage => !['Završeno', 'Nije potrebno'].includes(unit.stages?.[previousStage]?.status))) {
       window.alert('Najprije završi prethodnu fazu obrade ili je označi kao nije potrebnu.');
@@ -343,7 +345,7 @@ export default function ProductionModule({ onBack, onCreateProject }) {
   const activeAssignments = useMemo(() => rowsWithRecords.flatMap(row => stages.flatMap(stageName => {
     const stage = row.record.stages?.[stageName] || blankStage();
     if (!['U tijeku', 'Zastoj'].includes(stage.status)) return [];
-    return [{ key: row.key, orderId: row.order.id, project: row.order.project || 'Projekt bez naziva', piece: row.label, stageName, status: stage.status, worker: stage.assignedTo || 'Nije dodijeljen', workerKey: String(stage.assignedTo || '').trim().toLocaleLowerCase('hr'), equipmentId: stage.equipmentId || '', equipmentName: equipment.find(item => item.id === stage.equipmentId)?.name || 'Bez stroja', duration: elapsedMs(stage, clockNow), reason: stage.blockedReason || '' }];
+    return [{ key: row.key, orderId: row.order.id, project: row.order.project || 'Projekt bez naziva', piece: row.label, stageName, status: stage.status, worker: stage.assignedTo || 'Nije dodijeljen', workerKey: String(stage.assignedTo || '').trim().toLocaleLowerCase('hr'), equipmentId: stage.equipmentId || '', equipmentName: equipment.find(item => item.id === stage.equipmentId)?.name || 'Bez stroja', workCenter: stage.workCenter || (stageName === 'Pilanje' ? ((sawAssignments[row.key] || '1') === '2' ? 'Pila 2' : 'Pila 1') : ''), duration: elapsedMs(stage, clockNow), reason: stage.blockedReason || '' }];
   })), [rowsWithRecords, equipment, clockNow]);
   const workerLoads = useMemo(() => {
     const map = new Map();
@@ -357,9 +359,11 @@ export default function ProductionModule({ onBack, onCreateProject }) {
   const machineLoads = useMemo(() => {
     const map = new Map();
     activeAssignments.filter(item => item.status === 'U tijeku' && item.equipmentId).forEach(item => {
-      const entry = map.get(item.equipmentId) || { id: item.equipmentId, name: item.equipmentName, count: 0, minutes: 0, tasks: [] };
+      const resourceId = item.workCenter || item.equipmentId;
+      const resourceName = item.workCenter || item.equipmentName;
+      const entry = map.get(resourceId) || { id: resourceId, name: resourceName, count: 0, minutes: 0, tasks: [] };
       entry.count += 1; entry.minutes += item.duration / 60000; entry.tasks.push(item);
-      map.set(item.equipmentId, entry);
+      map.set(resourceId, entry);
     });
     return [...map.values()].sort((a,b) => b.count-a.count || b.minutes-a.minutes);
   }, [activeAssignments]);
@@ -369,10 +373,11 @@ export default function ProductionModule({ onBack, onCreateProject }) {
     const byWorker = new Map(); const byMachine = new Map();
     active.forEach(item => {
       if (item.workerKey) { const list = byWorker.get(item.workerKey) || []; list.push(item); byWorker.set(item.workerKey,list); }
-      if (item.equipmentId) { const list = byMachine.get(item.equipmentId) || []; list.push(item); byMachine.set(item.equipmentId,list); }
+      const machineKey = item.workCenter || item.equipmentId;
+      if (machineKey) { const list = byMachine.get(machineKey) || []; list.push(item); byMachine.set(machineKey,list); }
     });
     byWorker.forEach((items,key) => { if(items.length>1) conflicts.push({type:'Radnik',name:items[0].worker,items}); });
-    byMachine.forEach((items,key) => { if(items.length>1) conflicts.push({type:'Stroj',name:items[0].equipmentName,items}); });
+    byMachine.forEach((items,key) => { if(items.length>1) conflicts.push({type:'Radni centar',name:key,items}); });
     return conflicts;
   }, [activeAssignments]);
   const todayCapacityWarnings = useMemo(() => workerLoads.flatMap(load => {
