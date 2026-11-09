@@ -436,8 +436,13 @@ export default function ProductionModule({ onBack, onCreateProject }) {
         const start = new Date(stage.plannedStart || '').getTime();
         const end = new Date(stage.plannedEnd || '').getTime();
         const hasPlan = Number.isFinite(start) && Number.isFinite(end) && end > start;
-        const hasSessions = Array.isArray(stage.sessions) && stage.sessions.some(session => session?.startedAt && Number.isFinite(new Date(session.startedAt).getTime()));
-        const actual = hasSessions ? elapsedMs(stage, clockNow) : null;
+        const validSessions = (Array.isArray(stage.sessions) ? stage.sessions : []).filter(session =>
+          session?.startedAt &&
+          Number.isFinite(new Date(session.startedAt).getTime()) &&
+          (!session.endedAt || Number.isFinite(new Date(session.endedAt).getTime()))
+        );
+        const hasSessions = validSessions.length > 0;
+        const actual = hasSessions ? elapsedMs({ sessions: validSessions }, clockNow) : null;
         if (hasPlan) { result.plannedMs += end - start; result.plannedCount += 1; }
         if (hasSessions) { result.actualMs += actual; result.actualCount += 1; }
         if (hasPlan && hasSessions) { result.comparedCount += 1; result.comparedPlannedMs += end - start; result.comparedActualMs += actual; }
