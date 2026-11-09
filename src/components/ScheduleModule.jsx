@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, Plus, Search, Clock3, UserRound, Wrench, AlertTriangle, CheckCircle2, Trash2, Pencil, X, Printer } from 'lucide-react';
 import { PRODUCTION_STAGES, PRODUCTION_WORK_CENTERS, buildProductionUnits, normalizeProductionRecords } from '../lib/production.js';
-import { findScheduleConflict, scheduleDurationHours } from '../lib/schedule.js';
+import { findScheduleConflict, scheduleDurationHours, validateWorkerSchedule } from '../lib/schedule.js';
 
 const KEY = 'kamen-app-schedule-v1';
 const ORDERS_KEY = 'kamen-app-work-orders-v1';
@@ -90,6 +90,7 @@ export default function ScheduleModule({ onBack }) {
   const [orders] = useState(()=>read(ORDERS_KEY,[]));
   const [production] = useState(()=>normalizeProductionRecords(read(PRODUCTION_KEY,{}), read(ORDERS_KEY,[])));
   const [workers,setWorkers] = useState(()=>read(PRODUCTION_KEY,{}).workers || []);
+  const [workerRecords,setWorkerRecords] = useState(()=>read(PRODUCTION_KEY,{}));
   const [equipment,setEquipment] = useState(()=>read(EQUIPMENT_KEY,Object.values(PRODUCTION_WORK_CENTERS).flat()));
   const [weekStart,setWeekStart] = useState(()=>mondayOf(new Date()));
   const [view,setView] = useState('Tjedan');
@@ -103,7 +104,9 @@ export default function ScheduleModule({ onBack }) {
   useEffect(() => {
     const refreshFromStorage = () => {
       setTasks(normalizeScheduleTasks(read(KEY, [])));
-      setWorkers(read(PRODUCTION_KEY,{}).workers || []);
+      const records=read(PRODUCTION_KEY,{});
+      setWorkerRecords(records);
+      setWorkers(records.workers || []);
     };
     window.addEventListener('focus', refreshFromStorage);
     window.addEventListener('storage', refreshFromStorage);
@@ -142,6 +145,8 @@ export default function ScheduleModule({ onBack }) {
     const validCenters = PRODUCTION_WORK_CENTERS[form.stage];
     if (validCenters && !validCenters.includes(form.machine)) { setError('Odaberi radni centar koji odgovara odabranoj fazi obrade.'); return; }
     if (!form.start || !form.end || new Date(form.end)<=new Date(form.start)) { setError('Vrijeme završetka mora biti nakon početka.'); return; }
+    const workerError=validateWorkerSchedule({worker:form.worker,stage:form.stage,start:form.start,end:form.end,workerSkills:workerRecords.workerSkills,attendance:workerRecords.attendance,deployment:workerRecords.deployment});
+    if(workerError){setError(workerError);return;}
     const conflict=findScheduleConflict(tasks,{start:form.start,end:form.end,worker:form.worker.trim(),machine:form.machine.trim()},editing);
     if (conflict) { setError('Sukob rasporeda: '+(conflict.worker===form.worker.trim()?'radnik '+form.worker:'stroj '+form.machine)+' već je zauzet u terminu '+formatTime(conflict.start)+'–'+formatTime(conflict.end)+'.'); return; }
     const task={id:editing||('RAS-'+Date.now()),pieceKey:unit.key,orderId:unit.order.id,project:unit.order.project||unit.order.title||'Radni nalog',customer:unit.order.customer||'',pieceLabel:unit.label+' · komad '+unit.unitIndex,material:unit.material,stage:form.stage,worker:form.worker.trim(),machine:form.machine.trim(),start:new Date(form.start).toISOString(),end:new Date(form.end).toISOString(),priority:form.priority,status:form.status,note:form.note.trim(),updatedAt:new Date().toISOString()};
