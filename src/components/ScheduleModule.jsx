@@ -75,6 +75,11 @@ const localDate = date => { const d = new Date(date); return [d.getFullYear(), S
 const mondayOf = date => { const d = new Date(date); d.setHours(0,0,0,0); d.setDate(d.getDate() - ((d.getDay()+6)%7)); return d; };
 const addDays = (date, days) => { const d = new Date(date); d.setDate(d.getDate()+days); return d; };
 
+const normalizeScheduleTasks = tasks => (Array.isArray(tasks) ? tasks : []).map(task => {
+  if (task.stage !== 'Ostala obrada') return task;
+  const stage = task.machine === 'Terenski rad / montaža grobnica' ? 'Terenski rad / montaža' : 'Ručna obrada';
+  return { ...task, stage, machine: PRODUCTION_WORK_CENTERS[stage]?.[0] || task.machine };
+});
 const emptyForm = () => ({ pieceKey:'', stage:PRODUCTION_STAGES[0], worker:'', machine:'', start:'', end:'', priority:'Normalan', status:'Planirano', note:'' });
 const dateTime = (date, hour='08:00') => date + 'T' + hour;
 const formatTime = value => new Date(value).toLocaleTimeString('hr-HR',{hour:'2-digit',minute:'2-digit'});
@@ -97,7 +102,7 @@ export default function ScheduleModule({ onBack }) {
   const [newMachine,setNewMachine] = useState('');
   useEffect(() => {
     const refreshFromStorage = () => {
-      setTasks(read(KEY, []));
+      setTasks(normalizeScheduleTasks(read(KEY, [])));
       setWorkers(read(PRODUCTION_KEY,{}).workers || []);
     };
     window.addEventListener('focus', refreshFromStorage);
