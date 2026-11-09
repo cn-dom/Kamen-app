@@ -135,3 +135,29 @@ test('svaka faza ima obvezan odgovarajući radni centar', () => {
   }
   assert.equal(isValidProductionWorkCenter('nepoznata faza', ''), true);
 });
+
+
+test('migracija verzije 2 odvaja ručnu obradu i montažu bez gubitka stare evidencije', () => {
+  const oldStage = { status: 'Završeno', workCenter: 'Terenski rad / montaža grobnica', sessions: [{ startedAt: '2026-01-01T08:00:00.000Z', endedAt: '2026-01-01T09:00:00.000Z' }] };
+  const migrated = normalizeProductionRecords({
+    version: 2,
+    workers: ['Ivan'],
+    pieces: { 'RN-008::0::1': { stages: { 'Ostala obrada': oldStage }, quality: { status: 'Čeka kontrolu' } } }
+  }, [{ id: 'RN-008', pieces: [{ name: 'Spomenik', quantity: 1 }] }]);
+  const unit = migrated.pieces['RN-008::0::1'];
+  assert.equal(migrated.version, 3);
+  assert.equal(unit.stages['Terenski rad / montaža'].status, 'Završeno');
+  assert.equal(unit.stages['Ručna obrada'].status, 'Nije započeto');
+  assert.deepEqual(unit.legacyStages['Ostala obrada'], oldStage);
+  assert.deepEqual(migrated.workers, ['Ivan']);
+  assert.equal(normalizeProductionRecords(migrated, [{ id: 'RN-008', pieces: [{ name: 'Spomenik', quantity: 1 }] }]), migrated);
+});
+
+test('migracija starog naloga čuva staru ručnu fazu i ne nameće novu montažu', () => {
+  const migrated = normalizeProductionRecords({
+    'RN-009': { 'Ostala obrada': 'Završeno', Pilanje: 'Završeno', 'Kanterica / obrada rubova': 'Nije potrebno', Poliranje: 'Završeno' }
+  }, [{ id: 'RN-009', pieces: [{ name: 'Klupica', quantity: 1 }] }]);
+  const unit = migrated.pieces['RN-009::0::1'];
+  assert.equal(unit.stages['Ručna obrada'].status, 'Završeno');
+  assert.equal(unit.stages['Terenski rad / montaža'].status, 'Nije potrebno');
+});
