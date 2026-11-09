@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, Plus, Search, Clock3, UserRound, Wrench, AlertTriangle, CheckCircle2, Trash2, Pencil, X, Printer } from 'lucide-react';
-import { PRODUCTION_STAGES, PRODUCTION_WORK_CENTERS, buildProductionUnits } from '../lib/production.js';
+import { PRODUCTION_STAGES, PRODUCTION_WORK_CENTERS, buildProductionUnits, normalizeProductionRecords } from '../lib/production.js';
 import { findScheduleConflict, scheduleDurationHours } from '../lib/schedule.js';
 
 const KEY = 'kamen-app-schedule-v1';
@@ -9,8 +9,8 @@ const PRODUCTION_KEY = 'kamen-app-production-stages-v1';
 const EQUIPMENT_KEY = 'kamen-app-schedule-equipment-v1';
 const read = (key, fallback) => { try { const value = window.localStorage.getItem(key); return value ? JSON.parse(value) : fallback; } catch { return fallback; } };
 const syncProductionSchedule = (task, previousTask = null) => {
-  const records = read(PRODUCTION_KEY, {});
-  if (!records || records.version !== 2 || !records.pieces) return;
+  const records = normalizeProductionRecords(read(PRODUCTION_KEY, {}), read(ORDERS_KEY, []));
+  if (!records || records.version !== 3 || !records.pieces) return;
   const pieces = { ...records.pieces };
   const clearPrevious = () => {
     if (!previousTask?.pieceKey || !previousTask?.stage) return;
@@ -55,7 +55,7 @@ const syncProductionSchedule = (task, previousTask = null) => {
 };
 const clearProductionSchedule = task => {
   if (!task?.pieceKey || !task?.stage) return;
-  const records = read(PRODUCTION_KEY, {});
+  const records = normalizeProductionRecords(read(PRODUCTION_KEY, {}), read(ORDERS_KEY, []));
   const unit = records?.pieces?.[task.pieceKey];
   const stage = unit?.stages?.[task.stage];
   if (!unit || stage?.scheduleTaskId !== task.id) return;
@@ -83,7 +83,7 @@ const formatDate = value => new Date(value+'T12:00:00').toLocaleDateString('hr-H
 export default function ScheduleModule({ onBack }) {
   const [tasks,setTasks] = useState(()=>read(KEY,[]));
   const [orders] = useState(()=>read(ORDERS_KEY,[]));
-  const [production] = useState(()=>read(PRODUCTION_KEY,{}));
+  const [production] = useState(()=>normalizeProductionRecords(read(PRODUCTION_KEY,{}), read(ORDERS_KEY,[])));
   const [workers,setWorkers] = useState(()=>read(PRODUCTION_KEY,{}).workers || []);
   const [equipment,setEquipment] = useState(()=>read(EQUIPMENT_KEY,Object.values(PRODUCTION_WORK_CENTERS).flat()));
   const [weekStart,setWeekStart] = useState(()=>mondayOf(new Date()));
@@ -122,7 +122,10 @@ export default function ScheduleModule({ onBack }) {
   const openForm = task => {
     setError('');
     setEditing(task?.id || null);
-    setForm(task ? { pieceKey:task.pieceKey||'',stage:task.stage||PRODUCTION_STAGES[0],worker:task.worker||'',machine:task.machine||'',start:task.start?.slice(0,16)||'',end:task.end?.slice(0,16)||'',priority:task.priority||'Normalan',status:task.status||'Planirano',note:task.note||'' } : {...emptyForm(),machine:PRODUCTION_WORK_CENTERS[PRODUCTION_STAGES[0]]?.[0]||equipment[0]||'',start:dateTime(today),end:dateTime(today,'10:00')});
+    const stage=task?.stage||PRODUCTION_STAGES[0];
+    const centers=PRODUCTION_WORK_CENTERS[stage]||equipment;
+    const machine=centers.includes(task?.machine)?task.machine:(centers[0]||'');
+    setForm(task ? { pieceKey:task.pieceKey||'',stage,worker:task.worker||'',machine,start:task.start?.slice(0,16)||'',end:task.end?.slice(0,16)||'',priority:task.priority||'Normalan',status:task.status||'Planirano',note:task.note||'' } : {...emptyForm(),machine:PRODUCTION_WORK_CENTERS[PRODUCTION_STAGES[0]]?.[0]||equipment[0]||'',start:dateTime(today),end:dateTime(today,'10:00')});
     setShowForm(true);
   };
   const saveTask = event => {
