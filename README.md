@@ -9,7 +9,7 @@ Aplikacija već sadrži početne module:
 - radni nalozi s komadima i okvirnim izračunom potrebnih ploča;
 - skladište materijala, decimalna potrošnja pri pilanju, ostatci i otpad;
 - gotovi proizvodi;
-- proizvodnja po fizičkom komadu, radniku, vremenskim intervalima, zastojima i kontroli kvalitete;
+- proizvodnja po fizičkom komadu, radniku i radnom centru, s odvojenim aktivnim vremenom i zastojima te kontrolom kvalitete;
 - terenski rad;
 - kupci;
 - troškovi i osnovni izvještaji.
