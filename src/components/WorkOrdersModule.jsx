@@ -186,8 +186,44 @@ export default function WorkOrdersModule({ onBack, openCreate = false, onCreateO
         window.alert('Nalog se ne može završiti dok svaki fizički komad nema završene potrebne faze i potvrđenu kontrolu kvalitete u modulu Proizvodnja.');
         return;
       }
+      const released = releaseOrderReservations({ order, materials });
+      if (released.error) { window.alert(released.error + ' Nalog nije zatvoren.'); return; }
+      const operationId = 'RN-CLOSE-' + id;
+      const nextOrders = orders.map(item => item.id === id
+        ? { ...item, status, reservedMaterialQty: 0, reservedMaterials: [], reservedMaterialId: null, closedAt: new Date().toISOString() }
+        : item);
+      const entries = released.returned.length ? released.returned.map((entry, index) => ({
+        id: operationId + ':' + index,
+        operationId,
+        material: entry.material || materials.find(item => item.id === entry.materialId)?.name || 'Materijal',
+        kind: 'Povrat neiskorištene rezervacije - zatvaranje naloga',
+        quantity: entry.quantity,
+        location: materials.find(item => item.id === entry.materialId)?.location || '',
+        orderId: id,
+        date: new Date().toLocaleDateString('hr-HR')
+      })) : [{
+        id: operationId, operationId, material: 'Radni nalog ' + id,
+        kind: 'Zatvaranje radnog naloga', quantity: 0, orderId: id,
+        date: new Date().toLocaleDateString('hr-HR')
+      }];
+      try {
+        const committed = commitInventoryTransaction(window.localStorage, {
+          operationId,
+          writes: [
+            { key: STORAGE_KEY, value: nextOrders },
+            { key: MATERIALS_KEY, value: released.materials }
+          ],
+          movements: entries
+        });
+        if (committed.duplicate) return;
+      } catch (error) { window.alert(error?.message || 'Nije moguće sigurno zatvoriti radni nalog.'); return; }
+      setOrders(nextOrders);
+      setMaterials(released.materials);
+      return;
     }
-    setOrders(prev => prev.map(item => item.id === id && item.status !== 'Otkazan' ? { ...item, status } : item));
+    const nextOrders = orders.map(item => item.id === id && item.status !== 'Otkazan' ? { ...item, status } : item);
+    setOrders(nextOrders);
+    try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextOrders)); } catch {}
   };
   const cancelOrder = (id) => {
     const order = orders.find(item => item.id === id);
