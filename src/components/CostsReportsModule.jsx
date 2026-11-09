@@ -8,6 +8,7 @@ const PRODUCTION_KEY = 'kamen-app-production-stages-v1';
 const INVOICES_KEY = 'kamen-app-invoices-v1';
 const PAYMENTS_KEY = 'kamen-app-payments-v1';
 const MATERIAL_CONSUMPTION_KEY = 'kamen-app-material-consumption-v1';
+const QUOTES_KEY = 'kamen-app-quotes-v1';
 const CATEGORIES = ['Materijal', 'Rad', 'Prijevoz', 'Vanjska obrada', 'Montaža', 'Terenski rad', 'Najam stroja', 'Potrošni materijal', 'Ostalo'];
 const SEED_ORDERS = [];
 const categoriesOf = record => Array.isArray(record.categories) ? record.categories : [record.category || 'Ostalo'];
@@ -26,6 +27,7 @@ export default function CostsReportsModule({ onBack }) {
   const [invoices] = useState(() => read(INVOICES_KEY, []));
   const [payments] = useState(() => read(PAYMENTS_KEY, []));
   const [materialConsumption] = useState(() => read(MATERIAL_CONSUMPTION_KEY, []));
+  const [quotes] = useState(() => read(QUOTES_KEY, []));
   const [query, setQuery] = useState('');
   const [selectedOrder, setSelectedOrder] = useState('Svi projekti');
   const [showForm, setShowForm] = useState(false);
@@ -82,7 +84,7 @@ export default function CostsReportsModule({ onBack }) {
     const link = document.createElement('a'); link.href = url; link.download = 'kamen-troskovi-izvjestaj.csv'; link.click(); URL.revokeObjectURL(url);
   };
 
-  const projects = orders.map(order => ({ ...order, financial: calculateOrderFinancials(order, records, productionRecords, Date.now(), invoices, payments, materialConsumption) }));
+  const projects = orders.map(order => ({ ...order, financial: calculateOrderFinancials(order, records, productionRecords, Date.now(), invoices, payments, materialConsumption, quotes) }));
   const financialSummary = summarizeFinancials(projects.map(project => project.financial));
   const actualTotal = summarizeFinancials(projects.filter(project => selectedOrder === 'Svi projekti' || project.id === selectedOrder).map(project => project.financial)).totalActualCost;
   const movementData = read('kamen-app-movements-v1', []);
