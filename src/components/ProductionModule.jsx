@@ -358,7 +358,7 @@ export default function ProductionModule({ onBack, onCreateProject }) {
   }, [activeAssignments]);
   const machineLoads = useMemo(() => {
     const map = new Map();
-    activeAssignments.filter(item => item.status === 'U tijeku' && item.equipmentId).forEach(item => {
+    activeAssignments.filter(item => item.status === 'U tijeku' && (item.workCenter || item.equipmentId)).forEach(item => {
       const resourceId = item.workCenter || item.equipmentId;
       const resourceName = item.workCenter || item.equipmentName;
       const entry = map.get(resourceId) || { id: resourceId, name: resourceName, count: 0, minutes: 0, tasks: [] };
