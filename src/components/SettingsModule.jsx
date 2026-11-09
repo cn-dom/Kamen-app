@@ -1,28 +1,16 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
+import { DEFAULT_COMPANY_SETTINGS, normalizeCompanySettings, validateCompanyProfile, validateCompanyWorkRules, calculateNetShiftMinutes } from '../lib/companySettings.js';
 import { ArrowLeft, Building2, CheckCircle2, Clock3, MapPin, Plus, Settings2, Trash2, Upload, X } from 'lucide-react';
 
 const PROFILE_KEY = 'kamen-app-company-profile-v1';
 const SETTINGS_KEY = 'kamen-app-company-settings-v1';
 const AUDIT_KEY = 'kamen-app-settings-audit-v1';
-const DEFAULT_SETTINGS = {
-  locations: ['Stalak A1', 'Stalak A2', 'Stalak B1', 'Stalak C1', 'Polica O1', 'Vanjsko skladište'],
-  materialTypes: ['Granit', 'Mramor', 'Kamen', 'Umjetni granit', 'Otpad'],
-  units: ['ploča', 'kom', 'm²', 'm³'],
-  workRules: { workStart: '07:00', workEnd: '15:00', breakMinutes: '30', travelCostPerKm: '0', hourlyCostRate: '0', overtimeMultiplier: '1.5', requireWriteoffReason: true, requireStocktakeApproval: true }
-};
 const read = (key, fallback) => { try { const value = window.localStorage.getItem(key); return value ? JSON.parse(value) : fallback; } catch { return fallback; } };
-const normalizeSettings = value => ({
-  ...DEFAULT_SETTINGS, ...(value || {}),
-  locations: Array.isArray(value?.locations) ? value.locations : DEFAULT_SETTINGS.locations,
-  materialTypes: Array.isArray(value?.materialTypes) ? value.materialTypes : DEFAULT_SETTINGS.materialTypes,
-  units: Array.isArray(value?.units) ? value.units : DEFAULT_SETTINGS.units,
-  workRules: { ...DEFAULT_SETTINGS.workRules, ...(value?.workRules || {}) }
-});
 const field = (label, key, value, onChange, props = {}) => <label>{label}<input value={value ?? ''} onChange={event => onChange(key, event.target.value)} {...props}/></label>;
 
 export default function SettingsModule({ onBack }) {
   const [profile, setProfile] = useState(() => ({ name: '', address: '', city: '', oib: '', phone: '', email: '', iban: '', website: '', logoDataUrl: '', ...read(PROFILE_KEY, {}) }));
-  const [settings, setSettings] = useState(() => normalizeSettings(read(SETTINGS_KEY, DEFAULT_SETTINGS)));
+  const [settings, setSettings] = useState(() => normalizeCompanySettings(read(SETTINGS_KEY, DEFAULT_COMPANY_SETTINGS)));
   const [audit, setAudit] = useState(() => read(AUDIT_KEY, []));
   const [tab, setTab] = useState('company');
   const [newLocation, setNewLocation] = useState('');
@@ -35,6 +23,9 @@ export default function SettingsModule({ onBack }) {
   const recordChange = (action, details) => ({ id: 'SET-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7), action, details, createdAt: new Date().toISOString() });
   const save = (nextProfile = profile, nextSettings = settings, action = 'Spremanje postavki') => {
     setMessage(''); setError('');
+    const profileIssue = validateCompanyProfile(nextProfile);
+    const rulesIssue = validateCompanyWorkRules(nextSettings.workRules);
+    if (profileIssue || rulesIssue) { setError(profileIssue || rulesIssue); return; }
     const nextAudit = [recordChange(action, nextProfile.name || 'Postavke tvrtke'), ...audit].slice(0, 300);
     try {
       window.localStorage.setItem(PROFILE_KEY, JSON.stringify(nextProfile));
@@ -72,11 +63,7 @@ export default function SettingsModule({ onBack }) {
   ];
   const profileValid = !profile.oib || /^\d{11}$/.test(profile.oib.replace(/\s/g, ''));
   const rules = settings.workRules;
-  const workMinutes = useMemo(() => {
-    const [sh, sm] = String(rules.workStart).split(':').map(Number);
-    const [eh, em] = String(rules.workEnd).split(':').map(Number);
-    return (eh * 60 + em) - (sh * 60 + sm);
-  }, [rules.workStart, rules.workEnd]);
+  const workMinutes = calculateNetShiftMinutes(rules) + Number(rules.breakMinutes || 0);
   return <div className="page-content module-page company-settings-page">
     <section className="welcome-row module-welcome"><div><div className="eyebrow"><span className="live-dot"/> ADMINISTRACIJA · POSTAVKE TVRTKE</div><h1>Postavke tvrtke</h1><p className="subtitle">Uredi podatke tvrtke, skladišne šifrarnike i osnovna pravila rada.</p></div><button className="button button-secondary" onClick={onBack}><ArrowLeft size={15}/> Povratak na pregled</button></section>
     <div className="access-warning"><Settings2 size={18}/><div><strong>Lokalne postavke</strong><p>Promjene se trenutačno spremaju u ovaj preglednik. Primjenjuju se na lokalne module na ovom uređaju; sinkronizacija i stvarne korisničke ovlasti dolaze u završnoj backend fazi.</p></div></div>
@@ -95,7 +82,7 @@ export default function SettingsModule({ onBack }) {
     {tab === 'rules' && <section className="panel settings-panel"><div className="panel-heading"><div><h2>Pravila rada i obračuna</h2><p>Osnovne vrijednosti za planiranje i buduće obračune. Ne stvaraju automatski obračun plaće.</p></div><Clock3 size={20}/></div>
       <div className="settings-form-grid">{field('Početak smjene','workStart',rules.workStart,updateRule,{type:'time'})}{field('Završetak smjene','workEnd',rules.workEnd,updateRule,{type:'time'})}{field('Trajanje pauze (minute)','breakMinutes',rules.breakMinutes,updateRule,{type:'number',min:0,max:240})}{field('Trošak rada po satu (€)','hourlyCostRate',rules.hourlyCostRate,updateRule,{type:'number',min:0,step:'0.01'})}{field('Trošak prijevoza po km (€)','travelCostPerKm',rules.travelCostPerKm,updateRule,{type:'number',min:0,step:'0.01'})}{field('Koeficijent prekovremenog rada','overtimeMultiplier',rules.overtimeMultiplier,updateRule,{type:'number',min:1,max:3,step:'0.1'})}</div>
       <div className="settings-rule-checks"><label><input type="checkbox" checked={Boolean(rules.requireWriteoffReason)} onChange={event => updateRule('requireWriteoffReason', event.target.checked)}/> Obvezan razlog za otpis materijala</label><label><input type="checkbox" checked={Boolean(rules.requireStocktakeApproval)} onChange={event => updateRule('requireStocktakeApproval', event.target.checked)}/> Zahtijevaj odobrenje inventurne korekcije</label></div>
-      <div className="settings-rule-summary"><strong>Informativni pregled smjene</strong><span>{workMinutes > 0 ? Math.max(0, workMinutes - Number(rules.breakMinutes || 0)) : '—'} minuta rada nakon pauze</span></div>
+      <div className="settings-rule-summary"><strong>Informativni pregled smjene</strong><span>{workMinutes > 0 ? calculateNetShiftMinutes(rules) : '—'} minuta rada nakon pauze</span></div>
       <div className="settings-actions"><button className="button button-primary" onClick={() => save(profile, settings, 'Promjena pravila rada')}><CheckCircle2 size={15}/> Spremi pravila</button></div>
     </section>}
     {message && <div className="module-notice backup-message"><CheckCircle2 size={16}/>{message}</div>}
