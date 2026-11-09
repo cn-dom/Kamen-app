@@ -277,3 +277,16 @@ Automatizirani testovi uključuju:
 ### FIN-006 — ostvarena marža na računima
 **Koraci:** Izdati račun s neto i bruto iznosom, zatim evidentirati stvarne troškove.  
 **Očekivano:** PDV se prikazuje kao razlika bruto i neto računa, a ostvarena marža računa se kao neto prihod umanjen za stvarne troškove. Bez izdanog računa marža se ne prikazuje kao ostvarena.
+
+
+## Cjelina 5 — korisnici i ovlasti (lokalna priprema)
+
+- [ ] Dodavanje člana s imenom, opcionalnom e-poštom i jednom od pet uloga.
+- [ ] Promjena uloge, dodatnih ovlasti i aktivnog statusa.
+- [ ] Uklanjanje člana bez brisanja povijesti promjena.
+- [ ] Lokalni profil vlasnika ne može se ukloniti ili degradirati.
+- [ ] Financijske ovlasti nisu zadane skladištaru ni radniku.
+- [ ] Promjene se spremaju u lokalni popis i dnevnik.
+- [ ] Sigurnosna kopija uključuje popis članova i dnevnik ovlasti.
+- [ ] Sučelje jasno upozorava da lokalni profili nisu stvarni računi i ne štite podatke.
+- [ ] U backend fazi testirati izolaciju dviju tvrtki, ukidanje sesije, odbijanje neovlaštenih API poziva i sinkronizaciju uređaja.

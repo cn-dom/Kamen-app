@@ -94,3 +94,16 @@ Obuhvat zatvaranja cjeline:
 ### Preciziranje proizvodnih faza
 
 Proizvodni tijek ima zasebne faze **Ručna obrada** i **Terenski rad / montaža**. Time se ručni završni zahvati u radionici više ne miješaju s montažom na groblju. Postojeći zapisi iz starije faze „Ostala obrada” migriraju se bez gubitka: poznata montaža prelazi u terensku fazu, a ostali zapisi u ručnu obradu. Stari zapisi čuvaju se i u polju naslijeđenih podataka.
+
+
+## 7. Cjelina 5 — korisnici i ovlasti (lokalna priprema)
+
+**Lokalni pripremni modul implementiran — bez backend prijave i bez sigurnosnih tvrdnji.**
+
+- Dodan je popis članova s pet početnih uloga.
+- Omogućeno je dodavanje, deaktiviranje/aktiviranje i uklanjanje lokalnih profila.
+- Dodane su zadane ovlasti po ulozi i pojedinačna odstupanja.
+- Dodan je pregled ovlasti odabranog profila i lokalni dnevnik promjena.
+- Novi lokalni podaci uključeni su u JSON sigurnosnu kopiju.
+
+**Odgođeno za završnu backend fazu:** stvarni računi, prijava, reset lozinke, sesije, poslužiteljska autorizacija, sigurno odvajanje tvrtki, sinkronizacija uređaja i nepromjenjivi revizijski trag. Trenutačni modul je samo prototip u jednom pregledniku; ne smije se koristiti kao kontrola pristupa stvarnim poslovnim podacima.
