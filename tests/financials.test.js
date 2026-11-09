@@ -244,3 +244,29 @@ test('ne prikazuje maržu kada projekt još nema izdani račun', () => {
   assert.equal(result.realizedGrossMargin, null);
   assert.equal(result.realizedMarginPercent, null);
 });
+
+
+test('prikazuje procijenjenu maržu iz prihvaćene ponude povezane s nalogom', () => {
+  const result = calculateOrderFinancials(
+    { id: 'RN-010', quoteId: 'PON-10', pieces: [] },
+    [{ orderId: 'RN-010', kind: 'Planirani trošak', amount: 100 }],
+    { pieces: {} },
+    Date.now(),
+    [],
+    [],
+    [],
+    [
+      { id: 'PON-10', orderId: 'RN-010', status: 'Prihvaćena', discountPercent: 0, items: [
+        { description: 'Spomenik', quantity: 1, unitPrice: 1000, vatRate: 25 }
+      ] },
+      { id: 'PON-11', orderId: 'RN-010', status: 'Odbijena', items: [
+        { description: 'Nevažeća ponuda', quantity: 1, unitPrice: 9000, vatRate: 25 }
+      ] }
+    ]
+  );
+  assert.equal(result.acceptedQuoteNet, 1000);
+  assert.equal(result.acceptedQuoteVat, 250);
+  assert.equal(result.acceptedQuoteGross, 1250);
+  assert.equal(result.estimatedGrossMargin, 1000);
+  assert.equal(result.estimatedMarginPercent, 100);
+});
