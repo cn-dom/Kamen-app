@@ -46,6 +46,12 @@ export default function ProductionModule({ onBack, onCreateProject }) {
   const [expandedUnits, setExpandedUnits] = useState({});
   const [newWorker, setNewWorker] = useState('');
   const [clockNow, setClockNow] = useState(Date.now());
+  const [sawAssignments, setSawAssignments] = useState(() => readJson('kamen-app-saw-assignments-v1', {}));
+  useEffect(() => {
+    try { window.localStorage.setItem('kamen-app-saw-assignments-v1', JSON.stringify(sawAssignments)); }
+    catch { /* Browser storage may be unavailable. */ }
+  }, [sawAssignments]);
+
 
   useEffect(() => {
     try { window.localStorage.setItem(PRODUCTION_KEY, JSON.stringify(records)); }
@@ -415,6 +421,40 @@ export default function ProductionModule({ onBack, onCreateProject }) {
         })}{!(records.workers || []).length && <small>Još nema unesenih radnika. Ime se može upisati i izravno u fazi.</small>}</div>
 <p className="production-attendance-note">Prisutnost i raspored vode se odvojeno za današnji datum. Radnik na terenu nije slobodan kapacitet radionice.</p>
         <datalist id="production-worker-list">{(records.workers || []).map(worker => <option key={worker} value={worker}/>)}</datalist></div></details>
+      </section>
+      <section className="production-saw-board">
+        <div className="production-saw-board-heading"><div><span className="eyebrow">RADNA PLOČA · PILANJE</span><h3>Dvije mostne pile</h3><p>Poslovi se preuzimaju iz radnih naloga. Odaberi pilu, a nakon fizičkog rezanja potvrdi završetak.</p></div><span className="production-saw-count">{rows.filter(row => !['Završeno','Nije potrebno'].includes(row.record.stages?.['Pilanje']?.status)).length} za pilanje</span></div>
+        <div className="production-saw-columns">
+          {[1,2].map(machine => {
+            const machineRows = rows.filter(row => !['Završeno','Nije potrebno'].includes(row.record.stages?.['Pilanje']?.status) && (sawAssignments[row.key] || '1') === String(machine));
+            return <section className="production-saw-lane" key={machine}>
+              <h4><Factory size={16}/> Pila {machine}<small>{machineRows.length} poslova</small></h4>
+              {machineRows.length ? machineRows.map(row => {
+                const stage = row.record.stages?.['Pilanje'] || blankStage();
+                return <article className="production-saw-job" key={row.key}>
+                  <strong>{row.order.id} · {row.label} #{row.unitIndex}</strong>
+                  <span>{row.material} · {row.piece.length} × {row.piece.width} × {row.piece.thickness} cm</span>
+                  <div className="production-saw-job-actions">
+                    <select aria-label={'Odaberi pilu za ' + row.label} value={sawAssignments[row.key] || '1'} onChange={event => setSawAssignments(current => ({...current,[row.key]:event.target.value}))}><option value="1">Pila 1</option><option value="2">Pila 2</option></select>
+                    <button type="button" className="button button-success" onClick={() => {
+                      const now = new Date().toISOString();
+                      updateStage(row.key, 'Pilanje', previous => {
+                        if (['Završeno','Nije potrebno'].includes(previous.status)) return previous;
+                        const sessions = [...(previous.sessions || [])];
+                        let open = sessions.length - 1;
+                        while (open >= 0 && sessions[open].endedAt) open -= 1;
+                        if (open >= 0) sessions[open] = {...sessions[open],endedAt:now};
+                        return {...previous,status:'Završeno',completedAt:now,blockedReason:'',sessions};
+                      });
+                    }}><Check size={14}/> Gotovo</button>
+                  </div>
+                  {stage.status === 'U tijeku' && <small>U tijeku · {stage.assignedTo || 'Radnik nije naveden'}</small>}
+                </article>;
+              }) : <p className="production-saw-empty">Nema poslova na čekanju.</p>}
+            </section>;
+          })}
+        </div>
+        <small className="production-saw-footnote">Ova ploča samo prati redoslijed i status pilanja. Ne upravlja elektronikom pile i ne mijenja stanje skladišta niti evidentira potrošnju materijala.</small>
       </section>
       <div className="warehouse-toolbar production-toolbar">
         <label className="warehouse-search"><Search size={16}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Traži nalog, kupca, projekt ili komad..."/></label>
