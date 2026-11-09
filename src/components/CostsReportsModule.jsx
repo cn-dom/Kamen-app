@@ -51,7 +51,7 @@ export default function CostsReportsModule({ onBack }) {
   const actual = projectRecords.filter(r => r.kind === 'Stvarni trošak');
   const planned = projectRecords.filter(r => r.kind === 'Planirani trošak');
   const plannedTotal = planned.reduce((sum, r) => sum + Number(r.amount || 0), 0);
-  const hoursTotal = actual.reduce((sum, r) => sum + Number(r.hours || 0), 0) + automaticCosts.reduce((sum, r) => sum + Number(r.hours || 0), 0);
+  const hoursTotal = actual.reduce((sum, r) => sum + Number(r.hours || 0), 0);
   const formatDate = value => value ? new Date(value + 'T12:00:00').toLocaleDateString('hr-HR') : '—';
   const update = (key, value) => setForm(prev => ({ ...prev, [key]: value }));
   const save = event => {
@@ -114,9 +114,9 @@ export default function CostsReportsModule({ onBack }) {
 
     <section className="costs-stats">
       <article className="panel costs-stat"><span className="costs-stat-icon blue"><Wallet size={19}/></span><div><small>Planirani troškovi</small><strong>{money(plannedTotal)}</strong><span>{planned.length} evidentiranih stavki</span></div></article>
-      <article className="panel costs-stat"><span className="costs-stat-icon violet"><Receipt size={19}/></span><div><small>Ukupni stvarni troškovi</small><strong>{money(actualTotal)}</strong><span>{actual.length} ručnih stavki · uključuje pilanje</span></div></article>
+      <article className="panel costs-stat"><span className="costs-stat-icon violet"><Receipt size={19}/></span><div><small>Ukupni stvarni troškovi</small><strong>{money(actualTotal)}</strong><span>{actual.length} evidentiranih stavki · uključuje automatski rad i prijevoz</span></div></article>
       <article className="panel costs-stat"><span className="costs-stat-icon amber"><TrendingUp size={19}/></span><div><small>Razlika plana i stvarnog</small><strong className={actualTotal > plannedTotal && plannedTotal > 0 ? 'cost-over' : ''}>{plannedTotal ? money(plannedTotal - actualTotal) : '—'}</strong><span>{plannedTotal ? (actualTotal > plannedTotal ? 'Prekoračenje plana' : 'Preostalo do plana') : 'Plan još nije unesen'}</span></div></article>
-      <article className="panel costs-stat"><span className="costs-stat-icon green"><Clock3 size={19}/></span><div><small> evidentirani radni sati</small><strong>{hoursTotal.toLocaleString('hr-HR')} h</strong><span>Sati uneseni uz trošak rada</span></div></article>
+      <article className="panel costs-stat"><span className="costs-stat-icon green"><Clock3 size={19}/></span><div><small> evidentirani radni sati</small><strong>{hoursTotal.toLocaleString('hr-HR')} h</strong><span>Sati iz proizvodnih i terenskih evidencija</span></div></article>
     </section>
 
     <section className="panel costs-toolbar-panel">
