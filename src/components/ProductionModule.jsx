@@ -415,6 +415,38 @@ export default function ProductionModule({ onBack, onCreateProject }) {
     });
   }, [rowsWithRecords, sawAssignments, selectedWorker]);
 
+  const timeComparison = useMemo(() => {
+    const centers = [
+      { id: 'Pila 1', stage: 'Pilanje', machine: '1' },
+      { id: 'Pila 2', stage: 'Pilanje', machine: '2' },
+      { id: 'Kanterica · obline', stage: 'Kanterica / obrada rubova' },
+      { id: 'Polirka · šmuse i okapnice', stage: 'Poliranje', workCenter: 'Polirka za šmuse i okapnice' },
+      { id: 'Vanjska polirka · ravne površine', stage: 'Poliranje', workCenter: 'Vanjska polirka za ravne spomenike i obloge' },
+      { id: 'Ručna obrada', stage: 'Ostala obrada', workCenter: 'Ručna obrada' },
+      { id: 'Teren · montaža grobnica', stage: 'Ostala obrada', workCenter: 'Terenski rad / montaža grobnica' }
+    ];
+    return centers.map(center => {
+      const result = { ...center, plannedMs: 0, actualMs: 0, plannedCount: 0, actualCount: 0, comparedCount: 0 };
+      rowsWithRecords.forEach(row => {
+        if (row.order.status === 'Otkazan') return;
+        const stage = row.record.stages?.[center.stage] || blankStage();
+        if (selectedWorker && stage.assignedTo !== selectedWorker) return;
+        if (center.machine && (sawAssignments[row.key] || '1') !== center.machine) return;
+        if (center.workCenter && stage.workCenter !== center.workCenter) return;
+        const start = new Date(stage.plannedStart || '').getTime();
+        const end = new Date(stage.plannedEnd || '').getTime();
+        const hasPlan = Number.isFinite(start) && Number.isFinite(end) && end > start;
+        const hasSessions = Array.isArray(stage.sessions) && stage.sessions.some(session => session?.startedAt && Number.isFinite(new Date(session.startedAt).getTime()));
+        const actual = hasSessions ? elapsedMs(stage, clockNow) : null;
+        if (hasPlan) { result.plannedMs += end - start; result.plannedCount += 1; }
+        if (hasSessions) { result.actualMs += actual; result.actualCount += 1; }
+        if (hasPlan && hasSessions) result.comparedCount += 1;
+      });
+      result.deltaMs = result.comparedCount ? result.actualMs - result.plannedMs : null;
+      return result;
+    });
+  }, [rowsWithRecords, selectedWorker, sawAssignments, clockNow]);
+
   const exportCsv = () => {
     const headers = ['Radni nalog', 'Kupac', 'Projekt', 'Komad', 'Redni broj', 'Materijal', 'Duljina cm', 'Širina cm', 'Debljina cm', 'Faza', 'Status', 'Radnik', 'Stroj / oprema', 'Početak', 'Završetak', 'Trajanje minuta', 'Razlog zastoja', 'Napomena', 'Kontrola kvalitete'];
     const lines = [headers.map(csvCell).join(';')];
@@ -510,6 +542,25 @@ export default function ProductionModule({ onBack, onCreateProject }) {
           </article>)}
         </div>
         <small className="production-saw-footnote">Broje se komadi koji su došli do faze pojedinog centra. „Čeka” uključuje faze koje još nisu pokrenute; prikaz ne procjenjuje sate rada.</small>
+      </section>
+      <section className="production-time-board">
+        <div className="production-station-heading">
+          <div><span className="eyebrow">PLANIRANO · STVARNO</span><h3>Usporedba vremena rada</h3><p>Uspoređuju se planirani termini i zabilježeni radni intervali po radnim centrima.</p></div>
+        </div>
+        {selectedWorker && <p className="production-load-filter">Prikazano vrijeme za radnika: <strong>{selectedWorker}</strong></p>}
+        <div className="production-time-table-wrap">
+          <table className="production-time-table">
+            <thead><tr><th>Radni centar</th><th>Planirano</th><th>Stvarno</th><th>Razlika</th><th>Podaci</th></tr></thead>
+            <tbody>{timeComparison.map(center => <tr key={center.id}>
+              <th scope="row">{center.id}</th>
+              <td>{center.plannedCount ? formatDuration(center.plannedMs) : 'Nema plana'}</td>
+              <td>{center.actualCount ? formatDuration(center.actualMs) : 'Nema evidencije'}</td>
+              <td>{center.deltaMs === null ? '—' : <strong className={center.deltaMs > 0 ? 'production-time-over' : 'production-time-under'}>{center.deltaMs > 0 ? '+' : center.deltaMs < 0 ? '−' : ''}{formatDuration(Math.abs(center.deltaMs))}</strong>}</td>
+              <td><small>{center.comparedCount} usporedivih · {center.plannedCount} planiranih · {center.actualCount} s radnim intervalom</small></td>
+            </tr>)}</tbody>
+          </table>
+        </div>
+        <small className="production-saw-footnote">Razlika se računa samo za komade koji imaju i valjan planirani početak/završetak i barem jedan evidentirani radni interval. „Stvarno” zbraja aktivne i završene intervale, ne vrijeme zastoja. Prikaz je informativan i ne mijenja radne naloge.</small>
       </section>
       <section className="production-saw-board">
         <div className="production-saw-board-heading"><div><span className="eyebrow">RADNA PLOČA · PILANJE</span><h3>Dvije mostne pile</h3><p>Poslovi se preuzimaju iz radnih naloga. Odaberi pilu, a nakon fizičkog rezanja potvrdi završetak.</p></div><span className="production-saw-count">{rowsWithRecords.filter(row => !['Završeno','Nije potrebno'].includes(row.record.stages?.['Pilanje']?.status)).length} za pilanje</span></div>
