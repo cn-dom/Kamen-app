@@ -115,3 +115,8 @@ U modulu **Isporuke i naplata** može se iz prihvaćene ponude izdati jedan rač
 Uplate se vežu uz račun, a starije uplate povezane samo s ponudom i dalje se uračunavaju u saldo pripadajućeg računa. Pregled **Troškovi i izvještaji → Pregled po projektu** prikazuje izdane račune (neto), stvarno evidentirane uplate i otvorena potraživanja po radnom nalogu. Prihvaćena ponuda bez izdanog računa ne računa se kao prihod. Novi registar računa uključen je u JSON sigurnosnu kopiju i vraćanje podataka.
 
 Ovo je operativna evidencija, a ne fiskalizacija, zakonski e-račun, knjigovodstvo ili porezna evidencija. Prije korištenja kao službenog računa potrebno je provjeriti zakonske i računovodstvene zahtjeve s knjigovođom. Podaci ostaju u lokalnoj pohrani preglednika.
+
+
+### Proizvodni tijek i radni centri
+
+Modul **Proizvodnja** prati svaki fizički komad zasebno kroz pilanje, kantericu, poliranje, ručnu obradu i terenski rad/montažu. Za početak faze obvezni su odgovarajući radni centar i odgovorni radnik. Radni centri obuhvaćaju dvije pile, kantericu za obline, polirku za šmuse i okapnice, vanjsku polirku za ravne elemente, ručnu obradu i montažu grobnica. Aktivni radni intervali i zastoji vode se odvojeno, uključujući razlog i trajanje zastoja. Stara faza „Ostala obrada” migrira se u odvojene faze bez brisanja izvornog zapisa.
