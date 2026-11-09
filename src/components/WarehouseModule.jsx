@@ -240,7 +240,7 @@ function buildCuttingPlan(boardLength, boardWidth, pieces, kerf, trim, allowRota
     const normalized = { ...form, salePricePerM2, vatRate, thickness: Number(form.thickness) || 0, length: Number(form.length) || 0, width: Number(form.width) || 0, quantity, pricePerM2, min: Number(form.min) || 0 };
     if (editingId) {
       const previous = materials.find(item => item.id === editingId);
-      const next = { ...normalized, id: editingId };
+      const next = { ...normalized, id: editingId, parentMaterialId: previous?.parentMaterialId || null, sourceMaterialId: previous?.sourceMaterialId || null, originMaterialId: previous?.originMaterialId || null, sourceCutOperationId: previous?.sourceCutOperationId || null, sourceOrderId: previous?.sourceOrderId || null, sourceOutputId: previous?.sourceOutputId || null };
       const nextMaterials = materials.map(item => item.id === editingId ? next : item);
       if (previous && Number(previous.quantity || 0) !== quantity) {
         const reason = window.prompt('Obrazloži promjenu količine zalihe za ' + previous.name + ':');
