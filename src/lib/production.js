@@ -1,4 +1,10 @@
-export const PRODUCTION_STAGES = ['Pilanje', 'Kanterica / obrada rubova', 'Poliranje', 'Ostala obrada'];
+export const PRODUCTION_STAGES = [
+  'Pilanje',
+  'Kanterica / obrada rubova',
+  'Poliranje',
+  'Ručna obrada',
+  'Terenski rad / montaža'
+];
 export const PRODUCTION_STAGE_STATUSES = ['Nije započeto', 'U tijeku', 'Zastoj', 'Završeno', 'Nije potrebno'];
 
 export function blankStageRecord() {
@@ -24,25 +30,68 @@ export function buildProductionUnits(orders, materials = []) {
     })
   );
 }
+const legacyOtherStage = (oldStage, isField = false) => {
+  const stage = oldStage && typeof oldStage === 'object' ? oldStage : blankStageRecord();
+  return {
+    ...blankStageRecord(),
+    ...stage,
+    status: stage.status || (isField ? 'Nije potrebno' : 'Nije započeto'),
+    sessions: Array.isArray(stage.sessions) ? stage.sessions : [],
+    downtime: Array.isArray(stage.downtime) ? stage.downtime : [],
+    history: Array.isArray(stage.history) ? stage.history : []
+  };
+};
 export function normalizeProductionRecords(raw, orders) {
-  if (raw && raw.version === 2 && raw.pieces && typeof raw.pieces === 'object') return raw;
+  if (raw && raw.version === 3 && raw.pieces && typeof raw.pieces === 'object') return raw;
   const pieces = {};
   buildProductionUnits(orders).forEach(row => {
-    const legacy = raw?.[row.order.id] || {};
     const record = blankPieceProductionRecord();
-    PRODUCTION_STAGES.forEach(stage => {
-      const oldStatus = legacy[stage];
-      if (PRODUCTION_STAGE_STATUSES.includes(oldStatus)) record.stages[stage].status = oldStatus;
-    });
-    if (legacy['Završna kontrola'] === 'Završeno') {
-      record.quality.status = 'Prošlo';
-      record.quality.checkedAt = legacy.updatedAt || null;
+    const oldRecord = raw?.pieces?.[row.key] || null;
+    if (oldRecord?.stages) {
+      const oldOther = oldRecord.stages['Ostala obrada'];
+      const fieldWasSelected = oldOther?.workCenter === 'Terenski rad / montaža grobnica';
+      const manualStage = legacyOtherStage(fieldWasSelected ? null : oldOther);
+      const fieldStage = fieldWasSelected
+        ? legacyOtherStage(oldOther, true)
+        : { ...blankStageRecord(), status: 'Nije potrebno' };
+      record.stages = {
+        ...record.stages,
+        ...Object.fromEntries(PRODUCTION_STAGES.filter(stage => stage !== 'Ručna obrada' && stage !== 'Terenski rad / montaža')
+          .map(stage => [stage, { ...blankStageRecord(), ...(oldRecord.stages[stage] || {}) }])),
+        'Ručna obrada': manualStage,
+        'Terenski rad / montaža': fieldStage
+      };
+      record.quality = { ...record.quality, ...(oldRecord.quality || {}) };
+      record.updatedAt = oldRecord.updatedAt || null;
+      record.legacyStages = { ...(oldRecord.legacyStages || {}), ...(oldOther ? { 'Ostala obrada': oldOther } : {}) };
+    } else {
+      const legacy = raw?.[row.order.id] || {};
+      PRODUCTION_STAGES.slice(0, 3).forEach(stage => {
+        const oldStatus = legacy[stage];
+        if (PRODUCTION_STAGE_STATUSES.includes(oldStatus)) record.stages[stage].status = oldStatus;
+      });
+      if (PRODUCTION_STAGE_STATUSES.includes(legacy['Ostala obrada'])) record.stages['Ručna obrada'].status = legacy['Ostala obrada'];
+      record.stages['Terenski rad / montaža'].status = 'Nije potrebno';
+      if (legacy['Završna kontrola'] === 'Završeno') {
+        record.quality.status = 'Prošlo';
+        record.quality.checkedAt = legacy.updatedAt || null;
+      }
+      record.updatedAt = legacy.updatedAt || null;
     }
-    record.updatedAt = legacy.updatedAt || null;
     pieces[row.key] = record;
   });
-  return { version: 2, pieces, workers: [], migratedAt: new Date().toISOString(), legacyRecordsPreserved: raw || {} };
+  return {
+    version: 3,
+    pieces,
+    workers: Array.isArray(raw?.workers) ? raw.workers : [],
+    ...(raw?.attendance ? { attendance: raw.attendance } : {}),
+    ...(raw?.deployment ? { deployment: raw.deployment } : {}),
+    ...(raw?.workerSkills ? { workerSkills: raw.workerSkills } : {}),
+    migratedAt: new Date().toISOString(),
+    legacyRecordsPreserved: raw || {}
+  };
 }
+
 export function startProductionStage(stage, timestamp = new Date().toISOString()) {
   const previous = stage || blankStageRecord();
   const downtime = [...(previous.downtime || [])];
@@ -59,7 +108,6 @@ export function startProductionStage(stage, timestamp = new Date().toISOString()
     sessions: [...(previous.sessions || []), { startedAt: timestamp, endedAt: null }]
   };
 }
-
 export function pauseProductionStage(stage, timestamp = new Date().toISOString(), reason = '') {
   const previous = stage || blankStageRecord();
   if (previous.status !== 'U tijeku') return previous;
@@ -75,7 +123,6 @@ export function pauseProductionStage(stage, timestamp = new Date().toISOString()
     downtime: [...(previous.downtime || []), { startedAt: timestamp, endedAt: null, reason: String(reason || '').trim() }]
   };
 }
-
 export function finishProductionStage(stage, timestamp = new Date().toISOString()) {
   const previous = stage || blankStageRecord();
   const sessions = [...(previous.sessions || [])];
@@ -88,7 +135,6 @@ export function finishProductionStage(stage, timestamp = new Date().toISOString(
   }
   return { ...previous, status: 'Završeno', completedAt: timestamp, blockedReason: '', sessions, downtime };
 }
-
 export function calculateStageDowntimeMs(stage, now = Date.now()) {
   return (Array.isArray(stage?.downtime) ? stage.downtime : []).reduce((sum, interval) => {
     if (!interval.startedAt) return sum;
@@ -97,12 +143,13 @@ export function calculateStageDowntimeMs(stage, now = Date.now()) {
     return sum + (Number.isFinite(start) && Number.isFinite(end) ? Math.max(0, end - start) : 0);
   }, 0);
 }
-
 export function calculateStageElapsedMs(stage, now = Date.now()) {
   const sessions = Array.isArray(stage?.sessions) ? stage.sessions : [];
   return sessions.reduce((sum, session) => {
     if (!session.startedAt) return sum;
-    return sum + Math.max(0, (session.endedAt ? new Date(session.endedAt).getTime() : now) - new Date(session.startedAt).getTime());
+    const start = new Date(session.startedAt).getTime();
+    const end = session.endedAt ? new Date(session.endedAt).getTime() : now;
+    return sum + (Number.isFinite(start) && Number.isFinite(end) ? Math.max(0, end - start) : 0);
   }, 0);
 }
 export function formatProductionDuration(ms) {
@@ -115,7 +162,6 @@ export function calculatePieceProgress(record) {
   const complete = PRODUCTION_STAGES.filter(stage => ['Završeno', 'Nije potrebno'].includes(record?.stages?.[stage]?.status)).length;
   return Math.round(complete / PRODUCTION_STAGES.length * 100);
 }
-
 export function isProductionOrderComplete(order, productionRecords) {
   const units = buildProductionUnits(order ? [order] : []);
   if (!units.length) return false;
@@ -126,21 +172,13 @@ export function isProductionOrderComplete(order, productionRecords) {
       record.quality?.status === 'Prošlo';
   });
 }
-
-
 export const PRODUCTION_WORK_CENTERS = {
   'Pilanje': ['Pila 1', 'Pila 2'],
   'Kanterica / obrada rubova': ['Kanterica · obline'],
-  'Poliranje': [
-    'Polirka za šmuse i okapnice',
-    'Vanjska polirka za ravne spomenike i obloge'
-  ],
-  'Ostala obrada': [
-    'Ručna obrada',
-    'Terenski rad / montaža grobnica'
-  ]
+  'Poliranje': ['Polirka za šmuse i okapnice', 'Vanjska polirka za ravne spomenike i obloge'],
+  'Ručna obrada': ['Ručna obrada'],
+  'Terenski rad / montaža': ['Terenski rad / montaža grobnica']
 };
-
 export function isValidProductionWorkCenter(stageName, workCenter) {
   const options = PRODUCTION_WORK_CENTERS[stageName];
   if (!options) return true;
