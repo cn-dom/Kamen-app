@@ -144,8 +144,8 @@ export default function ScheduleModule({ onBack }) {
   const removeMachine = name => { if(tasks.some(task=>task.machine===name && task.status!=='Otkazano')) { window.alert('Stroj se ne može ukloniti dok ima aktivnih planiranih aktivnosti.'); return; } const next=equipment.filter(item=>item!==name);setEquipment(next);try{window.localStorage.setItem(EQUIPMENT_KEY,JSON.stringify(next));}catch{} };
   const dayLabel = d => localDate(d);
   const dayTasks = date => visibleTasks.filter(task=>task.start.slice(0,10)===dayLabel(date)).sort((a,b)=>a.start.localeCompare(b.start));
-  const statusClass = status => status==='Završeno'?'done':status==='U tijeku'?'active':status==='Otkazano'?'cancelled':'planned';
-  const statusOptions=['Planirano','U tijeku','Završeno','Otkazano'];
+  const statusClass = status => status==='Završeno'?'done':status==='U tijeku'?'active':status==='Zastoj'?'blocked':status==='Otkazano'?'cancelled':'planned';
+  const statusOptions=['Planirano','U tijeku','Zastoj','Završeno','Otkazano'];
   return <div className="page-content schedule-page">
     <section className="welcome-row module-welcome">
       <div><div className="eyebrow"><span className="live-dot"/> ORGANIZACIJA RADIONICE</div><h1>Raspored radionice</h1><p className="subtitle">Planiraj rad po komadu, zaduženom radniku i stroju. Sukobi termina provjeravaju se prije spremanja.</p></div>
@@ -167,6 +167,7 @@ export default function ScheduleModule({ onBack }) {
           <header><span>{day.toLocaleDateString('hr-HR',{weekday:'short'}).toLocaleUpperCase('hr')}</span><strong>{day.getDate()}</strong><small>{day.toLocaleDateString('hr-HR',{month:'short'})}</small></header>
           <div className="schedule-day-list">{dayTasks(day).map(task=><article className={'schedule-task '+statusClass(task.status)} key={task.id}>
             <div className="schedule-task-time">{formatTime(task.start)}–{formatTime(task.end)}</div><strong>{task.pieceLabel}</strong><span>{task.orderId} · {task.project}</span><div className="schedule-task-meta"><span><UserRound size={11}/>{task.worker}</span><span><Wrench size={11}/>{task.machine}</span></div><small>{task.stage}</small>
+            {task.status==='Zastoj'&&task.blockedReason&&<small className="schedule-task-blocked-reason"><AlertTriangle size={11}/>{task.blockedReason}</small>}
             <div className="schedule-task-actions"><select aria-label="Status aktivnosti" value={task.status} onChange={e=>updateStatus(task,e.target.value)}>{statusOptions.map(status=><option key={status}>{status}</option>)}</select><button onClick={()=>openForm(task)} title="Uredi"><Pencil size={13}/></button><button onClick={()=>removeTask(task)} title="Obriši"><Trash2 size={13}/></button></div>
           </article>)}
           {!dayTasks(day).length&&<div className="schedule-day-empty">Nema aktivnosti</div>}
