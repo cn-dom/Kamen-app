@@ -216,10 +216,6 @@ export default function ProductionModule({ onBack, onCreateProject }) {
       const now = new Date().toISOString();
       affectedStages.forEach(affectedName => {
         const previous = nextStages[affectedName] || blankStage();
-        const sessions = [...(previous.sessions || [])];
-        let open = sessions.length - 1;
-        while (open >= 0 && sessions[open].endedAt) open -= 1;
-        if (open >= 0) sessions[open] = { ...sessions[open], endedAt: now };
         if (previous.status !== 'Nije započeto') {
           nextStages[affectedName] = resetProductionStage(previous, now, 'Ponovno otvaranje zbog dorade prethodne faze');
         }
