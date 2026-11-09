@@ -13,6 +13,8 @@ import ServiceModule from './ServiceModule.jsx';
 import MaintenanceModule from './MaintenanceModule.jsx';
 import FinishedProductsModule from './FinishedProductsModule.jsx';
 import BackupRestoreModule from './BackupRestoreModule.jsx';
+import DocumentsModule from './DocumentsModule.jsx';
+import NotificationsModule from './NotificationsModule.jsx';
 import { Boxes, ClipboardList, Factory, Truck, Users, Wallet, Settings2, ArrowRight, Construction } from 'lucide-react';
 
 const modules = {
@@ -82,6 +84,8 @@ export default function ModulePlaceholder({ name, onBack, openCreate, onCreateOp
   if (name === 'Kupci') return <CustomersModule onBack={onBack} />;
   if (name === 'Troškovi i izvještaji') return <CostsReportsModule onBack={onBack} />;
   if (name === 'Postavke') return <BackupRestoreModule onBack={onBack} />;
+  if (name === 'Dokumenti') return <DocumentsModule onBack={onBack} />;
+  if (name === 'Obavijesti') return <NotificationsModule onBack={onBack} onNavigate={()=>{}} />;
   const module = modules[name] || {
     icon: Construction,
     eyebrow: 'SLJEDEĆI RAZVOJNI KORAK',
