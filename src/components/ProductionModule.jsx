@@ -137,7 +137,10 @@ export default function ProductionModule({ onBack, onCreateProject }) {
     const currentStage = unit.stages?.[stageName] || blankStage();
     if (currentStage.status === 'Završeno' || currentStage.status === 'Nije potrebno' || currentStage.status === 'U tijeku') return;
     if (!String(currentStage.assignedTo || '').trim()) { window.alert('Prije početka faze odaberi ili upiši odgovornog radnika.'); return; }
-    if (!isValidProductionWorkCenter(stageName, currentStage.workCenter)) {
+    const selectedWorkCenter = stageName === 'Pilanje'
+      ? (currentStage.workCenter || ((sawAssignments[key] || '1') === '2' ? 'Pila 2' : 'Pila 1'))
+      : currentStage.workCenter;
+    if (!isValidProductionWorkCenter(stageName, selectedWorkCenter)) {
       window.alert('Prije početka odaberi točan radni centar kako bi se komad prikazao na odgovarajućoj radnoj stanici.');
       return;
     }
@@ -166,7 +169,7 @@ export default function ProductionModule({ onBack, onCreateProject }) {
       return;
     }
     const now = new Date().toISOString();
-    updateStage(key, stageName, previous => startProductionStage(previous, now));
+    updateStage(key, stageName, previous => startProductionStage({ ...previous, workCenter: selectedWorkCenter }, now));
     syncLinkedScheduleTask(currentStage, 'U tijeku', now);
   };
   const stopStage = (key, stageName) => {
