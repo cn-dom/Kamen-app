@@ -33,7 +33,7 @@ test('migracija čuva stare statuse i stvara neovisne komade', () => {
   const migrated = normalizeProductionRecords({
     'RN-002': { Pilanje: 'Završeno', Poliranje: 'U tijeku', updatedAt: '2026-01-01T08:00:00.000Z' }
   }, [{ id: 'RN-002', pieces: [{ name: 'Element', quantity: 2 }] }]);
-  assert.equal(migrated.version, 2);
+  assert.equal(migrated.version, 3);
   assert.equal(migrated.pieces['RN-002::0::1'].stages.Pilanje.status, 'Završeno');
   assert.equal(migrated.pieces['RN-002::0::2'].stages.Pilanje.status, 'Završeno');
   assert.equal(migrated.pieces['RN-002::0::1'].stages.Poliranje.status, 'U tijeku');
@@ -62,7 +62,7 @@ test('napredak komada broji završene i nepotrebne faze, ali ne aktivne', () => 
     [PRODUCTION_STAGES[2]]: { status: 'U tijeku' },
     [PRODUCTION_STAGES[3]]: { status: 'Nije započeto' }
   } };
-  assert.equal(calculatePieceProgress(record), 50);
+  assert.equal(calculatePieceProgress(record), 40);
 });
 
 test('migracija prenosi završenu staru fazu završne kontrole', () => {
@@ -148,7 +148,7 @@ test('migracija verzije 2 odvaja ručnu obradu i montažu bez gubitka stare evid
   const unit = migrated.pieces['RN-008::0::1'];
   assert.equal(migrated.version, 3);
   assert.equal(unit.stages['Terenski rad / montaža'].status, 'Završeno');
-  assert.equal(unit.stages['Ručna obrada'].status, 'Nije započeto');
+  assert.equal(unit.stages['Ručna obrada'].status, 'Nije potrebno');
   assert.deepEqual(unit.legacyStages['Ostala obrada'], oldStage);
   assert.deepEqual(migrated.workers, ['Ivan']);
   assert.equal(normalizeProductionRecords(migrated, [{ id: 'RN-008', pieces: [{ name: 'Spomenik', quantity: 1 }] }]), migrated);
