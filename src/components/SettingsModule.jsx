@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { DEFAULT_COMPANY_SETTINGS, normalizeCompanySettings, validateCompanyProfile, validateCompanyWorkRules, calculateNetShiftMinutes } from '../lib/companySettings.js';
-import { ArrowLeft, Building2, CheckCircle2, Clock3, MapPin, Plus, Settings2, Trash2, Upload, X } from 'lucide-react';
+import { ArrowLeft, Building2, CheckCircle2, Clock3, MapPin, Plus, Settings2, Upload, X } from 'lucide-react';
 
 const PROFILE_KEY = 'kamen-app-company-profile-v1';
 const SETTINGS_KEY = 'kamen-app-company-settings-v1';
