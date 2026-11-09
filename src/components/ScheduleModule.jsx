@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, Plus, Search, Clock3, UserRound, Wrench, AlertTriangle, CheckCircle2, Trash2, Pencil, X, Printer } from 'lucide-react';
-import { PRODUCTION_STAGES, buildProductionUnits } from '../lib/production.js';
+import { PRODUCTION_STAGES, PRODUCTION_WORK_CENTERS, buildProductionUnits } from '../lib/production.js';
 import { findScheduleConflict, scheduleDurationHours } from '../lib/schedule.js';
 
 const KEY = 'kamen-app-schedule-v1';
@@ -46,6 +46,7 @@ const syncProductionSchedule = (task, previousTask = null) => {
         plannedStart: task.start,
         plannedEnd: task.end,
         scheduledMachine: task.machine,
+        workCenter: PRODUCTION_WORK_CENTERS[task.stage]?.includes(task.machine) ? task.machine : stage.workCenter,
         scheduleTaskId: task.id
       }
     }
@@ -84,7 +85,7 @@ export default function ScheduleModule({ onBack }) {
   const [orders] = useState(()=>read(ORDERS_KEY,[]));
   const [production] = useState(()=>read(PRODUCTION_KEY,{}));
   const [workers,setWorkers] = useState(()=>read(PRODUCTION_KEY,{}).workers || []);
-  const [equipment,setEquipment] = useState(()=>read(EQUIPMENT_KEY,['Mostna pila','Kanterica','Polirka','Radni stol','CNC stroj']));
+  const [equipment,setEquipment] = useState(()=>read(EQUIPMENT_KEY,Object.values(PRODUCTION_WORK_CENTERS).flat()));
   const [weekStart,setWeekStart] = useState(()=>mondayOf(new Date()));
   const [view,setView] = useState('Tjedan');
   const [filter,setFilter] = useState('Svi');
@@ -121,7 +122,7 @@ export default function ScheduleModule({ onBack }) {
   const openForm = task => {
     setError('');
     setEditing(task?.id || null);
-    setForm(task ? { pieceKey:task.pieceKey||'',stage:task.stage||PRODUCTION_STAGES[0],worker:task.worker||'',machine:task.machine||'',start:task.start?.slice(0,16)||'',end:task.end?.slice(0,16)||'',priority:task.priority||'Normalan',status:task.status||'Planirano',note:task.note||'' } : {...emptyForm(),start:dateTime(today),end:dateTime(today,'10:00')});
+    setForm(task ? { pieceKey:task.pieceKey||'',stage:task.stage||PRODUCTION_STAGES[0],worker:task.worker||'',machine:task.machine||'',start:task.start?.slice(0,16)||'',end:task.end?.slice(0,16)||'',priority:task.priority||'Normalan',status:task.status||'Planirano',note:task.note||'' } : {...emptyForm(),machine:PRODUCTION_WORK_CENTERS[PRODUCTION_STAGES[0]]?.[0]||equipment[0]||'',start:dateTime(today),end:dateTime(today,'10:00')});
     setShowForm(true);
   };
   const saveTask = event => {
@@ -130,6 +131,8 @@ export default function ScheduleModule({ onBack }) {
     if (!unit) { setError('Odaberi komad iz postojećeg radnog naloga.'); return; }
     if (!form.worker.trim()) { setError('Odaberi odgovornog radnika.'); return; }
     if (!form.machine.trim()) { setError('Odaberi radno mjesto ili stroj.'); return; }
+    const validCenters = PRODUCTION_WORK_CENTERS[form.stage];
+    if (validCenters && !validCenters.includes(form.machine)) { setError('Odaberi radni centar koji odgovara odabranoj fazi obrade.'); return; }
     if (!form.start || !form.end || new Date(form.end)<=new Date(form.start)) { setError('Vrijeme završetka mora biti nakon početka.'); return; }
     const conflict=findScheduleConflict(tasks,{start:form.start,end:form.end,worker:form.worker.trim(),machine:form.machine.trim()},editing);
     if (conflict) { setError('Sukob rasporeda: '+(conflict.worker===form.worker.trim()?'radnik '+form.worker:'stroj '+form.machine)+' već je zauzet u terminu '+formatTime(conflict.start)+'–'+formatTime(conflict.end)+'.'); return; }
@@ -183,8 +186,8 @@ export default function ScheduleModule({ onBack }) {
     {showForm&&<div className="schedule-modal-backdrop" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget)setShowForm(false);}}><form className="schedule-modal" onSubmit={saveTask}>
       <header><div><span className="eyebrow">PLANIRANJE PROIZVODNJE</span><h2>{editing?'Uredi aktivnost':'Nova aktivnost'}</h2><p>Odaberi fizički komad iz radnog naloga i dodijeli resurse.</p></div><button type="button" className="icon-button" onClick={()=>setShowForm(false)} aria-label="Zatvori"><X size={18}/></button></header>
       <label className="schedule-field schedule-field-wide">Radni nalog / komad<select value={form.pieceKey} onChange={e=>{const unit=units.find(item=>item.key===e.target.value);setForm(current=>({...current,pieceKey:e.target.value,stage:PRODUCTION_STAGES.find(stage=>!['Završeno','Nije potrebno'].includes(production.pieces?.[e.target.value]?.stages?.[stage]?.status))||current.stage}));}} required><option value="">Odaberi komad…</option>{unitOptions.map(unit=><option key={unit.key} value={unit.key}>{unit.order.id} · {unit.order.project||unit.order.title} · {unit.label} #{unit.unitIndex} ({unit.material})</option>)}</select></label>
-      <div className="schedule-form-grid"><label className="schedule-field">Faza obrade<select value={form.stage} onChange={e=>setForm({...form,stage:e.target.value})}>{PRODUCTION_STAGES.map(stage=><option key={stage}>{stage}</option>)}</select></label><label className="schedule-field">Prioritet<select value={form.priority} onChange={e=>setForm({...form,priority:e.target.value})}><option>Nizak</option><option>Normalan</option><option>Visok</option><option>Hitno</option></select></label>
-      <label className="schedule-field">Radnik<select value={form.worker} onChange={e=>setForm({...form,worker:e.target.value})} required><option value="">Odaberi radnika…</option>{workers.map(name=><option key={name}>{name}</option>)}</select></label><label className="schedule-field">Stroj / radno mjesto<select value={form.machine} onChange={e=>setForm({...form,machine:e.target.value})} required><option value="">Odaberi…</option>{equipment.map(name=><option key={name}>{name}</option>)}</select></label>
+      <div className="schedule-form-grid"><label className="schedule-field">Faza obrade<select value={form.stage} onChange={e=>{const stage=e.target.value;setForm(current=>({...current,stage,machine:PRODUCTION_WORK_CENTERS[stage]?.[0]||equipment[0]||''}));}}>{PRODUCTION_STAGES.map(stage=><option key={stage}>{stage}</option>)}</select></label><label className="schedule-field">Prioritet<select value={form.priority} onChange={e=>setForm({...form,priority:e.target.value})}><option>Nizak</option><option>Normalan</option><option>Visok</option><option>Hitno</option></select></label>
+      <label className="schedule-field">Radnik<select value={form.worker} onChange={e=>setForm({...form,worker:e.target.value})} required><option value="">Odaberi radnika…</option>{workers.map(name=><option key={name}>{name}</option>)}</select></label><label className="schedule-field">Stroj / radno mjesto<select value={form.machine} onChange={e=>setForm({...form,machine:e.target.value})} required><option value="">Odaberi…</option>{(PRODUCTION_WORK_CENTERS[form.stage] || equipment).map(name=><option key={name}>{name}</option>)}</select></label>
       <label className="schedule-field">Početak<input type="datetime-local" value={form.start} onChange={e=>setForm({...form,start:e.target.value})} required/></label><label className="schedule-field">Završetak<input type="datetime-local" value={form.end} onChange={e=>setForm({...form,end:e.target.value})} required/></label>
       <label className="schedule-field">Status<select value={form.status} onChange={e=>setForm({...form,status:e.target.value})}>{statusOptions.map(status=><option key={status}>{status}</option>)}</select></label><label className="schedule-field schedule-field-wide">Napomena<textarea rows="3" value={form.note} onChange={e=>setForm({...form,note:e.target.value})} placeholder="Posebne upute, priprema, napomena za smjenu…"/></label></div>
       {error&&<div className="schedule-error"><AlertTriangle size={16}/>{error}</div>}
