@@ -30,6 +30,8 @@ export function applyDeliveryToFinishedProducts(delivery, products = [], movemen
       operationId,
       kind: 'Isporuka gotovog proizvoda',
       quantity,
+      previousQuantity: available,
+      nextQuantity: remaining,
       reason: 'Otpremnica ' + delivery.number,
       date: delivery.date,
       deliveryId: delivery.id
