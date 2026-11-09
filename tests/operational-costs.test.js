@@ -8,7 +8,7 @@ test('automatski obračunava proizvodne sate po cijeni sata i izuzima terensku f
       Pilanje: { sessions: [{ startedAt: '2026-11-09T08:00:00Z', endedAt: '2026-11-09T10:00:00Z' }] },
       Poliranje: { sessions: [{ startedAt: '2026-11-09T10:00:00Z', endedAt: '2026-11-09T11:30:00Z' }] },
       'Terenski rad / montaža': { sessions: [{ startedAt: '2026-11-09T11:30:00Z', endedAt: '2026-11-09T13:30:00Z' }] }
-    } } },
+    } } } },
     workRules: { hourlyCostRate: '20' }, now: new Date('2026-11-09T15:00:00Z')
   });
   assert.equal(result[0].hours, 3.5);
