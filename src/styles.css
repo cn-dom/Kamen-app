@@ -1888,3 +1888,49 @@ button:active{transform:translateY(1px)}
 .tools-alert{padding:12px 14px;border-radius:10px;background:#fff8ed;border:1px solid #f0dfc4;color:#946b34;font-size:10px;line-height:1.5;margin-bottom:14px}
 @media(max-width:850px){.tools-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.tools-grid{grid-template-columns:1fr}}
 @media(max-width:560px){.tools-toolbar{align-items:stretch;flex-direction:column}.tools-toolbar .search-wrap{max-width:none}.tools-form-grid{grid-template-columns:1fr}.tools-form-grid .wide{grid-column:auto}.tools-history-row{grid-template-columns:9px 1fr}.tools-history-row time{grid-column:2}}
+
+/* Cjelina 9 — dokumenti i obavijesti */
+.document-form-panel,.document-list-panel,.notifications-panel{padding:22px;margin-bottom:20px}
+.document-form-panel .panel-heading h2{display:flex;align-items:center;gap:9px}
+.document-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px;margin-top:18px}
+.document-form label{display:flex;flex-direction:column;gap:7px;color:#526075;font-size:11px;font-weight:700}
+.document-form input,.document-form select,.document-form textarea,.document-toolbar select{width:100%;min-width:0;border:1px solid #e1e7f0;border-radius:9px;padding:11px 12px;background:#fff;color:#253147;font-size:12px}
+.document-form input:focus,.document-form select:focus,.document-form textarea:focus{border-color:#8ba9f5;outline:3px solid #e8efff}
+.document-form .document-file-label{grid-column:span 2}
+.document-form .document-file-label input{padding:9px}
+.document-form .document-file-label small{font-weight:500;color:#8793a5}
+.document-form .document-notes{grid-column:1/-1}
+.document-form textarea{resize:vertical}
+.document-submit{grid-column:1/-1;display:flex;justify-content:flex-end}
+.document-toolbar{display:flex;gap:12px;margin:17px 0}
+.document-toolbar .search-wrap{flex:1}
+.document-toolbar select{max-width:210px}
+.document-list{display:flex;flex-direction:column}
+.document-row{display:flex;align-items:center;gap:14px;padding:16px 4px;border-top:1px solid #edf0f5}
+.document-type-icon{width:42px;height:42px;border-radius:12px;background:#edf3ff;color:#426bd1;display:grid;place-items:center;flex:none}
+.document-copy{min-width:0;flex:1;display:flex;flex-direction:column;gap:4px}
+.document-copy strong{font-size:13px;color:#26344b;overflow-wrap:anywhere}
+.document-copy span,.document-copy small{font-size:10px;color:#778499}
+.document-copy p{font-size:11px;color:#647187;margin:3px 0 0}
+.document-actions{display:flex;align-items:center;gap:6px}
+.document-actions .button{font-size:10px;padding:8px 10px}
+.document-local-note{display:flex;align-items:flex-start;gap:10px;padding:13px 15px;border:1px solid #f1e5c8;border-radius:11px;background:#fffaf0;color:#82642b;font-size:11px;line-height:1.6;margin:14px 0}
+.document-local-note svg{flex:none;margin-top:1px}
+.notifications-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px}
+.notifications-toolbar>span{font-size:10px;color:#8993a3}
+.notification-list{display:flex;flex-direction:column}
+.notification-item{display:flex;align-items:center;gap:14px;padding:16px 5px;border-top:1px solid #edf0f5}
+.notification-item.unread{background:linear-gradient(90deg,#f6f8ff,transparent);padding-left:12px;padding-right:12px}
+.notification-icon{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:#edf3ff;color:#416bd4;flex:none}
+.notification-icon.high{background:#fff0ef;color:#d24e55}
+.notification-icon.warning{background:#fff7e9;color:#bd821e}
+.notification-icon.info{background:#edf6ff;color:#467eb7}
+.notification-copy{min-width:0;flex:1}
+.notification-copy strong{font-size:12px;color:#27364d}
+.notification-copy p{font-size:11px;color:#758197;margin:5px 0}
+.notification-copy small{font-size:9px;color:#9aa4b2}
+.notification-item.unread .notification-copy strong:after{content:'NOVO';font-size:8px;letter-spacing:.6px;color:#426bd1;background:#e8efff;border-radius:5px;padding:3px 5px;margin-left:8px;vertical-align:middle}
+.notification-actions{display:flex;align-items:center;gap:5px}
+.notification-actions .button{font-size:10px;padding:8px 10px;white-space:nowrap}
+@media(max-width:850px){.document-form{grid-template-columns:repeat(2,minmax(0,1fr))}.document-form .document-file-label{grid-column:1/-1}}
+@media(max-width:600px){.document-form{grid-template-columns:1fr}.document-form .document-file-label,.document-form .document-notes{grid-column:1}.document-toolbar{flex-direction:column}.document-toolbar select{max-width:none}.document-row,.notification-item{align-items:flex-start}.document-actions,.notification-actions{flex-direction:column;align-items:stretch}.document-actions .button,.notification-actions .button{justify-content:center}.document-actions .icon-button{align-self:flex-end}.notifications-toolbar{align-items:flex-start;flex-direction:column}.notification-item{gap:9px}.document-form-panel,.document-list-panel,.notifications-panel{padding:15px}}
