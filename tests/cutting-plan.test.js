@@ -44,3 +44,31 @@ test('sažetak jasno izdvaja nepostavljene zahtjeve i planove po ploči', () => 
   assert.equal(summary.sheets[0].plan.num_cuts, 3);
   assert.equal(summary.unplaced.length, 1);
 });
+
+
+import { createSavedCuttingPlan, getSavedCuttingPlan } from '../src/lib/cuttingPlan.js';
+
+test('sprema automatski plan uz radni nalog i čita spremljenu verziju', () => {
+  const materials = [{
+    stockId: 'slab-1',
+    stockName: 'Impala',
+    stockForm: 'Ploča',
+    summary: { sheetCount: 1, placedCount: 2, sheets: [], unplaced: [] }
+  }];
+  const saved = createSavedCuttingPlan(materials, '2026-11-09T09:00:00.000Z');
+  assert.equal(saved.version, 1);
+  assert.equal(saved.createdAt, '2026-11-09T09:00:00.000Z');
+  assert.equal(getSavedCuttingPlan({ id: 'RN-2026-001', cuttingPlan: saved }), saved);
+  assert.equal(getSavedCuttingPlan({ id: 'RN-2026-002' }), null);
+  assert.equal(createSavedCuttingPlan([]), null);
+});
+
+test('spremljeni plan ne gubi podatke o redoslijedu rezanja', () => {
+  const steps = [{ kind: 'cut', axis: 'vertical', position: 1200 }];
+  const saved = createSavedCuttingPlan([{
+    stockId: 'slab-1',
+    stockName: 'Impala',
+    summary: { sheets: [{ plan: { steps } }] }
+  }]);
+  assert.deepEqual(getSavedCuttingPlan({ cuttingPlan: saved }).materials[0].summary.sheets[0].plan.steps, steps);
+});
