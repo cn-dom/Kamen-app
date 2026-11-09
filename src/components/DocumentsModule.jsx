@@ -18,7 +18,7 @@ export default function DocumentsModule({onBack}){
   if(file.size>MAX_SIZE){setError('Datoteka je veća od 5 MB. Odaberi manju datoteku.');return}
   try{const dataUrl=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error('Datoteku nije moguće pročitati.'));reader.readAsDataURL(file)});
    const item={id:'DOC-'+Date.now()+'-'+Math.random().toString(36).slice(2,7),title:form.title.trim(),type:form.type,date:form.date,author:form.author.trim()||'Nije navedeno',relatedType:form.relatedType,relatedId:form.relatedId.trim(),notes:form.notes.trim(),fileName:file.name,mimeType:file.type||'application/octet-stream',size:file.size,dataUrl,createdAt:new Date().toISOString()};
-   persist([item,...items]);setForm({...form,title:'',relatedId:'',notes:''});setFile(null);document.getElementById('document-file-input')?.value='';setNotice('Dokument je spremljen u ovom pregledniku.');
+   persist([item,...items]);setForm({...form,title:'',relatedId:'',notes:''});setFile(null);const input=document.getElementById('document-file-input');if(input)input.value='';setNotice('Dokument je spremljen u ovom pregledniku.');
   }catch(err){setError(err.message||'Spremanje nije uspjelo.')}
  }
  function download(item){const a=document.createElement('a');a.href=item.dataUrl;a.download=item.fileName||item.title;a.rel='noopener';document.body.appendChild(a);a.click();a.remove()}
