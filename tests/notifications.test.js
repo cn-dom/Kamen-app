@@ -17,3 +17,16 @@ test('prepoznaje skori rok, zastoj proizvodne faze i današnji teren',()=>{
  const rows=buildOperationalNotifications({today:'2026-11-09',orders:[{id:'RN2',title:'Vaza',status:'U tijeku',deadline:'2026-11-11'}],productionData:{pieces:{'RN2-1':{stages:{Pilanje:{status:'Zastoj'}}}}},fieldWork:[{id:'T1',project:'Montaža',status:'Planirano',date:'2026-11-09',location:'Groblje'}]});
  assert.deepEqual(rows.map(x=>x.type),['deadline','blocked','field']);
 });
+
+test('prikazuje naziv stroja i ispravno označava zakašnjeli servis',()=>{
+ const rows=buildOperationalNotifications({today:'2026-11-09',machines:[
+  {id:'S1',name:'Mostna pila',nextServiceDate:'2026-11-08',status:'U pogonu'},
+  {id:'S2',name:'Polirka',nextServiceDate:'2026-11-12',status:'U pogonu'},
+  {id:'S3',name:'Stari stroj',nextServiceDate:'2026-11-01',status:'Otpisan'}
+ ]});
+ assert.equal(rows.length,2);
+ assert.equal(rows[0].title,'Kasni održavanje: Mostna pila');
+ assert.equal(rows[0].severity,'high');
+ assert.equal(rows[1].title,'Uskoro održavanje: Polirka');
+ assert.equal(rows[1].severity,'warning');
+});
