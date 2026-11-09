@@ -81,7 +81,7 @@ export function analyzeWorkshopCapacity(orders = [], production = {}) {
       workers: workshopWorkers.length
     });
   }
-  stages.filter(item => item.waiting > 0 && item.stage !== 'Ručna obrada' && item.stage !== 'Terenski rad / montaža').forEach(item => alerts.push({
+  stages.filter(item => item.waiting > 0 && item.stage !== 'Ručna obrada').forEach(item => alerts.push({
     id: 'stage-waiting-' + item.stage,
     severity: 'warning',
     title: 'Posao čeka fazu: ' + item.stage,
