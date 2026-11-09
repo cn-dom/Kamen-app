@@ -1,10 +1,11 @@
 import { summarizeMaterialConsumption } from './materialConsumption.js';
 import { calculateStageElapsedMs } from './production.js';
+import { calculateQuote } from './quotes.js';
 
 const roundMoney = value => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
 const validAmount = value => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value));
 
-export function calculateOrderFinancials(order, costRecords = [], productionRecords = { pieces: {} }, now = Date.now(), invoices = [], payments = [], materialConsumptionRecords = []) {
+export function calculateOrderFinancials(order, costRecords = [], productionRecords = { pieces: {} }, now = Date.now(), invoices = [], payments = [], materialConsumptionRecords = [], quotes = []) {
   const orderId = order?.id;
   const related = (Array.isArray(costRecords) ? costRecords : []).filter(record => record.orderId === orderId);
   const plannedCost = roundMoney(related.filter(record => record.kind === 'Planirani trošak').reduce((sum, record) => sum + Number(record.amount || 0), 0));
@@ -47,6 +48,9 @@ export function calculateOrderFinancials(order, costRecords = [], productionReco
       Object.values(record.stages || {}).forEach(stage => { productionMs += calculateStageElapsedMs(stage, now); });
     }
   });
+  const orderQuotes = (Array.isArray(quotes) ? quotes : []).filter(quote => quote.status === 'Prihvaćena' && (quote.orderId === orderId || quote.id === order?.quoteId));
+  const acceptedQuote = orderQuotes.sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')))[0] || null;
+  const quoteTotals = acceptedQuote ? calculateQuote(acceptedQuote.items, acceptedQuote.discountPercent) : null;
   const orderInvoices = (Array.isArray(invoices) ? invoices : []).filter(invoice => invoice.orderId === orderId);
   const invoiceIds = new Set(orderInvoices.map(invoice => invoice.id));
   const quoteIds = new Set(orderInvoices.map(invoice => invoice.quoteId));
