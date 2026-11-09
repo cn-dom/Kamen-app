@@ -50,7 +50,7 @@ export function normalizeProductionRecords(raw, orders) {
     if (oldRecord?.stages) {
       const oldOther = oldRecord.stages['Ostala obrada'];
       const fieldWasSelected = oldOther?.workCenter === 'Terenski rad / montaža grobnica';
-      const manualStage = legacyOtherStage(fieldWasSelected ? null : oldOther);
+      const manualStage = fieldWasSelected ? { ...blankStageRecord(), status: 'Nije potrebno' } : legacyOtherStage(oldOther);
       const fieldStage = fieldWasSelected
         ? legacyOtherStage(oldOther, true)
         : { ...blankStageRecord(), status: 'Nije potrebno' };
