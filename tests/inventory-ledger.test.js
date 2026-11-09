@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { appendInventoryMovements, applyFinishedProductStockAction, commitInventoryTransaction } from '../src/lib/inventoryLedger.js';
+import { appendInventoryMovements, applyFinishedProductStockAction, applyMaterialStockAction, commitInventoryTransaction } from '../src/lib/inventoryLedger.js';
 
 function memoryStorage(seed = {}) {
   const values = new Map(Object.entries(seed).map(([key, value]) => [key, JSON.stringify(value)]));
@@ -90,4 +90,20 @@ test('ne prepisuje oštećen postojeći dnevnik kretanja', () => {
     movements: [{ id: 'corrupt-1', kind: 'Izdavanje' }]
   }), /nije valjan JSON/i);
   assert.equal(storage.getItem('a'), null);
+});
+
+test('otpis materijala traži razlog, potvrđuje količinu i ne dopušta negativnu zalihu', () => {
+  const material = { id: 'm1', name: 'Impala', quantity: 2, unit: 'ploča', form: 'Ploča' };
+  assert.match(applyMaterialStockAction(material, { operationId: 'writeoff-1', kind: 'Otpis', quantity: 0.5 }).error, /razlog/i);
+  const result = applyMaterialStockAction(material, { operationId: 'writeoff-2', kind: 'Otpis', quantity: 0.5, reason: 'Lom ploče' });
+  assert.equal(result.material.quantity, 1.5);
+  assert.equal(result.movement.previousQuantity, 2);
+  assert.equal(result.movement.nextQuantity, 1.5);
+  assert.equal(result.movement.reason, 'Lom ploče');
+  assert.match(applyMaterialStockAction(material, { operationId: 'writeoff-3', kind: 'Otpis', quantity: 3, reason: 'Prevelik otpis' }).error, /dovoljno/i);
+});
+
+test('ostatak se ne može izdati ili otpisati kao decimalni fizički komad', () => {
+  const remnant = { id: 'r1', name: 'Ostatak', quantity: 2, unit: 'kom', form: 'Ostatak' };
+  assert.match(applyMaterialStockAction(remnant, { operationId: 'writeoff-4', kind: 'Otpis', quantity: 0.5, reason: 'Lom' }).error, /cijeli broj/i);
 });
