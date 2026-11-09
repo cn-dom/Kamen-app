@@ -142,3 +142,8 @@ Modul **Alati i oprema** vodi lokalni registar ručnog i električnog alata, mje
 ## Radnici i raspored — Cjelina 7
 
 Modul **Raspored** povezan je s popisom radnika, njihovim evidentiranim vještinama, dnevnom prisutnošću i rasporedom radionica/teren. Prije spremanja termina provjerava se odgovara li evidentirana vještina odabranoj fazi, je li radnik označen odsutnim ili izvan smjene te je li već raspoređen na teren. Postojeća provjera preklapanja radnika i stroja ostaje aktivna. Aktivnosti su ograničene na jedan radni dan; višednevni posao planira se kroz zasebne dnevne termine. Raspored je dostupan kroz glavnu navigaciju. Podaci su lokalni u pregledniku i ne predstavljaju evidenciju radnog vremena ili obračun plaće.
+
+
+## Terenski rad i montaža — Cjelina 8
+
+Terenski nalog povezuje kupca, projekt, radni nalog, lokaciju/groblje, datum i termin, vozilo, planirani materijal/opremu te članove ekipe. Prije spremanja provjeravaju se obvezni podaci, valjan vremenski raspon, dnevna prisutnost i raspored članova ekipe te preklapanje s drugim terenskim nalozima. Statusi se vode slijedno: Planirano → Na putu → Na lokaciji → Montaža u tijeku → Završeno → Vraćeno. Svaki prijelaz ostavlja lokalni kronološki događaj. Podaci ostaju u pregledniku; evidencija nije GPS praćenje ni službena evidencija radnog vremena. Izdavanje/ugradnja materijala i alata ostaju povezani kroz zasebne module, bez automatskog skidanja zalihe samim zatvaranjem terenskog naloga.

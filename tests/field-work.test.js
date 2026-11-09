@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { findFieldCrewConflicts, fieldJobInterval, normalizeFieldCrew, summarizeFieldWork } from '../src/lib/field-work.js';
+import { findFieldCrewConflicts, fieldJobInterval, normalizeFieldCrew, summarizeFieldWork, validateFieldJob, appendFieldEvent } from '../src/lib/field-work.js';
 
 test('normalizes modern crew arrays and legacy comma-separated team values', () => {
   assert.deepEqual(normalizeFieldCrew({ crew: [' Ana ', 'Ivan', 'Ana', ''] }), ['Ana', 'Ivan']);
@@ -34,4 +34,22 @@ test('summarizes active, today, unassigned and overdue field jobs', () => {
     { id: '3', date: '2026-11-08', status: 'Završeno', crew: ['Ivan'] }
   ];
   assert.deepEqual(summarizeFieldWork(jobs, '2026-11-08'), { total: 3, active: 2, today: 1, unassigned: 1, overdue: 1 });
+});
+
+test('validira obvezne podatke, vremenski raspon i članove ekipe', () => {
+  assert.match(validateFieldJob({project:'P',location:'Groblje',date:'2026-11-10',crew:['Ivan']}), /kupca/);
+  assert.match(validateFieldJob({customer:'K',project:'P',location:'Groblje',date:'2026-11-10',startTime:'12:00',endTime:'08:00',crew:['Ivan']}), /nakon početka/);
+  assert.match(validateFieldJob({customer:'K',project:'P',location:'Groblje',date:'2026-11-10',crew:[]}), /barem jednog člana/);
+});
+test('odbija terenski termin odsutnom članu ekipe', () => {
+  assert.match(validateFieldJob({customer:'K',project:'P',location:'Groblje',date:'2026-11-10',crew:['Ivan']}, [], {attendance:{date:'2026-11-10',statuses:{Ivan:'Odsutan'}}}), /nije dostupan/);
+});
+test('odbija terenski termin radniku već dodijeljenom radionici', () => {
+  assert.match(validateFieldJob({customer:'K',project:'P',location:'Groblje',date:'2026-11-10',crew:['Ivan']}, [], {deployment:{date:'2026-11-10',assignments:{Ivan:{area:'Radionica'}}}}), /već raspoređen/);
+});
+test('čuva kronološku povijest događaja', () => {
+  const job={events:[{id:'old',type:'Nalog kreiran',at:'2026-11-09T08:00:00Z'}]};
+  const next=appendFieldEvent(job,'Na putu','2026-11-09T09:00:00Z');
+  assert.equal(next.events.length,2);
+  assert.equal(next.events[1].type,'Na putu');
 });

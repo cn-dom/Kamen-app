@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Truck, Plus, Search, MapPin, CalendarDays, Clock3, Users, CheckCircle2, X, Play, Flag, ArrowLeft, ClipboardList, AlertTriangle } from 'lucide-react';
-import { findFieldCrewConflicts, normalizeFieldCrew, summarizeFieldWork } from '../lib/field-work.js';
+import { findFieldCrewConflicts, normalizeFieldCrew, summarizeFieldWork, validateFieldJob, appendFieldEvent } from '../lib/field-work.js';
 
 const KEY = 'kamen-app-field-work-v1';
 const ORDER_KEY = 'kamen-app-work-orders-v1';
@@ -14,6 +14,7 @@ export default function FieldWorkModule({ onBack }) {
   const [jobs,setJobs] = useState(()=>read(KEY,seed));
   const [orders,setOrders] = useState(()=>read(ORDER_KEY,[]));
   const [workers,setWorkers] = useState(()=>read(PRODUCTION_KEY,{}).workers || []);
+  const [workerRecords,setWorkerRecords] = useState(()=>read(PRODUCTION_KEY,{}));
   const [query,setQuery] = useState('');
   const [filter,setFilter] = useState('Svi');
   const [showForm,setShowForm] = useState(false);
@@ -25,20 +26,19 @@ export default function FieldWorkModule({ onBack }) {
   const summary = useMemo(()=>summarizeFieldWork(jobs),[jobs]);
   const setField=(id,key,value)=>setJobs(prev=>prev.map(j=>j.id===id?{...j,[key]:value}:j));
   const timestamp=()=>new Date().toLocaleString('hr-HR',{hour:'2-digit',minute:'2-digit'});
-  const advance=(job)=>{ const next=steps[Math.min(steps.indexOf(job.status)+1,steps.length-1)]; const key=({ 'Na putu':'departure','Na lokaciji':'arrival','Montaža u tijeku':'workStart','Završeno':'workEnd','Vraćeno':'returnTime'})[next]; setJobs(prev=>prev.map(j=>j.id===job.id?{...j,status:next,...(key?{[key]:timestamp()}:{})}:j)); };
-  const openForm=()=>{setOrders(read(ORDER_KEY,[]));setWorkers(read(PRODUCTION_KEY,{}).workers||[]);setForm({...blank,date:new Date().toLocaleDateString('en-CA')});setError('');setShowForm(true);};
+  const advance=(job)=>{ const index=steps.indexOf(job.status); if(index<0||index>=steps.length-1)return; const next=steps[index+1]; const key=({'Na putu':'departure','Na lokaciji':'arrival','Montaža u tijeku':'workStart','Završeno':'workEnd','Vraćeno':'returnTime'})[next]; const at=new Date().toISOString(); setJobs(prev=>prev.map(j=>j.id===job.id?appendFieldEvent({...j,status:next,...(key?{[key]:timestamp()}:{})},next,at):j)); };
+  const openForm=()=>{setOrders(read(ORDER_KEY,[]));const records=read(PRODUCTION_KEY,{});setWorkerRecords(records);setWorkers(records.workers||[]);setForm({...blank,date:new Date().toLocaleDateString('en-CA')});setError('');setShowForm(true);};
   const toggleCrew=name=>setForm(p=>({...p,crew:p.crew.includes(name)?p.crew.filter(item=>item!==name):[...p.crew,name]}));
   const create=e=>{
     e.preventDefault();
-    if(!form.customer.trim()||!form.project.trim()||!form.location.trim()||!form.date){setError('Unesi kupca, projekt, lokaciju i datum terenskog rada.');return;}
+    const records=read(PRODUCTION_KEY,{});setWorkerRecords(records);
     const crew=form.crew.length?form.crew:form.team.split(/[,;]+/).map(v=>v.trim()).filter(Boolean);
-    if(!crew.length){setError('Odaberi barem jednog člana ekipe ili upiši imena članova.');return;}
     const candidate={...form,crew,team:crew.join(', ')};
-    const conflicts=findFieldCrewConflicts(jobs,candidate);
-    if(conflicts.length){setError('Sukob rasporeda: '+conflicts.map(c=>c.project+' ('+c.startTime+'–'+c.endTime+', '+c.workers.join(', ')+')').join('; ')+'. Promijeni termin ili ekipu.');return;}
+    const validation=validateFieldJob(candidate,jobs,records);
+    if(validation){setError(validation);return;}
     const nextNumber=Math.max(0,...jobs.map(j=>Number(String(j.id).split('-').at(-1))||0))+1;
     const id='TR-'+new Date().getFullYear()+'-'+String(nextNumber).padStart(3,'0');
-    setJobs(prev=>[{...candidate,id,status:'Planirano',departure:'',arrival:'',workStart:'',workEnd:'',returnTime:''},...prev]);
+    setJobs(prev=>[appendFieldEvent({...candidate,id,status:'Planirano',departure:'',arrival:'',workStart:'',workEnd:'',returnTime:'',events:[]},'Nalog kreiran'),...prev]);
     setExpanded(id);setForm(blank);setShowForm(false);setError('');
   };
   const linkOrder=id=>{const o=orders.find(x=>x.id===id);setForm(p=>({...p,orderId:o?.id||'',customer:o?.customer||p.customer,project:o?.project||p.project}));};
@@ -55,7 +55,8 @@ export default function FieldWorkModule({ onBack }) {
     {expanded===j.id&&<div className="workorder-details"><div className="field-detail-grid"><div><small>POVEZANI RADNI NALOG</small><strong>{j.orderId||'Nije povezan'}</strong></div><div><small>EKIPA</small><strong>{normalizeFieldCrew(j).join(', ')||'Nije dodijeljena'}</strong></div><div><small>VOZILO</small><strong>{j.vehicle||'Nije određeno'}</strong></div><div><small>MATERIJAL / OPREMA</small><strong>{j.materials||'Nije uneseno'}</strong></div></div>
     <div className="field-timeline">{[['Polazak',j.departure],['Dolazak',j.arrival],['Početak montaže',j.workStart],['Završetak montaže',j.workEnd],['Povratak',j.returnTime]].map(([label,value])=><div key={label}><span>{label}</span><strong>{value||'—'}</strong></div>)}</div>
     {j.note&&<p className="workorder-note"><strong>Napomena:</strong> {j.note}</p>}
-    <div className="field-actions"><label>Status<select value={j.status} onChange={e=>setField(j.id,'status',e.target.value)}>{steps.map(s=><option key={s}>{s}</option>)}</select></label><button className="button button-primary" disabled={j.status==='Vraćeno'} onClick={()=>advance(j)}>{j.status==='Planirano'?<Play size={15}/>:<Flag size={15}/>} {j.status==='Planirano'?'Evidentiraj polazak':j.status==='Na putu'?'Evidentiraj dolazak':j.status==='Na lokaciji'?'Početak montaže':j.status==='Montaža u tijeku'?'Završi montažu':'Evidentiraj povratak'}</button></div>
+    <details className="field-event-history"><summary>Povijest terenskog naloga ({(j.events||[]).length})</summary><ol>{(j.events||[]).map((event,index)=><li key={event.id||index}><strong>{event.type}</strong><small>{new Date(event.at).toLocaleString('hr-HR')}</small></li>)}</ol></details>
+    <div className="field-actions"><strong>Sljedeći korak: {steps[Math.min(steps.indexOf(j.status)+1,steps.length-1)]}</strong><button className="button button-primary" disabled={j.status==='Vraćeno'} onClick={()=>advance(j)}>{j.status==='Planirano'?<Play size={15}/>:<Flag size={15}/>} {j.status==='Planirano'?'Evidentiraj polazak':j.status==='Na putu'?'Evidentiraj dolazak':j.status==='Na lokaciji'?'Početak montaže':j.status==='Montaža u tijeku'?'Završi montažu':'Evidentiraj povratak'}</button></div>
     </div>}</article>)}{!filtered.length&&<div className="workorders-empty"><Truck size={28}/><strong>Nema terenskih naloga</strong><span>Promijeni filter ili izradi novi terenski nalog.</span></div>}</div>
     <p className="workorders-footnote">Vremena se bilježe lokalno u pregledniku. Evidencija terenskog naloga ne skida automatski gotove proizvode sa zalihe; ugrađene količine evidentiraj zasebno u Skladište → Gotovi proizvodi.</p></section>
     {showForm&&<div className="workorders-modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setShowForm(false)}}><section className="workorders-modal" role="dialog" aria-modal="true"><div className="workorders-modal-head"><div><span className="eyebrow">TERENSKI NALOG</span><h2>Novi terenski rad</h2><p>Odredi datum, termin i članove ekipe. Sustav provjerava preklapanja.</p></div><button className="icon-button" onClick={()=>setShowForm(false)} aria-label="Zatvori"><X size={20}/></button></div><form onSubmit={create}><div className="workorders-form-grid">
