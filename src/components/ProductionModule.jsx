@@ -510,6 +510,7 @@ export default function ProductionModule({ onBack, onCreateProject }) {
                   <strong>{row.order.id} · {row.label} #{row.unitIndex}</strong>
                   <span>{row.material} · {row.piece.length} × {row.piece.width} × {row.piece.thickness} cm</span>
                   <small className={'production-station-status status-' + stage.status.toLowerCase().replaceAll(' ','-')}>{stage.status} · {stage.assignedTo || 'Radnik nije dodijeljen'}</small>
+                  {stage.plannedStart && <small className="production-station-status">Termin: {formatDate(stage.plannedStart)}{stage.plannedEnd ? ' – ' + new Date(stage.plannedEnd).toLocaleTimeString('hr-HR',{hour:'2-digit',minute:'2-digit'}) : ''}{stage.scheduledMachine ? ' · ' + stage.scheduledMachine : ''}</small>}
                   <div className="production-station-actions">
                     <button type="button" className="button button-secondary" onClick={() => { setExpandedOrders(current => ({...current,[row.order.id]:true})); setExpandedUnits(current => ({...current,[row.key]:true})); }}>Otvori fazu</button>
                     {stage.status === 'U tijeku' && <button type="button" className="button button-success" onClick={() => finishStage(row.key,stageName)}><Check size={14}/> Gotovo</button>}
