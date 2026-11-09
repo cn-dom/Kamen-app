@@ -61,7 +61,8 @@ export default function SettingsModule({ onBack }) {
     ['Naziv tvrtke / obrta', 'name'], ['Adresa', 'address'], ['Mjesto i poštanski broj', 'city'],
     ['OIB', 'oib'], ['Telefon', 'phone'], ['E-mail', 'email'], ['IBAN', 'iban'], ['Web-stranica', 'website']
   ];
-  const profileValid = !profile.oib || /^\d{11}$/.test(profile.oib.replace(/\s/g, ''));
+  const profileIssue = validateCompanyProfile(profile);
+  const profileValid = !profileIssue;
   const rules = settings.workRules;
   const workMinutes = calculateNetShiftMinutes(rules) + Number(rules.breakMinutes || 0);
   return <div className="page-content module-page company-settings-page">
@@ -72,7 +73,7 @@ export default function SettingsModule({ onBack }) {
       <div className="panel-heading"><div><h2>Podaci tvrtke</h2><p>Ovi podaci koriste se na ponudama i u poslovnim dokumentima.</p></div><Building2 size={20}/></div>
       <div className="settings-logo-row"><div className="settings-logo-preview">{profile.logoDataUrl ? <img src={profile.logoDataUrl} alt="Logotip tvrtke"/> : <Building2 size={25}/>}</div><div><strong>Logotip tvrtke</strong><p>PNG, JPG ili WEBP · najviše 1 MB. Čuva se lokalno u ovom pregledniku.</p><div className="settings-inline-actions"><button type="button" className="button button-secondary" onClick={() => logoRef.current?.click()}><Upload size={14}/> Odaberi logotip</button>{profile.logoDataUrl && <button type="button" className="button button-secondary" onClick={() => updateProfile('logoDataUrl', '')}><X size={14}/> Ukloni</button>}</div><input ref={logoRef} type="file" accept="image/*" hidden onChange={uploadLogo}/></div></div>
       <div className="settings-form-grid">{profileFields.map(([label, key]) => field(label, key, profile[key], updateProfile, key === 'email' ? { type: 'email' } : key === 'oib' ? { inputMode: 'numeric', maxLength: 11, placeholder: '11 znamenki' } : {}))}</div>
-      {!profileValid && <p className="settings-error">OIB mora sadržavati točno 11 znamenki.</p>}
+      {profileIssue && <p className="settings-error">{profileIssue}</p>}
       <div className="settings-actions"><button className="button button-primary" disabled={!profileValid} onClick={() => save(profile, settings, 'Promjena profila tvrtke')}><CheckCircle2 size={15}/> Spremi podatke tvrtke</button></div>
     </section>}
     {tab === 'warehouse' && <section className="settings-config-grid">
