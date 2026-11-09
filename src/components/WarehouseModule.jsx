@@ -448,12 +448,14 @@ function buildCuttingPlan(boardLength, boardWidth, pieces, kerf, trim, allowRota
       material: item.name,
       kind: item.form === 'Otpad' ? 'Nastali otpad' : item.form === 'Ostatak' ? 'Nastali ostatak' : 'Gotov komad',
       quantity: item.quantity,
+      previousQuantity: 0,
+      nextQuantity: item.quantity,
       location: item.location,
       orderId: linkedOrder?.id || '',
       date
     }));
     const transactionMovements = [
-      { id: operationId + ':0', operationId, material: source.name, kind: 'Potrošnja za pilanje', quantity: usedQty, location: source.location, orderId: linkedOrder?.id || '', date },
+      { id: operationId + ':0', operationId, material: source.name, kind: 'Potrošnja za pilanje', quantity: usedQty, previousQuantity: Number(source.quantity || 0), nextQuantity: Math.max(0, Number((Number(source.quantity || 0) + settlement.stockDelta).toFixed(2))), location: source.location, orderId: linkedOrder?.id || '', date },
       ...(reservedForOrder > 0 && reservedForOrder > usedQty ? [{ id: operationId + ':return', operationId, material: source.name, kind: 'Povrat neiskorištene rezervacije', quantity: Number((reservedForOrder - usedQty).toFixed(2)), location: source.location, orderId: linkedOrder?.id || '', date }] : []),
       ...outputMovements
     ];
@@ -468,6 +470,7 @@ function buildCuttingPlan(boardLength, boardWidth, pieces, kerf, trim, allowRota
       if (committed.duplicate) { flash('Ovaj postupak pilanja već je evidentiran. Zaliha nije ponovno promijenjena.'); return; }
       setMaterials(nextMaterials);
       setMovements(committed.movements);
+      window.dispatchEvent(new CustomEvent('kamen:finished-products-updated', { detail: nextFinished }));
     } catch (error) {
       flash(error?.message || 'Nije moguće sigurno spremiti pilanje. Zaliha nije promijenjena.');
       return;
@@ -548,6 +551,8 @@ function buildCuttingPlan(boardLength, boardWidth, pieces, kerf, trim, allowRota
         material: row.name,
         kind: row.difference > 0 ? 'Inventurna korekcija (+)' : 'Inventurna korekcija (−)',
         quantity: row.difference,
+        previousQuantity: Number(row.expectedQuantity || 0),
+        nextQuantity: Number(row.countedQuantity),
         location: row.location,
         reason: row.reason,
         date: new Date().toLocaleDateString('hr-HR'),
@@ -559,6 +564,8 @@ function buildCuttingPlan(boardLength, boardWidth, pieces, kerf, trim, allowRota
         material: row.name,
         kind: row.difference > 0 ? 'Inventurna korekcija (+)' : 'Inventurna korekcija (−)',
         quantity: row.difference,
+        previousQuantity: Number(row.expectedQuantity || 0),
+        nextQuantity: Number(row.countedQuantity),
         location: row.location,
         reason: row.reason,
         date: new Date().toLocaleDateString('hr-HR'),
