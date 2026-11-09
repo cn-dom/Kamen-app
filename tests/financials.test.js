@@ -1,7 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { calculateOrderFinancials, summarizeFinancials } from '../src/lib/financials.js';
-import { createMaterialConsumptionRecord } from '../src/lib/materialConsumption.js';
+import { createMaterialConsumptionRecord, createMaterialOutputId } from '../src/lib/materialConsumption.js';
+
+test('oznake izlaznih materijala jedinstvene su po operaciji i rednom broju', () => {
+  assert.equal(createMaterialOutputId('CUT-123456-abc123', 0), 'MAT-CUT-123456-abc123-1');
+  assert.equal(createMaterialOutputId('CUT-123456-abc123', 1), 'MAT-CUT-123456-abc123-2');
+  assert.notEqual(
+    createMaterialOutputId('CUT-123456-abc123', 0),
+    createMaterialOutputId('CUT-223456-abc123', 0)
+  );
+  assert.throws(() => createMaterialOutputId('', 0), /valjana oznaka operacije/);
+});
 
 test('izračunava plan, stvarne troškove i procjenu materijala odvojeno', () => {
   const result = calculateOrderFinancials(
