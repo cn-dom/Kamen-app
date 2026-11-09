@@ -238,13 +238,51 @@ function buildCuttingPlan(boardLength, boardWidth, pieces, kerf, trim, allowRota
     const normalized = { ...form, salePricePerM2, vatRate, thickness: Number(form.thickness) || 0, length: Number(form.length) || 0, width: Number(form.width) || 0, quantity, pricePerM2, min: Number(form.min) || 0 };
     if (editingId) {
       const previous = materials.find(item => item.id === editingId);
-      setMaterials(current => current.map(item => item.id === editingId ? { ...normalized, id: editingId } : item));
-      if (previous && previous.quantity !== quantity) setMovements(current => appendInventoryMovements(current, [{ id: String(timestamp), material: normalized.name, kind: 'Korekcija zalihe', quantity: quantity - previous.quantity, location: normalized.location, date: new Date().toLocaleDateString('hr-HR') }]));
+      const next = { ...normalized, id: editingId };
+      const nextMaterials = materials.map(item => item.id === editingId ? next : item);
+      if (previous && Number(previous.quantity || 0) !== quantity) {
+        const reason = window.prompt('Obrazloži promjenu količine zalihe za ' + previous.name + ':');
+        if (!String(reason || '').trim()) { flash('Korekcija količine nije spremljena bez obveznog razloga.'); return; }
+        const operationId = 'MAT-EDIT-' + editingId + '-' + timestamp;
+        const entry = {
+          id: operationId, operationId, material: normalized.name,
+          kind: 'Korekcija zalihe',
+          quantity: Number((quantity - Number(previous.quantity || 0)).toFixed(4)),
+          reason: String(reason).trim(), location: normalized.location,
+          date: new Date().toLocaleDateString('hr-HR')
+        };
+        try {
+          const committed = commitInventoryTransaction(window.localStorage, {
+            operationId,
+            writes: [{ key: MATERIALS_KEY, value: nextMaterials }],
+            movements: [entry]
+          });
+          if (committed.duplicate) { flash('Ova korekcija već je evidentirana.'); return; }
+          setMovements(committed.movements);
+        } catch (error) { flash(error?.message || 'Korekcija nije spremljena. Zaliha nije promijenjena.'); return; }
+      } else {
+        try { window.localStorage.setItem(MATERIALS_KEY, JSON.stringify(nextMaterials)); }
+        catch { flash('Nije moguće spremiti promjene materijala.'); return; }
+      }
+      setMaterials(nextMaterials);
       flash('Promjene stavke su spremljene.');
     } else {
       const next = { ...normalized, id: 'MAT-' + String(timestamp).slice(-6) };
-      setMaterials(current => [next, ...current]);
-      setMovements(current => appendInventoryMovements(current, [{ id: String(timestamp), material: next.name, kind: 'Zaprimanje', quantity, location: next.location, date: new Date().toLocaleDateString('hr-HR') }]));
+      const nextMaterials = [next, ...materials];
+      const operationId = 'MAT-RECEIPT-' + next.id;
+      try {
+        const committed = commitInventoryTransaction(window.localStorage, {
+          operationId,
+          writes: [{ key: MATERIALS_KEY, value: nextMaterials }],
+          movements: [{
+            id: operationId, operationId, material: next.name, kind: 'Zaprimanje',
+            quantity, location: next.location, date: new Date().toLocaleDateString('hr-HR')
+          }]
+        });
+        if (committed.duplicate) { flash('Ovaj primitak već je evidentiran.'); return; }
+        setMaterials(nextMaterials);
+        setMovements(committed.movements);
+      } catch (error) { flash(error?.message || 'Materijal nije spremljen. Zaliha nije promijenjena.'); return; }
       flash('Materijal je dodan u skladišnu evidenciju.');
     }
     setShowForm(false); setEditingId(null); setForm(emptyForm);
