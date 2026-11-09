@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import FinishedProductsModule from './FinishedProductsModule.jsx';
 import StocktakeModule from './StocktakeModule.jsx';
-import { createMaterialConsumptionRecord } from '../lib/materialConsumption.js';
+import { createMaterialConsumptionRecord, createMaterialOutputId } from '../lib/materialConsumption.js';
 import { calculateStockCarryingValue } from '../lib/materialStock.js';
 import { getReservedQuantity, settleReservationForCut } from '../lib/workOrderStock.js';
 import { appendInventoryMovements, applyMaterialStockAction, commitInventoryTransaction } from '../lib/inventoryLedger.js';
@@ -368,7 +368,7 @@ function buildCuttingPlan(boardLength, boardWidth, pieces, kerf, trim, allowRota
       const formType = kind === 'Ostatak' ? 'Ostatak' : kind === 'Otpad' ? 'Otpad' : 'Komad';
       const materialType = kind === 'Otpad' ? 'Otpad' : source.type;
       return {
-        id: 'MAT-' + String(timestamp + index).slice(-6),
+        id: createMaterialOutputId(operationId, index),
         parentMaterialId: source.id,
         sourceMaterialId: source.id,
         originMaterialId: source.originMaterialId || source.sourceMaterialId || source.id,
