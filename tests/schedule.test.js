@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { findScheduleConflict, scheduleIntervalsOverlap, scheduleDurationHours } from '../src/lib/schedule.js';
+import { findScheduleConflict, scheduleIntervalsOverlap, scheduleDurationHours, validateWorkerSchedule } from '../src/lib/schedule.js';
 
 const base = [
   { id:'a', start:'2026-11-09T08:00:00.000Z', end:'2026-11-09T10:00:00.000Z', worker:'Ivan', machine:'Mostna pila', status:'Planirano' },
@@ -26,4 +26,21 @@ test('zanemaruje otkazane termine i vlastiti zapis pri uređivanju',()=>{
 test('računa planirano trajanje u satima i štiti od negativnog trajanja',()=>{
   assert.equal(scheduleDurationHours('2026-11-09T08:00:00Z','2026-11-09T10:30:00Z'),2.5);
   assert.equal(scheduleDurationHours('2026-11-09T10:00:00Z','2026-11-09T09:00:00Z'),0);
+});
+
+test('odbija dodjelu radniku bez vještine za odabranu fazu',()=>{
+ assert.match(validateWorkerSchedule({worker:'Ivan',stage:'Pilanje',start:'2026-11-10T08:00',end:'2026-11-10T10:00',workerSkills:{Ivan:['Poliranje']}}),/nema evidentiranu vještinu/);
+});
+test('dopušta radniku fazu za koju ima evidentiranu vještinu',()=>{
+ assert.equal(validateWorkerSchedule({worker:'Ivan',stage:'Pilanje',start:'2026-11-10T08:00',end:'2026-11-10T10:00',workerSkills:{Ivan:['Pilanje']}}),'');
+});
+test('odbija odsutnog radnika i radnika izvan smjene',()=>{
+ assert.match(validateWorkerSchedule({worker:'Ivan',stage:'Pilanje',start:'2026-11-10T08:00',end:'2026-11-10T10:00',attendance:{date:'2026-11-10',statuses:{Ivan:'Odsutan'}}}),/odsutan/);
+ assert.match(validateWorkerSchedule({worker:'Ivan',stage:'Pilanje',start:'2026-11-10T08:00',end:'2026-11-10T10:00',attendance:{date:'2026-11-10',statuses:{Ivan:'Izvan smjene'}}}),/izvan smjene/);
+});
+test('upozorava kada je radnik raspoređen na teren, a planira se radionica',()=>{
+ assert.match(validateWorkerSchedule({worker:'Ivan',stage:'Poliranje',start:'2026-11-10T08:00',end:'2026-11-10T10:00',deployment:{date:'2026-11-10',assignments:{Ivan:{area:'Teren'}}}}),/već raspoređen na teren/);
+});
+test('traži odvojene termine za različite radne dane',()=>{
+ assert.match(validateWorkerSchedule({worker:'Ivan',stage:'Pilanje',start:'2026-11-10T08:00',end:'2026-11-11T10:00'}),/istog radnog dana/);
 });

@@ -123,3 +123,17 @@ Proizvodni tijek ima zasebne faze **Ručna obrada** i **Terenski rad / montaža*
 - Bez Supabasea i bez backenda; svi podaci su lokalni u pregledniku.
 
 **Ograničenja:** nema skeniranja QR/barcode oznaka, GPS praćenja, automatskih push obavijesti, poslužiteljske potvrde zaduženja ni sinkronizacije između uređaja. Oprema u ovom registru nije isto što i strojevi u modulu Održavanje strojeva.
+
+
+## 9. Cjelina 7 — radnici i raspored
+
+**Dovršetak raspoređivanja radnika u lokalnom načinu rada:**
+- Raspored je povezan kao stvarni modul glavne navigacije, a ne generički placeholder.
+- Prije dodjele provjerava se evidentirana vještina radnika za odabranu proizvodnu fazu. Ako radnik nema nijednu evidentiranu vještinu, zadržana je kompatibilnost sa starim zapisima i dodjela je dopuštena uz postojeće upozorenje u modulu radnika.
+- Dnevna prisutnost „Odsutan” i „Izvan smjene” blokira dodjelu za taj datum.
+- Radnik označen kao raspoređen na terenu ne može se dodijeliti radionici istog dana.
+- Postojeća provjera preklapanja termina radnika i stroja ostaje aktivna.
+- Višednevni termin mora se podijeliti na dnevne aktivnosti radi ispravnog prikaza i provjere kapaciteta.
+- Promjene u popisu radnika osvježavaju se pri povratku fokusa u raspored.
+
+**Ograničenja:** podaci su lokalni; nema sinkronizacije, stvarne prijave, obračuna radnog vremena/plaće ni automatskog prepoznavanja prisutnosti. Prisutnost i vještine unose se ručno u Proizvodnji.
