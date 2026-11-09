@@ -20,7 +20,6 @@ export function appendInventoryMovements(existing = [], entries = []) {
     const operationId = entry.operationId ? String(entry.operationId) : '';
     if (seenIds.has(id) || (operationId && seenOperations.has(operationId))) continue;
     seenIds.add(id);
-    if (operationId) seenOperations.add(operationId);
     additions.push({ ...entry, id, operationId: operationId || undefined });
   }
   return [...additions, ...current];
