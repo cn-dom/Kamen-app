@@ -500,23 +500,74 @@ function buildCuttingPlan(boardLength, boardWidth, pieces, kerf, trim, allowRota
     flash(movement.kind === 'Prodaja' ? 'Prodaja evidentirana. Zaliha je umanjena prema prodanoj površini.' : movement.kind + ' je evidentirano.');
   }
 
-  function applyStocktake(differences) {
-    const timestamp = Date.now();
-    const date = new Date().toLocaleDateString('hr-HR');
-    const byId = new Map(differences.map(row => [row.materialId, row]));
-    setMaterials(current => current.map(item => byId.has(item.id) ? { ...item, quantity: Number(byId.get(item.id).countedQuantity) } : item));
-    if (differences.length) setMovements(current => [
-      ...differences.map((row, index) => ({
-        id: timestamp + index,
+  function applyStocktake(materialDifferences, finishedDifferences = [], operationId = 'INV-' + Date.now()) {
+    const materialRows = Array.isArray(materialDifferences) ? materialDifferences : [];
+    const finishedRows = Array.isArray(finishedDifferences) ? finishedDifferences : [];
+    const entries = [
+      ...materialRows.map((row, index) => ({
+        id: operationId + ':material:' + index,
+        operationId,
         material: row.name,
-        kind: row.difference > 0 ? 'Inventurna korekcija +' : 'Inventurna korekcija −',
-        quantity: Math.abs(row.difference),
+        kind: row.difference > 0 ? 'Inventurna korekcija (+)' : 'Inventurna korekcija (−)',
+        quantity: row.difference,
         location: row.location,
         reason: row.reason,
-        date
+        date: new Date().toLocaleDateString('hr-HR'),
+        materialId: row.materialId
       })),
-      ...current
-    ].slice(0, 100));
+      ...finishedRows.map((row, index) => ({
+        id: operationId + ':finished:' + index,
+        operationId,
+        material: row.name,
+        kind: row.difference > 0 ? 'Inventurna korekcija (+)' : 'Inventurna korekcija (−)',
+        quantity: row.difference,
+        location: row.location,
+        reason: row.reason,
+        date: new Date().toLocaleDateString('hr-HR'),
+        productId: row.materialId
+      }))
+    ];
+    if (!entries.length) return;
+    const byMaterialId = new Map(materialRows.map(row => [row.materialId, row]));
+    const nextMaterials = materials.map(item => byMaterialId.has(item.id)
+      ? { ...item, quantity: Number(byMaterialId.get(item.id).countedQuantity) }
+      : item);
+    const finishedNow = readStored('kamen-app-finished-products-v1', []);
+    const byFinishedId = new Map(finishedRows.map(row => [row.materialId, row]));
+    const nextFinished = finishedNow.map(item => {
+      const change = byFinishedId.get(item.id);
+      if (!change) return item;
+      const counted = Number(change.countedQuantity);
+      const wasClosed = ['Ugrađen', 'Prodano'].includes(item.status);
+      const transaction = {
+        id: operationId + ':' + item.id,
+        operationId,
+        kind: change.difference > 0 ? 'Inventurna korekcija (+)' : 'Inventurna korekcija (−)',
+        quantity: change.difference,
+        reason: change.reason.trim(),
+        date: new Date().toISOString()
+      };
+      return {
+        ...item,
+        stockQuantity: counted,
+        status: wasClosed && counted > 0 ? 'Na zalihi' : item.status,
+        transactions: [...(item.transactions || []), transaction],
+        updatedAt: transaction.date
+      };
+    });
+    const writes = [
+      { key: MATERIALS_KEY, value: nextMaterials },
+      { key: 'kamen-app-finished-products-v1', value: nextFinished }
+    ];
+    try {
+      const committed = commitInventoryTransaction(window.localStorage, { operationId, writes, movements: entries });
+      if (committed.duplicate) return;
+      setMaterials(nextMaterials);
+      setMovements(committed.movements);
+      window.dispatchEvent(new CustomEvent('kamen:finished-products-updated', { detail: nextFinished }));
+    } catch (error) {
+      throw new Error(error?.message || 'Inventura nije spremljena. Zaliha nije promijenjena.');
+    }
   }
 
   const warehouseSubnav = <div className="warehouse-subnav">
