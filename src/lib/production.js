@@ -86,7 +86,7 @@ export function normalizeProductionRecords(raw, orders) {
     workers: Array.isArray(raw?.workers) ? raw.workers : [],
     ...(raw?.attendance ? { attendance: raw.attendance } : {}),
     ...(raw?.deployment ? { deployment: raw.deployment } : {}),
-    ...(raw?.workerSkills ? { workerSkills: raw.workerSkills } : {}),
+    ...(raw?.workerSkills ? { workerSkills: Object.fromEntries(Object.entries(raw.workerSkills).map(([worker, skills]) => [worker, (Array.isArray(skills) ? skills : []).map(skill => skill === 'Ostala obrada' ? 'Ručna obrada' : skill)])) } : {}),
     migratedAt: new Date().toISOString(),
     legacyRecordsPreserved: raw || {}
   };
@@ -183,4 +183,13 @@ export function isValidProductionWorkCenter(stageName, workCenter) {
   const options = PRODUCTION_WORK_CENTERS[stageName];
   if (!options) return true;
   return options.includes(String(workCenter || '').trim());
+}
+export function workerCanPerformProductionStage(stageName, skills) {
+  if (!Array.isArray(skills) || !skills.length) return true;
+  const accepted = stageName === 'Terenski rad / montaža'
+    ? ['Terenski rad / montaža', 'Montaža']
+    : stageName === 'Ručna obrada'
+      ? ['Ručna obrada', 'Ostala obrada']
+      : [stageName];
+  return accepted.some(skill => skills.includes(skill));
 }
