@@ -145,7 +145,8 @@ export default function ProductionModule({ onBack, onCreateProject }) {
     const attendanceStatus = records.attendance?.date === today ? records.attendance.statuses?.[currentStage.assignedTo] : '';
     const deployment = records.deployment?.date === today ? records.deployment.assignments?.[currentStage.assignedTo] : null;
     if (attendanceStatus === 'Odsutan' || attendanceStatus === 'Izvan smjene') { window.alert('Radnik je evidentiran kao odsutan ili izvan smjene. Promijeni prisutnost prije početka faze.'); return; }
-    if (deployment?.area === 'Teren') { window.alert('Radnik je danas raspoređen na teren i nije slobodan kapacitet radionice.'); return; }
+    if (deployment?.area === 'Teren' && stageName !== 'Terenski rad / montaža') { window.alert('Radnik je danas raspoređen na teren i nije slobodan kapacitet radionice.'); return; }
+    if (stageName === 'Terenski rad / montaža' && deployment?.area !== 'Teren') { window.alert('Prije početka montaže rasporedi radnika na teren u postavkama radnika.'); return; }
     const skills = records.workerSkills?.[currentStage.assignedTo] || [];
     if (skills.length && !skills.includes(stageName)) { window.alert('Radniku nije evidentirana vještina za ovu fazu. Provjeri raspored i vještine prije početka.'); return; }
     const currentEquipmentId = currentStage.equipmentId || '';
@@ -384,8 +385,8 @@ export default function ProductionModule({ onBack, onCreateProject }) {
       { id: 'Kanterica · obline', stage: 'Kanterica / obrada rubova', workCenter: 'Kanterica · obline' },
       { id: 'Polirka · šmuse i okapnice', stage: 'Poliranje', workCenter: 'Polirka za šmuse i okapnice' },
       { id: 'Vanjska polirka · ravne površine', stage: 'Poliranje', workCenter: 'Vanjska polirka za ravne spomenike i obloge' },
-      { id: 'Ručna obrada', stage: 'Ostala obrada', workCenter: 'Ručna obrada' },
-      { id: 'Teren · montaža grobnica', stage: 'Ostala obrada', workCenter: 'Terenski rad / montaža grobnica' }
+      { id: 'Ručna obrada', stage: 'Ručna obrada', workCenter: 'Ručna obrada' },
+      { id: 'Teren · montaža grobnica', stage: 'Terenski rad / montaža', workCenter: 'Terenski rad / montaža grobnica' }
     ];
     return centers.map(center => {
       const jobs = rowsWithRecords.flatMap(row => {
@@ -415,8 +416,8 @@ export default function ProductionModule({ onBack, onCreateProject }) {
       { id: 'Kanterica · obline', stage: 'Kanterica / obrada rubova', workCenter: 'Kanterica · obline' },
       { id: 'Polirka · šmuse i okapnice', stage: 'Poliranje', workCenter: 'Polirka za šmuse i okapnice' },
       { id: 'Vanjska polirka · ravne površine', stage: 'Poliranje', workCenter: 'Vanjska polirka za ravne spomenike i obloge' },
-      { id: 'Ručna obrada', stage: 'Ostala obrada', workCenter: 'Ručna obrada' },
-      { id: 'Teren · montaža grobnica', stage: 'Ostala obrada', workCenter: 'Terenski rad / montaža grobnica' }
+      { id: 'Ručna obrada', stage: 'Ručna obrada', workCenter: 'Ručna obrada' },
+      { id: 'Teren · montaža grobnica', stage: 'Terenski rad / montaža', workCenter: 'Terenski rad / montaža grobnica' }
     ];
     return centers.map(center => {
       const result = { ...center, plannedMs: 0, actualMs: 0, plannedCount: 0, actualCount: 0, comparedCount: 0, comparedPlannedMs: 0, comparedActualMs: 0 };
@@ -452,8 +453,8 @@ export default function ProductionModule({ onBack, onCreateProject }) {
       { id: 'Kanterica · obline', stage: 'Kanterica / obrada rubova' },
       { id: 'Polirka · šmuse i okapnice', stage: 'Poliranje', workCenter: 'Polirka za šmuse i okapnice' },
       { id: 'Vanjska polirka · ravne površine', stage: 'Poliranje', workCenter: 'Vanjska polirka za ravne spomenike i obloge' },
-      { id: 'Ručna obrada', stage: 'Ostala obrada', workCenter: 'Ručna obrada' },
-      { id: 'Teren · montaža grobnica', stage: 'Ostala obrada', workCenter: 'Terenski rad / montaža grobnica' }
+      { id: 'Ručna obrada', stage: 'Ručna obrada', workCenter: 'Ručna obrada' },
+      { id: 'Teren · montaža grobnica', stage: 'Terenski rad / montaža', workCenter: 'Terenski rad / montaža grobnica' }
     ];
     return rowsWithRecords.flatMap(row => {
       if (row.order.status === 'Otkazan') return [];
@@ -591,7 +592,7 @@ export default function ProductionModule({ onBack, onCreateProject }) {
             </div>}
             <div className="worker-skill-list">
               <span>Vještine radnika</span>
-              <div>{['Pilanje','Kanterica / obrada rubova','Poliranje','Ostala obrada','Montaža','Izmjera','Prijevoz','Servis'].map(skill => <label key={skill}><input type="checkbox" checked={(records.workerSkills?.[worker] || []).includes(skill)} onChange={event => setRecords(current => { const previous = current.workerSkills?.[worker] || []; const next = event.target.checked ? [...new Set([...previous, skill])] : previous.filter(item => item !== skill); return { ...current, workerSkills: { ...(current.workerSkills || {}), [worker]: next } }; })}/><span>{skill}</span></label>)}</div>
+              <div>{['Pilanje','Kanterica / obrada rubova','Poliranje','Ručna obrada','Terenski rad / montaža','Montaža','Izmjera','Prijevoz','Servis'].map(skill => <label key={skill}><input type="checkbox" checked={(records.workerSkills?.[worker] || []).includes(skill)} onChange={event => setRecords(current => { const previous = current.workerSkills?.[worker] || []; const next = event.target.checked ? [...new Set([...previous, skill])] : previous.filter(item => item !== skill); return { ...current, workerSkills: { ...(current.workerSkills || {}), [worker]: next } }; })}/><span>{skill}</span></label>)}</div>
             </div>
           </article>;
         })}{!(records.workers || []).length && <small>Još nema unesenih radnika. Ime se može upisati i izravno u fazi.</small>}</div>
@@ -729,15 +730,15 @@ export default function ProductionModule({ onBack, onCreateProject }) {
             { id:'Kanterica · obline', title:'Kanterica · obline', stage:'Kanterica / obrada rubova' },
             { id:'Polirka za šmuse i okapnice', title:'Polirka · šmuse i okapnice', stage:'Poliranje' },
             { id:'Vanjska polirka za ravne spomenike i obloge', title:'Vanjska polirka · ravne površine', stage:'Poliranje' },
-            { id:'Ručna obrada', title:'Ručna obrada', stage:'Ostala obrada' },
-            { id:'Terenski rad / montaža grobnica', title:'Teren · montaža grobnica', stage:'Ostala obrada' },
+            { id:'Ručna obrada', title:'Ručna obrada', stage:'Ručna obrada' },
+            { id:'Terenski rad / montaža grobnica', title:'Teren · montaža grobnica', stage:'Terenski rad / montaža' },
             { id:'Nije raspoređeno', title:'Čeka raspored', stage:null }
           ].map(center => {
             const stationRows = rowsWithRecords.filter(row => {
               if (selectedWorker && center.stage && !workerHasTask(row, [center.stage])) return false;
-              if (selectedWorker && !center.stage && !workerHasTask(row, ['Poliranje','Ostala obrada'])) return false;
+              if (selectedWorker && !center.stage && !workerHasTask(row, ['Poliranje','Ručna obrada','Terenski rad / montaža'])) return false;
               if (!center.stage) {
-                return ['Poliranje','Ostala obrada'].some(name => {
+                return ['Poliranje','Ručna obrada','Terenski rad / montaža'].some(name => {
                   const stage = row.record.stages?.[name] || blankStage();
                   const index = stages.indexOf(name);
                   return stages.slice(0,index).every(previous => ['Završeno','Nije potrebno'].includes(row.record.stages?.[previous]?.status)) &&
@@ -750,7 +751,7 @@ export default function ProductionModule({ onBack, onCreateProject }) {
               const selectedCenter = stage.workCenter || '';
               return ready && !['Završeno','Nije potrebno'].includes(stage.status) &&
                 (selectedCenter === center.id);
-            }).filter(row => center.stage ? true : (['Poliranje','Ostala obrada'].some(name => {
+            }).filter(row => center.stage ? true : (['Poliranje','Ručna obrada','Terenski rad / montaža'].some(name => {
               const stage = row.record.stages?.[name] || blankStage();
               const index = stages.indexOf(name);
               return stages.slice(0,index).every(previous => ['Završeno','Nije potrebno'].includes(row.record.stages?.[previous]?.status)) &&
@@ -759,7 +760,7 @@ export default function ProductionModule({ onBack, onCreateProject }) {
             return <section className="production-station-lane" key={center.id}>
               <h4><Factory size={16}/>{center.title}<small>{stationRows.length} kom.</small></h4>
               {stationRows.length ? stationRows.map(row => {
-                const stageName = center.stage || ['Poliranje','Ostala obrada'].find(name => {
+                const stageName = center.stage || ['Poliranje','Ručna obrada','Terenski rad / montaža'].find(name => {
                   const stage = row.record.stages?.[name] || blankStage();
                   const index = stages.indexOf(name);
                   return stages.slice(0,index).every(previous => ['Završeno','Nije potrebno'].includes(row.record.stages?.[previous]?.status)) &&
