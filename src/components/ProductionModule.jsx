@@ -456,6 +456,72 @@ export default function ProductionModule({ onBack, onCreateProject }) {
         </div>
         <small className="production-saw-footnote">Ova ploča samo prati redoslijed i status pilanja. Ne upravlja elektronikom pile i ne mijenja stanje skladišta niti evidentira potrošnju materijala.</small>
       </section>
+      <section className="production-station-board">
+        <div className="production-station-heading">
+          <div><span className="eyebrow">RADNE STANICE · OBRADA</span><h3>Radna ploča radionice</h3><p>Prikazuje komade koji su spremni za sljedeću fazu. Otvori fazu za detalje ili završi aktivan posao.</p></div>
+          <span className="production-saw-count">{rowsWithRecords.filter(row => stages.slice(1).some((stageName,index) => {
+            const stage = row.record.stages?.[stageName] || blankStage();
+            const ready = stages.slice(0,index+1).every(previous => ['Završeno','Nije potrebno'].includes(row.record.stages?.[previous]?.status));
+            return ready && !['Završeno','Nije potrebno'].includes(stage.status);
+          })).length} spremnih komada</span>
+        </div>
+        <div className="production-station-grid">
+          {[
+            { id:'Kanterica / obrada rubova', title:'Kanterica · obline', stage:'Kanterica / obrada rubova' },
+            { id:'Polirka za šmuse i okapnice', title:'Polirka · šmuse i okapnice', stage:'Poliranje' },
+            { id:'Vanjska polirka za ravne spomenike i obloge', title:'Vanjska polirka · ravne površine', stage:'Poliranje' },
+            { id:'Ručna obrada', title:'Ručna obrada', stage:'Ostala obrada' },
+            { id:'Terenski rad / montaža grobnica', title:'Teren · montaža grobnica', stage:'Ostala obrada' },
+            { id:'Nije raspoređeno', title:'Čeka raspored', stage:null }
+          ].map(center => {
+            const stationRows = rowsWithRecords.filter(row => {
+              const stageName = center.stage || (['Poliranje','Ostala obrada'].includes(stages.find(name => !['Završeno','Nije potrebno'].includes(row.record.stages?.[name]?.status)) || '') ? '' : '');
+              if (!center.stage) {
+                return ['Poliranje','Ostala obrada'].some(name => {
+                  const stage = row.record.stages?.[name] || blankStage();
+                  const index = stages.indexOf(name);
+                  return stages.slice(0,index).every(previous => ['Završeno','Nije potrebno'].includes(row.record.stages?.[previous]?.status)) &&
+                    !['Završeno','Nije potrebno'].includes(stage.status) && !stage.workCenter;
+                });
+              }
+              const stage = row.record.stages?.[center.stage] || blankStage();
+              const index = stages.indexOf(center.stage);
+              const ready = stages.slice(0,index).every(previous => ['Završeno','Nije potrebno'].includes(row.record.stages?.[previous]?.status));
+              const selectedCenter = stage.workCenter || '';
+              return ready && !['Završeno','Nije potrebno'].includes(stage.status) &&
+                (center.stage === 'Kanterica / obrada rubova' || selectedCenter === center.id);
+            }).filter(row => center.stage ? true : (['Poliranje','Ostala obrada'].some(name => {
+              const stage = row.record.stages?.[name] || blankStage();
+              const index = stages.indexOf(name);
+              return stages.slice(0,index).every(previous => ['Završeno','Nije potrebno'].includes(row.record.stages?.[previous]?.status)) &&
+                !['Završeno','Nije potrebno'].includes(stage.status) && !stage.workCenter;
+            })));
+            return <section className="production-station-lane" key={center.id}>
+              <h4><Factory size={16}/>{center.title}<small>{stationRows.length} kom.</small></h4>
+              {stationRows.length ? stationRows.map(row => {
+                const stageName = center.stage || ['Poliranje','Ostala obrada'].find(name => {
+                  const stage = row.record.stages?.[name] || blankStage();
+                  const index = stages.indexOf(name);
+                  return stages.slice(0,index).every(previous => ['Završeno','Nije potrebno'].includes(row.record.stages?.[previous]?.status)) &&
+                    !['Završeno','Nije potrebno'].includes(stage.status) && !stage.workCenter;
+                });
+                if (!stageName) return null;
+                const stage = row.record.stages?.[stageName] || blankStage();
+                return <article className="production-station-job" key={row.key + stageName}>
+                  <strong>{row.order.id} · {row.label} #{row.unitIndex}</strong>
+                  <span>{row.material} · {row.piece.length} × {row.piece.width} × {row.piece.thickness} cm</span>
+                  <small className={'production-station-status status-' + stage.status.toLowerCase().replaceAll(' ','-')}>{stage.status} · {stage.assignedTo || 'Radnik nije dodijeljen'}</small>
+                  <div className="production-station-actions">
+                    <button type="button" className="button button-secondary" onClick={() => { setExpandedOrders(current => ({...current,[row.order.id]:true})); setExpandedUnits(current => ({...current,[row.key]:true})); }}>Otvori fazu</button>
+                    {stage.status === 'U tijeku' && <button type="button" className="button button-success" onClick={() => finishStage(row.key,stageName)}><Check size={14}/> Gotovo</button>}
+                  </div>
+                </article>;
+              }) : <p className="production-saw-empty">Nema spremnih poslova.</p>}
+            </section>;
+          })}
+        </div>
+        <small className="production-saw-footnote">Posao se prikazuje kada su prethodne faze završene ili označene kao nepotrebne. Odabir radnog centra i odgovornog radnika uređuje se u detaljima faze.</small>
+      </section>
       <div className="warehouse-toolbar production-toolbar">
         <label className="warehouse-search"><Search size={16}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Traži nalog, kupca, projekt ili komad..."/></label>
         <label className="warehouse-filter"><span>Prikaz</span><select value={filter} onChange={event => setFilter(event.target.value)}><option>Aktivni</option><option>U tijeku</option><option>Zastoj</option><option>Kontrola</option><option>Završeni</option><option>Svi</option></select></label>
