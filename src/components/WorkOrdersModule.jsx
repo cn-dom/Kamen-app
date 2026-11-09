@@ -248,6 +248,19 @@ export default function WorkOrdersModule({ onBack, openCreate = false, onCreateO
                 <text x={placement.x + placement.width / 2} y={placement.y + placement.height / 2 + Math.min(placement.height * 0.18, 80)} textAnchor="middle" dominantBaseline="middle" className="cut-plan-dim">{placement.width} × {placement.height} mm</text>
               </g>)}
             </svg>
+            {sheet.plan?.steps?.length > 0 && <details className="cut-plan-steps">
+              <summary>Redoslijed rezova i postavki ({sheet.plan.steps.length} koraka)</summary>
+              <ol>{sheet.plan.steps.map((step, stepIndex) => <li key={stepIndex}>
+                {step.kind === 'cut' ? `Rez ${step.axis === 'vertical' ? 'okomito' : 'vodoravno'} · položaj ${step.position} mm`
+                  : step.kind === 'line_cut' ? `Rezna linija · (${step.from_x}, ${step.from_y}) → (${step.to_x}, ${step.to_y}) mm`
+                  : step.kind === 'rotate' ? 'Okreni ploču'
+                  : step.kind === 'fence_reset' ? `Postavi graničnik na ${step.new_position} mm`
+                  : step.kind === 'tool_up' ? 'Podigni alat'
+                  : step.kind === 'tool_down' ? 'Spusti alat'
+                  : step.kind === 'travel' ? `Pomak na (${step.to_x}, ${step.to_y}) mm`
+                  : step.kind}
+              </li>)}</ol>
+            </details>}
           </div>)}
           {result.summary.unplaced.length > 0 && <p className="cut-plan-warning">Nisu raspoređeni: {result.summary.unplaced.map(item => item.name + ' (' + item.quantity + ')').join(', ')}. Potrebna je dodatna ploča ili provjera mjera.</p>}
           <small className="cut-plan-footnote">Guillotine raspored: {result.summary.guillotine ? 'da' : 'ne'} · gubitak reza: {result.summary.kerfM2.toLocaleString('hr-HR', { maximumFractionDigits: 3 })} m². Prijedlog ne mijenja skladište ni radni nalog.</small>
