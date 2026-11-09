@@ -10,6 +10,7 @@ import {
   startProductionStage,
   pauseProductionStage,
   finishProductionStage,
+  resetProductionStage,
   calculateStageDowntimeMs,
   isValidProductionWorkCenter,
   PRODUCTION_WORK_CENTERS,
@@ -169,4 +170,19 @@ test('provjera vještina prepoznaje postojeću vještinu montaže i ručne obrad
   assert.equal(workerCanPerformProductionStage('Ručna obrada', ['Ostala obrada']), true);
   assert.equal(workerCanPerformProductionStage('Poliranje', ['Montaža']), false);
   assert.equal(workerCanPerformProductionStage('Poliranje', []), true);
+});
+
+
+test('vraćanje faze na doradu zatvara otvoreni radni interval i zastoj', () => {
+  const stage = {
+    status: 'Zastoj',
+    sessions: [{ startedAt: '2026-11-09T08:00:00.000Z', endedAt: '2026-11-09T09:00:00.000Z' }],
+    downtime: [{ startedAt: '2026-11-09T09:00:00.000Z', endedAt: null, reason: 'Kvar stroja' }],
+    history: []
+  };
+  const reset = resetProductionStage(stage, '2026-11-09T10:00:00.000Z', 'Dorada');
+  assert.equal(reset.status, 'Nije započeto');
+  assert.equal(reset.downtime[0].endedAt, '2026-11-09T10:00:00.000Z');
+  assert.equal(calculateStageDowntimeMs(reset), 60 * 60 * 1000);
+  assert.equal(reset.history[0].reason, 'Dorada');
 });
