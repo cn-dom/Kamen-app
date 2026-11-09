@@ -318,3 +318,17 @@ Automatizirani testovi uključuju:
 - [ ] Višednevni termin mora biti razdvojen na dnevne aktivnosti.
 - [ ] Otkazani termin ne blokira novi termin.
 - [ ] Promjene statusa radnika osvježavaju se pri ponovnom ulasku u raspored.
+
+
+## Cjelina 8 — terenski rad i montaža
+
+- [ ] Obvezni kupac, projekt, lokacija i datum.
+- [ ] Vrijeme završetka mora biti nakon početka.
+- [ ] Najmanje jedan član ekipe.
+- [ ] Odsutan član ili član izvan smjene ne može se dodijeliti.
+- [ ] Radnik raspoređen u radionici ne može se istodobno dodijeliti terenu.
+- [ ] Član ekipe ne može imati preklapajuće aktivne terenske naloge.
+- [ ] Statusi napreduju samo dopuštenim redoslijedom.
+- [ ] Svaki statusni prijelaz ostavlja događaj u povijesti.
+- [ ] Završetak i povratak bilježe zasebne vremenske oznake.
+- [ ] Terenski nalog ostaje povezan s radnim nalogom/projektom.
