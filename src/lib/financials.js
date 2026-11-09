@@ -1,10 +1,11 @@
 import { summarizeMaterialConsumption } from './materialConsumption.js';
 import { calculateStageElapsedMs } from './production.js';
+import { calculateQuote } from './quotes.js';
 
 const roundMoney = value => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
 const validAmount = value => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value));
 
-export function calculateOrderFinancials(order, costRecords = [], productionRecords = { pieces: {} }, now = Date.now(), invoices = [], payments = [], materialConsumptionRecords = []) {
+export function calculateOrderFinancials(order, costRecords = [], productionRecords = { pieces: {} }, now = Date.now(), invoices = [], payments = [], materialConsumptionRecords = [], quotes = []) {
   const orderId = order?.id;
   const related = (Array.isArray(costRecords) ? costRecords : []).filter(record => record.orderId === orderId);
   const plannedCost = roundMoney(related.filter(record => record.kind === 'Planirani trošak').reduce((sum, record) => sum + Number(record.amount || 0), 0));
@@ -17,6 +18,20 @@ export function calculateOrderFinancials(order, costRecords = [], productionReco
   // Once cutting consumption is recorded, its warehouse-based cost replaces manual material entries to avoid double counting.
   const totalActualCost = roundMoney(actualCost - (materialConsumption.recordCount ? manualMaterialCost : 0) + materialConsumption.jobMaterialCost);
   const laborCost = roundMoney(related.filter(record => { const categories = Array.isArray(record.categories) ? record.categories : String(record.category || '').split(',').map(value => value.trim()); return record.kind === 'Stvarni trošak' && categories.includes('Rad'); }).reduce((sum, record) => sum + Number(record.amount || 0), 0));
+
+  const categoryTotals = { material: 0, labor: 0, transport: 0, processing: 0, installation: 0, equipment: 0, other: 0 };
+  related.filter(record => record.kind === 'Stvarni trošak').forEach(record => {
+    const categories = Array.isArray(record.categories) ? record.categories : String(record.category || '').split(',').map(value => value.trim());
+    const amount = Number(record.amount || 0);
+    if (categories.includes('Materijal')) categoryTotals.material += amount;
+    if (categories.includes('Rad')) categoryTotals.labor += amount;
+    if (categories.includes('Prijevoz')) categoryTotals.transport += amount;
+    if (categories.includes('Vanjska obrada') || categories.includes('Potrošni materijal')) categoryTotals.processing += amount;
+    if (categories.includes('Montaža') || categories.includes('Terenski rad')) categoryTotals.installation += amount;
+    if (categories.includes('Najam stroja')) categoryTotals.equipment += amount;
+    if (categories.includes('Ostalo')) categoryTotals.other += amount;
+  });
+  Object.keys(categoryTotals).forEach(key => { categoryTotals[key] = roundMoney(categoryTotals[key]); });
 
   const allocations = Array.isArray(order?.materialAllocations) ? order.materialAllocations : [];
   const hasMaterialEstimate = allocations.length > 0 && allocations.every(item => validAmount(item.cost));
@@ -33,6 +48,9 @@ export function calculateOrderFinancials(order, costRecords = [], productionReco
       Object.values(record.stages || {}).forEach(stage => { productionMs += calculateStageElapsedMs(stage, now); });
     }
   });
+  const orderQuotes = (Array.isArray(quotes) ? quotes : []).filter(quote => quote.status === 'Prihvaćena' && (quote.orderId === orderId || quote.id === order?.quoteId));
+  const acceptedQuote = orderQuotes.sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')))[0] || null;
+  const quoteTotals = acceptedQuote ? calculateQuote(acceptedQuote.items, acceptedQuote.discountPercent) : null;
   const orderInvoices = (Array.isArray(invoices) ? invoices : []).filter(invoice => invoice.orderId === orderId);
   const invoiceIds = new Set(orderInvoices.map(invoice => invoice.id));
   const quoteIds = new Set(orderInvoices.map(invoice => invoice.quoteId));
@@ -65,6 +83,16 @@ export function calculateOrderFinancials(order, costRecords = [], productionReco
     unpricedMaterialConsumptionCount: materialConsumption.unpricedRecordCount,
     totalActualCost,
     laborCost,
+    costBreakdown: { ...categoryTotals, warehouseMaterial: materialConsumption.jobMaterialCost, total: totalActualCost },
+    invoicedVat: roundMoney(invoiceGross - invoiceNet),
+    realizedGrossMargin: invoiceNet ? roundMoney(invoiceNet - totalActualCost) : null,
+    realizedMarginPercent: invoiceNet > 0 ? Math.round(((invoiceNet - totalActualCost) / invoiceNet) * 10000) / 100 : null,
+    acceptedQuoteId: acceptedQuote?.id || null,
+    acceptedQuoteNet: quoteTotals ? quoteTotals.net : null,
+    acceptedQuoteVat: quoteTotals ? quoteTotals.vat : null,
+    acceptedQuoteGross: quoteTotals ? quoteTotals.gross : null,
+    estimatedGrossMargin: quoteTotals ? roundMoney(quoteTotals.net - totalActualCost) : null,
+    estimatedMarginPercent: quoteTotals && quoteTotals.net > 0 ? Math.round(((quoteTotals.net - totalActualCost) / quoteTotals.net) * 10000) / 100 : null,
     estimatedMaterialCost,
     materialEstimateComplete: hasMaterialEstimate || validAmount(order?.estimatedMaterialCost),
     productionHours: Math.round((productionMs / 3600000) * 100) / 100,

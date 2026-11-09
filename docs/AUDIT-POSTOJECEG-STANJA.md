@@ -51,3 +51,23 @@ Otpis trenutačno zahtijeva razlog i izričitu potvrdu u istom pregledniku. To j
 - **Cjelina 5 — pristup i rad na više uređaja:** prijava, stvarne uloge, odvajanje tvrtki, sinkronizacija i poslužiteljski revizijski trag.
 
 Ne uvoditi Supabase niti drugi backend bez izričite odluke korisnika.
+
+## 5. Cjelina 2 — obračun troškova i financijski rezultat
+
+**U tijeku — PR [#86](https://github.com/cn-dom/Kamen-app/pull/86).**
+
+U ovoj grani nadograđeno je:
+- razdvajanje stvarnih troškova na materijal, rad, prijevoz, vanjsku obradu, montažu/teren, najam stroja, potrošni materijal i ostalo;
+- automatski izračun stavke rada iz sati × cijene sata kada ukupni iznos nije ručno upisan;
+- prikaz troška po kategorijama;
+- povezivanje prihvaćene ponude s radnim nalogom za procjenu neto prihoda, PDV-a, bruto vrijednosti i procijenjene marže;
+- prikaz PDV-a i ostvarene marže na izdanim računima;
+- testni scenariji FIN-003 do FIN-006.
+
+**Ograničenja koja se ne smiju prikazati kao riješena:**
+- stvarna cijena materijala automatski se izračunava samo ako skladišna stavka ima poznatu nabavnu cijenu po m²; bez nje se procjena označava nepotpunom;
+- radni sati po fazama postoje, ali se ne pretvaraju automatski u trošak dok za njih nije unesena cijena sata;
+- procijenjena marža koristi prihvaćenu ponudu, a ostvarena marža izdane račune; to nije fiskalizacija ni računovodstveni obračun;
+- ručna evidencija dodatnih troškova i dalje je potrebna za izdatke koji nisu automatski zabilježeni u drugim modulima.
+
+Cjelina se ne zatvara dok CI ne prođe na završnom commitu i dok se ne provjere scenariji FIN-003–FIN-006.

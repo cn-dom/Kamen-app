@@ -208,3 +208,65 @@ test('umanjuje stvarni trošak radnog naloga za vrijednost uporabnog ostatka', (
   assert.equal(result.totalActualCost, 140);
   assert.equal(result.netDifference, 360);
 });
+
+
+test('razdvaja stvarne troškove po vrstama i izračunava PDV i realiziranu maržu', () => {
+  const result = calculateOrderFinancials(
+    { id: 'RN-008', pieces: [] },
+    [
+      { orderId: 'RN-008', kind: 'Stvarni trošak', amount: 120, categories: ['Rad'] },
+      { orderId: 'RN-008', kind: 'Stvarni trošak', amount: 45, categories: ['Prijevoz'] },
+      { orderId: 'RN-008', kind: 'Stvarni trošak', amount: 80, categories: ['Vanjska obrada'] },
+      { orderId: 'RN-008', kind: 'Stvarni trošak', amount: 30, categories: ['Montaža'] },
+      { orderId: 'RN-008', kind: 'Stvarni trošak', amount: 25, categories: ['Najam stroja'] }
+    ],
+    { pieces: {} },
+    Date.now(),
+    [{ id: 'R-8', orderId: 'RN-008', netTotal: 500, grossTotal: 625 }],
+    []
+  );
+  assert.deepEqual(result.costBreakdown, {
+    material: 0, labor: 120, transport: 45, processing: 80,
+    installation: 30, equipment: 25, other: 0,
+    warehouseMaterial: 0, total: 300
+  });
+  assert.equal(result.invoicedVat, 125);
+  assert.equal(result.realizedGrossMargin, 200);
+  assert.equal(result.realizedMarginPercent, 40);
+});
+
+test('ne prikazuje maržu kada projekt još nema izdani račun', () => {
+  const result = calculateOrderFinancials(
+    { id: 'RN-009', pieces: [] },
+    [{ orderId: 'RN-009', kind: 'Stvarni trošak', amount: 100 }],
+    { pieces: {} }
+  );
+  assert.equal(result.realizedGrossMargin, null);
+  assert.equal(result.realizedMarginPercent, null);
+});
+
+
+test('prikazuje procijenjenu maržu iz prihvaćene ponude povezane s nalogom', () => {
+  const result = calculateOrderFinancials(
+    { id: 'RN-010', quoteId: 'PON-10', pieces: [] },
+    [{ orderId: 'RN-010', kind: 'Planirani trošak', amount: 100 }],
+    { pieces: {} },
+    Date.now(),
+    [],
+    [],
+    [],
+    [
+      { id: 'PON-10', orderId: 'RN-010', status: 'Prihvaćena', discountPercent: 0, items: [
+        { description: 'Spomenik', quantity: 1, unitPrice: 1000, vatRate: 25 }
+      ] },
+      { id: 'PON-11', orderId: 'RN-010', status: 'Odbijena', items: [
+        { description: 'Nevažeća ponuda', quantity: 1, unitPrice: 9000, vatRate: 25 }
+      ] }
+    ]
+  );
+  assert.equal(result.acceptedQuoteNet, 1000);
+  assert.equal(result.acceptedQuoteVat, 250);
+  assert.equal(result.acceptedQuoteGross, 1250);
+  assert.equal(result.estimatedGrossMargin, 1000);
+  assert.equal(result.estimatedMarginPercent, 100);
+});
