@@ -79,6 +79,13 @@ Pri izradi otpremnice svaka stavka može se povezati s odgovarajućim gotovim pr
 **Ograničenja:** ovo je interna evidencija, a ne fiskalizirani račun, eRačun ili knjigovodstvena evidencija. Isporuka ne skida sirovi materijal; umanjuje samo izričito povezanu zalihu gotovih proizvoda. Podaci se spremaju lokalno u preglednik.
 
 
+### Zatvaranje poslovnog projekta
+
+Kartica **Projekti** u modulu Isporuke i naplata prikazuje prihvaćene ponude i kontrolni popis poslovnog tijeka. Projekt se može zatvoriti tek kada je ponuda prihvaćena, povezan je odgovarajući radni nalog, proizvodnja i kontrola kvalitete su završene, sve ugovorene stavke su isporučene, povezani terenski nalozi su zaključeni, račun je izdan i u cijelosti naplaćen. Zatvaranje sprema završni kontrolni popis i sažetak računa/isporuke; već zatvoren projekt ne može se ponovno zatvoriti. Povezivanje ponude i radnog naloga je jedinstveno kako se jedan nalog ne bi slučajno dodijelio dvjema ponudama.
+
+Ovo je interna kontrolna evidencija u lokalnoj pohrani preglednika, ne zakonska potvrda završetka, fiskalizacija ili računovodstveni dokument.
+
+
 ## Servis i reklamacije
 
 Modul **Servis i reklamacije** vodi reklamacije, jamstvene i plaćene servise te redovne preglede. Servisni nalog može se povezati s kupcem iz imenika ili ručno unesenim kupcem te s izvornim radnim nalogom. Evidentiraju se datum prijave, rok, rok jamstva, prioritet, odgovorna osoba, opis problema, rezultat zahvata i kronološka povijest promjena. Fotografije prije i poslije mogu se dodavati i nakon otvaranja naloga (do 1,5 MB po fotografiji). Trošak se računa iz dijelova, sati rada i cijene sata, puta i ostalih troškova. Završetak zahtijeva evidentiran rezultat servisa. Podaci i fotografije uključeni su u JSON sigurnosnu kopiju.
