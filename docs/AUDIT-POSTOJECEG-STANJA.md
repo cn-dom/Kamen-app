@@ -150,3 +150,18 @@ Nadograđen je postojeći modul terenskih naloga:
 - kronološka povijest događaja terenskog naloga.
 
 Podaci su lokalni u pregledniku. Nema GPS praćenja, sinkronizacije, poslužiteljske potvrde događaja niti automatskog knjiženja ugrađenog materijala. Materijal i alat vode se u povezanim skladišnim modulima; sam status terenskog naloga ne skida zalihu.
+
+
+## 11. Cjelina 10 — postavke tvrtke
+
+**Implementirano u zasebnoj grani; čeka CI provjeru i pregled prije spajanja.**
+
+- Izrađen je zaseban modul Postavke tvrtke s karticama Profil tvrtke, Skladište i Pravila rada.
+- Profil obuhvaća naziv, adresu, mjesto, OIB, telefon, e-poštu, IBAN, web-stranicu i lokalni logotip (do 1 MB). Postojeći ključ profila ponuditelja zadržan je radi kompatibilnosti s ponudama.
+- Skladišni šifrarnici omogućuju dodavanje i uklanjanje lokacija, vrsta materijala i jedinica mjere. Skladišni obrazac koristi ih kao prijedloge pri unosu.
+- Pravila obuhvaćaju početak/kraj smjene, pauzu, informativnu cijenu rada po satu, prijevoz po kilometru, koeficijent prekovremenog rada te zahtjev za razlog otpisa i odobrenje inventurne korekcije.
+- Dodane su provjere OIB-a, e-pošte, rasporeda smjene, pauze i nenegativnih troškovnih stopa.
+- Promjene imaju lokalni dnevnik; sigurnosna kopija uključuje nove postavke i dnevnik, uz kompatibilnost sa starijim kopijama.
+- Sigurnosna kopija odvojena je od Postavki i ima zasebnu stavku navigacije.
+
+**Ograničenja:** sve se sprema u localStorage preglednika. Postavke se ne sinkroniziraju između uređaja. Skladišne lokacije i vrste su prijedlozi, ne strogo zaključani šifrarnici. Pravila rada ne provode obračun plaće, fiskalizaciju ni zakonsku evidenciju. Oznake odobrenja u lokalnom prototipu nisu stvarna poslužiteljska kontrola.
