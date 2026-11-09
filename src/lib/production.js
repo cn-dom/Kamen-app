@@ -71,3 +71,20 @@ export function isProductionOrderComplete(order, productionRecords) {
       record.quality?.status === 'Prošlo';
   });
 }
+
+
+export const PRODUCTION_WORK_CENTERS = {
+  'Poliranje': [
+    'Polirka za šmuse i okapnice',
+    'Vanjska polirka za ravne spomenike i obloge'
+  ],
+  'Ostala obrada': [
+    'Ručna obrada',
+    'Terenski rad / montaža grobnica'
+  ]
+};
+
+export function isValidProductionWorkCenter(stageName, workCenter) {
+  if (!Object.prototype.hasOwnProperty.call(PRODUCTION_WORK_CENTERS, stageName)) return true;
+  return PRODUCTION_WORK_CENTERS[stageName].includes(String(workCenter || '').trim());
+}
