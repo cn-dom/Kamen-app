@@ -1,5 +1,5 @@
 import React,{useMemo,useState} from 'react';
-import {ArrowLeft,Bell,Check,CheckCheck,AlertTriangle,Clock3,Package,ToolCase,Factory,FileText,Filter} from 'lucide-react';
+import {ArrowLeft,Bell,Check,CheckCheck,AlertTriangle,Clock3,Package,Wrench,Factory,FileText,Filter} from 'lucide-react';
 import {lowStockSuggestions} from '../lib/purchasing.js';
 const READ_KEY='kamen-app-notification-read-v1';
 const parse=(key,fallback)=>{try{return JSON.parse(localStorage.getItem(key)||'null')??fallback}catch{return fallback}};
@@ -33,7 +33,7 @@ export default function NotificationsModule({onBack,onNavigate}){
  const unread=items.filter(x=>!x.read).length;
  const mark=(id)=>{const next=[...new Set([...readIds,id])];localStorage.setItem(READ_KEY,JSON.stringify(next));setReadIds(next)};
  const markAll=()=>{const next=[...new Set([...readIds,...items.map(x=>x.id)])];localStorage.setItem(READ_KEY,JSON.stringify(next));setReadIds(next)};
- const icons={deadline:Clock3,blocked:AlertTriangle,stock:Package,tool:ToolCase,maintenance:ToolCase,field:Factory};
+ const icons={deadline:Clock3,blocked:AlertTriangle,stock:Package,tool:Wrench,maintenance:Wrench,field:Factory};
  return <div className="page-content module-page notifications-page">
   <section className="welcome-row module-welcome"><div><div className="eyebrow"><span className="live-dot"/> E-111 · OPERATIVNA UPOZORENJA</div><h1>Obavijesti <span className="count-pill">{unread} nepročitano</span></h1><p className="subtitle">Pregled rokova, blokada, zaliha, alata i poslova koji traže pažnju.</p></div><div className="welcome-actions"><button className="button button-secondary" onClick={onBack}><ArrowLeft size={15}/> Povratak</button><button className="button button-primary" onClick={markAll} disabled={!unread}><CheckCheck size={16}/> Označi sve pročitano</button></div></section>
   <section className="panel notifications-panel"><div className="notifications-toolbar"><div className="tools-filter">{['Sve','Nepročitane','Pročitane'].map(x=><button key={x} className={filter===x?'active':''} onClick={()=>setFilter(x)}>{x}</button>)}</div><span>{items.length} aktivnih upozorenja</span></div>
