@@ -71,3 +71,21 @@ U ovoj grani nadograđeno je:
 - ručna evidencija dodatnih troškova i dalje je potrebna za izdatke koji nisu automatski zabilježeni u drugim modulima.
 
 Cjelina se ne zatvara dok CI ne prođe na završnom commitu i dok se ne provjere scenariji FIN-003–FIN-006.
+
+
+## 6. Cjelina 3 — proizvodnja po fizičkom komadu
+
+**U tijeku — PR za proizvodne radne centre, evidenciju rada i zastoja.**
+
+Obuhvat zatvaranja cjeline:
+- zaseban proizvodni zapis za svaki fizički komad iz radnog naloga;
+- faze pilanje, kanterica/obrada rubova, poliranje i ostala obrada;
+- obvezan odabir odgovarajućeg radnog centra prije pokretanja faze: dvije pile, kanterica, dvije vrste poliranja, ručna obrada ili teren/montaža;
+- dodjela radnika, provjera prisutnosti, terenskog rasporeda i evidentiranih vještina;
+- sprječavanje istodobne dodjele istog radnika ili stroja;
+- odvojeno mjerenje aktivnog rada i zastoja s razlogom;
+- završetak faze, povrat na doradu i povijest promjena;
+- završna kontrola kvalitete po fizičkom komadu;
+- pregled opterećenja radnih centara i usporedba planiranog i stvarnog vremena.
+
+**Ograničenja:** podaci su i dalje lokalni u pregledniku. Ovo nije automatsko upravljanje strojevima, senzorima ili evidencijom radnog vremena zaposlenika. Raspored i proizvodna evidencija ne predstavljaju obračun plaće. Potrebna je ručna provjera stvarnih tokova u radionici.
