@@ -15,6 +15,7 @@ import {
   startProductionStage,
   pauseProductionStage,
   finishProductionStage,
+  resetProductionStage,
   calculateStageDowntimeMs,
   normalizeProductionRecords as normalizeRecords,
   calculateStageElapsedMs as elapsedMs,
@@ -220,10 +221,7 @@ export default function ProductionModule({ onBack, onCreateProject }) {
         while (open >= 0 && sessions[open].endedAt) open -= 1;
         if (open >= 0) sessions[open] = { ...sessions[open], endedAt: now };
         if (previous.status !== 'Nije započeto') {
-          nextStages[affectedName] = {
-            ...previous, status: 'Nije započeto', completedAt: null, blockedReason: '', sessions,
-            history: [...(previous.history || []), { from: previous.status, to: 'Nije započeto', at: now, reason: 'Ponovno otvaranje zbog dorade prethodne faze' }]
-          };
+          nextStages[affectedName] = resetProductionStage(previous, now, 'Ponovno otvaranje zbog dorade prethodne faze');
         }
       });
       const quality = unit.quality?.status !== 'Čeka kontrolu'
