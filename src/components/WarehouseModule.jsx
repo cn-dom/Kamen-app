@@ -4,6 +4,7 @@ import StocktakeModule from './StocktakeModule.jsx';
 import { createMaterialConsumptionRecord } from '../lib/materialConsumption.js';
 import { calculateStockCarryingValue } from '../lib/materialStock.js';
 import { getReservedQuantity, settleReservationForCut } from '../lib/workOrderStock.js';
+import { appendInventoryMovements, commitInventoryTransaction } from '../lib/inventoryLedger.js';
 import { solve2d as solveSheets } from '@0xdoublesharp/bin-packing-wasm/two-d';
 import { ArrowDownToLine, ArrowUpFromLine, Boxes, Check, ChevronDown, ClipboardCheck, Layers3, Plus, Search, Scissors, X, Pencil, Archive, RotateCcw } from 'lucide-react';
 
@@ -36,7 +37,7 @@ export default function WarehouseModule({ onBack, mode = 'warehouse' }) {
   const [showCut, setShowCut] = useState(false);
   const sourceThicknessForCut = (items, id) => items.find(item => item.id === id)?.thickness ?? 0;
 const newOutput = () => ({ id: 'OUT-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7), name: '', type: 'Gotov komad', orderPieceIndex: '', length: '', width: '', thickness: '', quantity: '1', location: 'Polica O1', note: '' });
-  const initialCutForm = () => ({ sourceId: '', orderId: '', usedQty: '', note: '', outputs: [newOutput()] });
+  const initialCutForm = () => ({ operationId: 'CUT-' + Date.now() + '-' + Math.random().toString(36).slice(2, 9), sourceId: '', orderId: '', usedQty: '', note: '', outputs: [newOutput()] });
 const parseQuantity = value => Number(String(value ?? '').trim().replace(',', '.'));
 const formatQuantity = value => Number(value || 0).toLocaleString('hr-HR', { maximumFractionDigits: 2 });
 
@@ -312,7 +313,8 @@ function buildCuttingPlan(boardLength, boardWidth, pieces, kerf, trim, allowRota
       if (exceedsPlan) { flash('Količina gotovih komada prelazi preostalu naručenu količinu. Provjeri povezane komade.'); return; }
     }
     const timestamp = Date.now();
-    const date = new Date().toLocaleDateString('hr-HR');
+    const date = new Date(timestamp).toLocaleDateString('hr-HR');
+    const operationId = cutForm.operationId;
     const outputMaterials = cutForm.outputs.map((output, index) => {
       const kind = output.type;
       const formType = kind === 'Ostatak' ? 'Ostatak' : kind === 'Otpad' ? 'Otpad' : 'Komad';
@@ -336,27 +338,26 @@ function buildCuttingPlan(boardLength, boardWidth, pieces, kerf, trim, allowRota
         note: [cutForm.note.trim(), output.note.trim(), linkedOrder ? 'Radni nalog ' + linkedOrder.id : '', linkedOrder && output.type === 'Gotov komad' ? 'Komad: ' + (linkedOrder.pieces[Number(output.orderPieceIndex)]?.name || '') : '', 'Nastalo pilanjem materijala ' + source.id].filter(Boolean).join(' · ')
       };
     });
-    {
-      try {
-        const consumption = createMaterialConsumptionRecord({
-          id: 'UT-' + timestamp,
-          orderId: linkedOrder?.id || 'SKLADIŠTE',
-          materialId: source.id,
-          materialName: source.name,
-          usedQuantity: usedQty,
-          boardLengthCm: source.length,
-          boardWidthCm: source.width,
-          pricePerM2: source.pricePerM2,
-          outputs: outputMaterials,
-          date: new Date(timestamp).toISOString()
-        });
-        const currentLedger = readStored(MATERIAL_CONSUMPTION_KEY, []);
-        window.localStorage.setItem(MATERIAL_CONSUMPTION_KEY, JSON.stringify([consumption, ...currentLedger]));
-      } catch (error) {
-        flash(error?.message || 'Nije moguće spremiti obračun pilanja. Pilanje nije evidentirano.');
-        return;
-      }
+
+    let consumption;
+    try {
+      consumption = createMaterialConsumptionRecord({
+        id: 'UT-' + timestamp,
+        orderId: linkedOrder?.id || 'SKLADIŠTE',
+        materialId: source.id,
+        materialName: source.name,
+        usedQuantity: usedQty,
+        boardLengthCm: source.length,
+        boardWidthCm: source.width,
+        pricePerM2: source.pricePerM2,
+        outputs: outputMaterials,
+        date: new Date(timestamp).toISOString()
+      });
+    } catch (error) {
+      flash(error?.message || 'Nije moguće spremiti obračun pilanja. Pilanje nije evidentirano.');
+      return;
     }
+
     const finishedOutputs = outputMaterials.filter(item => item.form === 'Komad').map(item => ({
       id: 'GP-' + item.id,
       name: item.name,
@@ -378,16 +379,34 @@ function buildCuttingPlan(boardLength, boardWidth, pieces, kerf, trim, allowRota
       note: item.note,
       createdAt: new Date(timestamp).toISOString()
     }));
-    if (finishedOutputs.length) {
-      try {
-        const currentFinished = readStored('kamen-app-finished-products-v1', []);
-        window.localStorage.setItem('kamen-app-finished-products-v1', JSON.stringify([...finishedOutputs, ...currentFinished]));
-      } catch { /* Warehouse cutting is still recorded if the finished goods list cannot be updated. */ }
+
+    const nextMaterials = [
+      ...materials.map(item => item.id === source.id
+        ? { ...item, quantity: Math.max(0, Number((Number(item.quantity || 0) + settlement.stockDelta).toFixed(2))) }
+        : item),
+      ...outputMaterials.filter(item => item.form !== 'Komad')
+    ];
+    const currentFinished = readStored('kamen-app-finished-products-v1', []);
+    const nextFinished = [...finishedOutputs, ...currentFinished];
+    const currentConsumption = readStored(MATERIAL_CONSUMPTION_KEY, []);
+    const nextConsumption = [consumption, ...currentConsumption];
+    let nextOrders = readStored(WORK_ORDERS_KEY, []);
+    if (linkedOrder) {
+      nextOrders = nextOrders.map(order => {
+        if (order.id !== linkedOrder.id) return order;
+        const updatedPieces = (order.pieces || []).map((piece, index) => {
+          const added = outputMaterials.filter(item => item.form === 'Komad' && item.orderPieceIndex === index).reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+          return added ? { ...piece, producedQuantity: Number(piece.producedQuantity || 0) + added } : piece;
+        });
+        const allProduced = updatedPieces.every(piece => Number(piece.producedQuantity || 0) >= Number(piece.quantity || 0));
+        const remainingReservations = Array.isArray(order.reservedMaterials) ? order.reservedMaterials.filter(item => item.materialId !== source.id) : (order.reservedMaterialId === source.id ? [] : order.reservedMaterials);
+        const allReservationsUsed = Array.isArray(order.reservedMaterials) ? remainingReservations.length === 0 : order.reservedMaterialId === source.id;
+        return { ...order, reservedMaterials: remainingReservations, reservedMaterialQty: allReservationsUsed ? 0 : order.reservedMaterialQty, reservedMaterialId: allReservationsUsed ? null : order.reservedMaterialId, pieces: updatedPieces, status: allProduced ? 'Čeka kontrolu' : 'U tijeku' };
+      });
     }
-    const stockDelta = settlement.stockDelta;
-    setMaterials(current => [...current.map(item => item.id === source.id ? { ...item, quantity: Math.max(0, Number((item.quantity + stockDelta).toFixed(2))) } : item), ...outputMaterials.filter(item => item.form !== 'Komad')]);
     const outputMovements = outputMaterials.map((item, index) => ({
-      id: timestamp + index + 2,
+      id: operationId + ':' + (index + 1),
+      operationId,
       material: item.name,
       kind: item.form === 'Otpad' ? 'Nastali otpad' : item.form === 'Ostatak' ? 'Nastali ostatak' : 'Gotov komad',
       quantity: item.quantity,
@@ -395,27 +414,25 @@ function buildCuttingPlan(boardLength, boardWidth, pieces, kerf, trim, allowRota
       orderId: linkedOrder?.id || '',
       date
     }));
-    setMovements(current => [
-      { id: timestamp + 1, material: source.name, kind: 'Potrošnja za pilanje', quantity: usedQty, location: source.location, orderId: linkedOrder?.id || '', date },
-      ...(reservedForOrder > 0 && reservedForOrder > usedQty ? [{ id: timestamp + 2, material: source.name, kind: 'Povrat neiskorištene rezervacije', quantity: Number((reservedForOrder - usedQty).toFixed(2)), location: source.location, orderId: linkedOrder?.id || '', date }] : []),
-      ...outputMovements,
-      ...current
-    ].slice(0, 100));
-    if (linkedOrder) {
-      try {
-        const currentOrders = JSON.parse(window.localStorage.getItem(WORK_ORDERS_KEY) || '[]');
-        window.localStorage.setItem(WORK_ORDERS_KEY, JSON.stringify(currentOrders.map(order => {
-          if (order.id !== linkedOrder.id) return order;
-          const updatedPieces = (order.pieces || []).map((piece, index) => {
-            const added = outputMaterials.filter(item => item.form === 'Komad' && item.orderPieceIndex === index).reduce((sum, item) => sum + Number(item.quantity || 0), 0);
-            return added ? { ...piece, producedQuantity: Number(piece.producedQuantity || 0) + added } : piece;
-          });
-          const allProduced = updatedPieces.every(piece => Number(piece.producedQuantity || 0) >= Number(piece.quantity || 0));
-          const remainingReservations = Array.isArray(order.reservedMaterials) ? order.reservedMaterials.filter(item => item.materialId !== source.id) : (order.reservedMaterialId === source.id ? [] : order.reservedMaterials);
-          const allReservationsUsed = Array.isArray(order.reservedMaterials) ? remainingReservations.length === 0 : order.reservedMaterialId === source.id;
-          return { ...order, reservedMaterials: remainingReservations, reservedMaterialQty: allReservationsUsed ? 0 : order.reservedMaterialQty, reservedMaterialId: allReservationsUsed ? null : order.reservedMaterialId, pieces: updatedPieces, status: allProduced ? 'Čeka kontrolu' : 'U tijeku' };
-        })));
-      } catch { /* The cutting record remains saved locally even if order status cannot be updated. */ }
+    const transactionMovements = [
+      { id: operationId + ':0', operationId, material: source.name, kind: 'Potrošnja za pilanje', quantity: usedQty, location: source.location, orderId: linkedOrder?.id || '', date },
+      ...(reservedForOrder > 0 && reservedForOrder > usedQty ? [{ id: operationId + ':return', operationId, material: source.name, kind: 'Povrat neiskorištene rezervacije', quantity: Number((reservedForOrder - usedQty).toFixed(2)), location: source.location, orderId: linkedOrder?.id || '', date }] : []),
+      ...outputMovements
+    ];
+    const writes = [
+      { key: MATERIALS_KEY, value: nextMaterials },
+      { key: 'kamen-app-finished-products-v1', value: nextFinished },
+      { key: MATERIAL_CONSUMPTION_KEY, value: nextConsumption }
+    ];
+    if (linkedOrder) writes.push({ key: WORK_ORDERS_KEY, value: nextOrders });
+    try {
+      const committed = commitInventoryTransaction(window.localStorage, { operationId, writes, movements: transactionMovements });
+      if (committed.duplicate) { flash('Ovaj postupak pilanja već je evidentiran. Zaliha nije ponovno promijenjena.'); return; }
+      setMaterials(nextMaterials);
+      setMovements(committed.movements);
+    } catch (error) {
+      flash(error?.message || 'Nije moguće sigurno spremiti pilanje. Zaliha nije promijenjena.');
+      return;
     }
     setShowCut(false);
     setCutForm(initialCutForm());
