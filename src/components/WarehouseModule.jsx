@@ -248,6 +248,8 @@ function buildCuttingPlan(boardLength, boardWidth, pieces, kerf, trim, allowRota
           id: operationId, operationId, material: normalized.name,
           kind: 'Korekcija zalihe',
           quantity: Number((quantity - Number(previous.quantity || 0)).toFixed(4)),
+          previousQuantity: Number(previous.quantity || 0),
+          nextQuantity: quantity,
           reason: String(reason).trim(), location: normalized.location,
           date: new Date().toLocaleDateString('hr-HR')
         };
@@ -276,7 +278,7 @@ function buildCuttingPlan(boardLength, boardWidth, pieces, kerf, trim, allowRota
           writes: [{ key: MATERIALS_KEY, value: nextMaterials }],
           movements: [{
             id: operationId, operationId, material: next.name, kind: 'Zaprimanje',
-            quantity, location: next.location, date: new Date().toLocaleDateString('hr-HR')
+            quantity, previousQuantity: 0, nextQuantity: quantity, location: next.location, date: new Date().toLocaleDateString('hr-HR')
           }]
         });
         if (committed.duplicate) { flash('Ovaj primitak već je evidentiran.'); return; }
@@ -518,6 +520,8 @@ function buildCuttingPlan(boardLength, boardWidth, pieces, kerf, trim, allowRota
       material: item.name,
       kind: movement.kind,
       quantity: qty,
+      previousQuantity: Number(item.quantity || 0),
+      nextQuantity: Number((Number(item.quantity || 0) + stockDelta).toFixed(4)),
       location: item.location,
       date: new Date().toLocaleDateString('hr-HR'),
       ...movementDetails
