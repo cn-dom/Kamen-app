@@ -137,3 +137,16 @@ Proizvodni tijek ima zasebne faze **Ručna obrada** i **Terenski rad / montaža*
 - Promjene u popisu radnika osvježavaju se pri povratku fokusa u raspored.
 
 **Ograničenja:** podaci su lokalni; nema sinkronizacije, stvarne prijave, obračuna radnog vremena/plaće ni automatskog prepoznavanja prisutnosti. Prisutnost i vještine unose se ručno u Proizvodnji.
+
+
+## 10. Cjelina 8 — terenski rad i montaža
+
+Nadograđen je postojeći modul terenskih naloga:
+- validacija kupca, projekta, lokacije, datuma, vremenskog raspona i ekipe;
+- odbijanje nevaljanog završetka prije početka;
+- provjera dnevne prisutnosti i sprječavanje dodjele radnika koji je već raspoređen u radionici;
+- provjera preklapanja članova ekipe s drugim aktivnim terenskim poslovima;
+- slijed statusa bez ručnog preskakanja: Planirano, Na putu, Na lokaciji, Montaža u tijeku, Završeno, Vraćeno;
+- kronološka povijest događaja terenskog naloga.
+
+Podaci su lokalni u pregledniku. Nema GPS praćenja, sinkronizacije, poslužiteljske potvrde događaja niti automatskog knjiženja ugrađenog materijala. Materijal i alat vode se u povezanim skladišnim modulima; sam status terenskog naloga ne skida zalihu.
