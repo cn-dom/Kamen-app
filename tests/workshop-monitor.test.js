@@ -113,3 +113,22 @@ test('ne predlaže odsutne, terenske ili već zauzete radnike', () => {
   const result = analyzeWorkshopCapacity(orders, { ...production, pieces });
   assert.equal(result.recommendations.some(item => item.stage === 'Pilanje'), false);
 });
+
+
+test('terenska montaža je zasebna faza i ne ulazi u čekanje ručne obrade', () => {
+  const pieces = {
+    'RN-1::0::1': { stages: {
+      'Pilanje': { status: 'Završeno' },
+      'Kanterica / obrada rubova': { status: 'Nije potrebno' },
+      'Poliranje': { status: 'Završeno' },
+      'Ručna obrada': { status: 'Nije potrebno' },
+      'Terenski rad / montaža': { status: 'Nije započeto' }
+    } }
+  };
+  const result = analyzeWorkshopCapacity(orders, present(['Ivan'], pieces));
+  const manualAlert = result.alerts.find(item => item.id === 'manual-capacity-idle');
+  assert.ok(manualAlert);
+  assert.equal(manualAlert.waiting, 0);
+  assert.equal(result.stages.find(item => item.stage === 'Terenski rad / montaža').waiting, 1);
+  assert.equal(result.alerts.some(item => item.id === 'stage-waiting-Terenski rad / montaža'), true);
+});
