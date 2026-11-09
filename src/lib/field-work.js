@@ -52,6 +52,7 @@ export function summarizeFieldWork(jobs = [], date = new Date().toISOString().sl
 export function validateFieldJob(candidate = {}, jobs = [], workerRecords = {}) {
   const { customer = '', project = '', location = '', date = '', startTime = '08:00', endTime = '16:00' } = candidate;
   if (!customer.trim() || !project.trim() || !location.trim() || !date) return 'Unesi kupca, projekt, lokaciju i datum terenskog rada.';
+  if (candidate.distanceKm !== undefined && candidate.distanceKm !== '' && (!Number.isFinite(Number(candidate.distanceKm)) || Number(candidate.distanceKm) < 0)) return 'Ukupna kilometraža mora biti nula ili pozitivan broj.';
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(startTime) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(endTime)) return 'Unesi valjano vrijeme početka i završetka.';
   const start = Number(startTime.slice(0,2))*60 + Number(startTime.slice(3));
   const end = Number(endTime.slice(0,2))*60 + Number(endTime.slice(3));
