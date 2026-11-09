@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, Plus, Search, Clock3, UserRound, Wrench, AlertTriangle, CheckCircle2, Trash2, Pencil, X, Printer } from 'lucide-react';
 import { PRODUCTION_STAGES, buildProductionUnits } from '../lib/production.js';
 import { findScheduleConflict, scheduleDurationHours } from '../lib/schedule.js';
@@ -8,6 +8,68 @@ const ORDERS_KEY = 'kamen-app-work-orders-v1';
 const PRODUCTION_KEY = 'kamen-app-production-stages-v1';
 const EQUIPMENT_KEY = 'kamen-app-schedule-equipment-v1';
 const read = (key, fallback) => { try { const value = window.localStorage.getItem(key); return value ? JSON.parse(value) : fallback; } catch { return fallback; } };
+const syncProductionSchedule = (task, previousTask = null) => {
+  const records = read(PRODUCTION_KEY, {});
+  if (!records || records.version !== 2 || !records.pieces) return;
+  const pieces = { ...records.pieces };
+  const clearPrevious = () => {
+    if (!previousTask?.pieceKey || !previousTask?.stage) return;
+    const previousUnit = pieces[previousTask.pieceKey];
+    const previousStage = previousUnit?.stages?.[previousTask.stage];
+    if (previousStage?.scheduleTaskId !== previousTask.id) return;
+    pieces[previousTask.pieceKey] = {
+      ...previousUnit,
+      stages: {
+        ...previousUnit.stages,
+        [previousTask.stage]: {
+          ...previousStage,
+          assignedTo: '',
+          plannedStart: null,
+          plannedEnd: null,
+          scheduledMachine: '',
+          scheduleTaskId: null
+        }
+      }
+    };
+  };
+  clearPrevious();
+  const unit = pieces[task.pieceKey];
+  const stage = unit?.stages?.[task.stage];
+  if (!unit || !stage) return;
+  pieces[task.pieceKey] = {
+    ...unit,
+    stages: {
+      ...unit.stages,
+      [task.stage]: {
+        ...stage,
+        assignedTo: task.worker,
+        plannedStart: task.start,
+        plannedEnd: task.end,
+        scheduledMachine: task.machine,
+        scheduleTaskId: task.id
+      }
+    }
+  };
+  try { window.localStorage.setItem(PRODUCTION_KEY, JSON.stringify({ ...records, pieces })); } catch {}
+};
+const clearProductionSchedule = task => {
+  if (!task?.pieceKey || !task?.stage) return;
+  const records = read(PRODUCTION_KEY, {});
+  const unit = records?.pieces?.[task.pieceKey];
+  const stage = unit?.stages?.[task.stage];
+  if (!unit || stage?.scheduleTaskId !== task.id) return;
+  const pieces = {
+    ...records.pieces,
+    [task.pieceKey]: {
+      ...unit,
+      stages: {
+        ...unit.stages,
+        [task.stage]: { ...stage, assignedTo: '', plannedStart: null, plannedEnd: null, scheduledMachine: '', scheduleTaskId: null }
+      }
+    }
+  };
+  try { window.localStorage.setItem(PRODUCTION_KEY, JSON.stringify({ ...records, pieces })); } catch {}
+};
 const localDate = date => { const d = new Date(date); return [d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-'); };
 const mondayOf = date => { const d = new Date(date); d.setHours(0,0,0,0); d.setDate(d.getDate() - ((d.getDay()+6)%7)); return d; };
 const addDays = (date, days) => { const d = new Date(date); d.setDate(d.getDate()+days); return d; };
@@ -21,7 +83,7 @@ export default function ScheduleModule({ onBack }) {
   const [tasks,setTasks] = useState(()=>read(KEY,[]));
   const [orders] = useState(()=>read(ORDERS_KEY,[]));
   const [production] = useState(()=>read(PRODUCTION_KEY,{}));
-  const [workers] = useState(()=>read(PRODUCTION_KEY,{}).workers || []);
+  const [workers,setWorkers] = useState(()=>read(PRODUCTION_KEY,{}).workers || []);
   const [equipment,setEquipment] = useState(()=>read(EQUIPMENT_KEY,['Mostna pila','Kanterica','Polirka','Radni stol','CNC stroj']));
   const [weekStart,setWeekStart] = useState(()=>mondayOf(new Date()));
   const [view,setView] = useState('Tjedan');
@@ -32,6 +94,20 @@ export default function ScheduleModule({ onBack }) {
   const [form,setForm] = useState(emptyForm);
   const [error,setError] = useState('');
   const [newMachine,setNewMachine] = useState('');
+  useEffect(() => {
+    const refreshFromStorage = () => {
+      setTasks(read(KEY, []));
+      setWorkers(read(PRODUCTION_KEY,{}).workers || []);
+    };
+    window.addEventListener('focus', refreshFromStorage);
+    window.addEventListener('storage', refreshFromStorage);
+    window.addEventListener('kamen-app-schedule-updated', refreshFromStorage);
+    return () => {
+      window.removeEventListener('focus', refreshFromStorage);
+      window.removeEventListener('storage', refreshFromStorage);
+      window.removeEventListener('kamen-app-schedule-updated', refreshFromStorage);
+    };
+  }, []);
   const units = useMemo(()=>buildProductionUnits(orders),[orders]);
   const unitOptions = units.filter(unit=>!['Završen','Otkazan'].includes(unit.order.status));
   const saveTasks = next => { setTasks(next); try { window.localStorage.setItem(KEY,JSON.stringify(next)); } catch { setError('Nema dovoljno prostora za spremanje rasporeda. Izradi sigurnosnu kopiju i oslobodi prostor.'); } };
@@ -58,17 +134,18 @@ export default function ScheduleModule({ onBack }) {
     const conflict=findScheduleConflict(tasks,{start:form.start,end:form.end,worker:form.worker.trim(),machine:form.machine.trim()},editing);
     if (conflict) { setError('Sukob rasporeda: '+(conflict.worker===form.worker.trim()?'radnik '+form.worker:'stroj '+form.machine)+' već je zauzet u terminu '+formatTime(conflict.start)+'–'+formatTime(conflict.end)+'.'); return; }
     const task={id:editing||('RAS-'+Date.now()),pieceKey:unit.key,orderId:unit.order.id,project:unit.order.project||unit.order.title||'Radni nalog',customer:unit.order.customer||'',pieceLabel:unit.label+' · komad '+unit.unitIndex,material:unit.material,stage:form.stage,worker:form.worker.trim(),machine:form.machine.trim(),start:new Date(form.start).toISOString(),end:new Date(form.end).toISOString(),priority:form.priority,status:form.status,note:form.note.trim(),updatedAt:new Date().toISOString()};
+    syncProductionSchedule(task, editing ? tasks.find(item=>item.id===editing) : null);
     saveTasks(editing?tasks.map(item=>item.id===editing?task:item):[...tasks,task]);
     setShowForm(false);setEditing(null);setForm(emptyForm());
   };
-  const removeTask = task => { if(!window.confirm('Obrisati planiranu aktivnost '+task.orderId+' – '+task.pieceLabel+'?')) return; saveTasks(tasks.filter(item=>item.id!==task.id)); };
+  const removeTask = task => { if(!window.confirm('Obrisati planiranu aktivnost '+task.orderId+' – '+task.pieceLabel+'?')) return; clearProductionSchedule(task); saveTasks(tasks.filter(item=>item.id!==task.id)); };
   const updateStatus = (task,status) => saveTasks(tasks.map(item=>item.id===task.id?{...item,status,updatedAt:new Date().toISOString()}:item));
   const addMachine = event => { event.preventDefault(); const name=newMachine.trim(); if(!name||equipment.some(item=>item.toLocaleLowerCase('hr')===name.toLocaleLowerCase('hr')))return; const next=[...equipment,name];setEquipment(next);try{window.localStorage.setItem(EQUIPMENT_KEY,JSON.stringify(next));}catch{}setNewMachine(''); };
   const removeMachine = name => { if(tasks.some(task=>task.machine===name && task.status!=='Otkazano')) { window.alert('Stroj se ne može ukloniti dok ima aktivnih planiranih aktivnosti.'); return; } const next=equipment.filter(item=>item!==name);setEquipment(next);try{window.localStorage.setItem(EQUIPMENT_KEY,JSON.stringify(next));}catch{} };
   const dayLabel = d => localDate(d);
   const dayTasks = date => visibleTasks.filter(task=>task.start.slice(0,10)===dayLabel(date)).sort((a,b)=>a.start.localeCompare(b.start));
-  const statusClass = status => status==='Završeno'?'done':status==='U tijeku'?'active':status==='Otkazano'?'cancelled':'planned';
-  const statusOptions=['Planirano','U tijeku','Završeno','Otkazano'];
+  const statusClass = status => status==='Završeno'?'done':status==='U tijeku'?'active':status==='Zastoj'?'blocked':status==='Otkazano'?'cancelled':'planned';
+  const statusOptions=['Planirano','U tijeku','Zastoj','Završeno','Otkazano'];
   return <div className="page-content schedule-page">
     <section className="welcome-row module-welcome">
       <div><div className="eyebrow"><span className="live-dot"/> ORGANIZACIJA RADIONICE</div><h1>Raspored radionice</h1><p className="subtitle">Planiraj rad po komadu, zaduženom radniku i stroju. Sukobi termina provjeravaju se prije spremanja.</p></div>
@@ -90,6 +167,7 @@ export default function ScheduleModule({ onBack }) {
           <header><span>{day.toLocaleDateString('hr-HR',{weekday:'short'}).toLocaleUpperCase('hr')}</span><strong>{day.getDate()}</strong><small>{day.toLocaleDateString('hr-HR',{month:'short'})}</small></header>
           <div className="schedule-day-list">{dayTasks(day).map(task=><article className={'schedule-task '+statusClass(task.status)} key={task.id}>
             <div className="schedule-task-time">{formatTime(task.start)}–{formatTime(task.end)}</div><strong>{task.pieceLabel}</strong><span>{task.orderId} · {task.project}</span><div className="schedule-task-meta"><span><UserRound size={11}/>{task.worker}</span><span><Wrench size={11}/>{task.machine}</span></div><small>{task.stage}</small>
+            {task.status==='Zastoj'&&task.blockedReason&&<small className="schedule-task-blocked-reason"><AlertTriangle size={11}/>{task.blockedReason}</small>}
             <div className="schedule-task-actions"><select aria-label="Status aktivnosti" value={task.status} onChange={e=>updateStatus(task,e.target.value)}>{statusOptions.map(status=><option key={status}>{status}</option>)}</select><button onClick={()=>openForm(task)} title="Uredi"><Pencil size={13}/></button><button onClick={()=>removeTask(task)} title="Obriši"><Trash2 size={13}/></button></div>
           </article>)}
           {!dayTasks(day).length&&<div className="schedule-day-empty">Nema aktivnosti</div>}

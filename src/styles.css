@@ -690,7 +690,7 @@ button:active { transform: translateY(1px); }
 .schedule-day.is-today>header strong{background:#426bd0;color:#fff}
 .schedule-day-list{display:flex;flex-direction:column;gap:8px;min-height:180px;padding:8px}
 .schedule-task{display:flex;flex-direction:column;gap:5px;padding:9px;border:1px solid #e5eaf2;border-left:3px solid #8da5d9;border-radius:8px;background:#fff;min-width:0}
-.schedule-task.active{border-left-color:#d39b3c;background:#fffdf8}.schedule-task.done{border-left-color:#4ca783;background:#f9fdfb;opacity:.82}.schedule-task.cancelled{border-left-color:#aab2bf;background:#f7f8fa;opacity:.65}
+.schedule-task.active{border-left-color:#d39b3c;background:#fffdf8}.schedule-task.blocked{border-left-color:#d97732;background:#fff9f4}.schedule-task-blocked-reason{display:flex;align-items:flex-start;gap:5px;color:#a34e1b!important;font-weight:700;line-height:1.35}.schedule-task.done{border-left-color:#4ca783;background:#f9fdfb;opacity:.82}.schedule-task.cancelled{border-left-color:#aab2bf;background:#f7f8fa;opacity:.65}
 .schedule-task-time{font-size:9px;font-weight:800;color:#4767a6}
 .schedule-task>strong{font-size:10px;line-height:1.35;color:#34445b;overflow-wrap:anywhere}
 .schedule-task>span{font-size:9px;color:#8995a5;overflow-wrap:anywhere}
@@ -1475,3 +1475,115 @@ input,select,textarea{border-radius:9px}
 .production-capacity-footer span:last-child{margin-left:auto}
 @media(max-width:1000px){.production-capacity-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.production-alert-column{grid-column:1/-1;border-top:1px solid #edf1f6}}
 @media(max-width:620px){.production-capacity-grid{grid-template-columns:1fr}.production-capacity-column{padding:15px;border-right:0;border-bottom:1px solid #edf1f6}.production-alert-column{grid-column:auto}.production-capacity-footer{gap:9px 14px;padding:11px 15px}.production-capacity-footer span:last-child{width:100%;margin-left:0}}
+
+
+/* Two-saw quick production board */
+.production-saw-board{margin:18px 0;padding:20px;border:1px solid var(--border-color,#dce3ea);border-radius:16px;background:var(--surface,#fff)}
+.production-saw-board-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px}
+.production-saw-board-heading h3{margin:4px 0;font-size:1.15rem}
+.production-saw-board-heading p{margin:0;color:var(--muted,#64748b);font-size:.88rem}
+.production-saw-count{white-space:nowrap;border-radius:999px;padding:7px 11px;background:var(--surface-muted,#eef2f6);font-size:.8rem;font-weight:700}
+.production-saw-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.production-saw-lane{min-width:0;padding:14px;border:1px solid var(--border-color,#dce3ea);border-radius:12px;background:var(--surface-muted,#f8fafc)}
+.production-saw-lane h4{display:flex;align-items:center;gap:8px;margin:0 0 12px;font-size:.98rem}
+.production-saw-lane h4 small{margin-left:auto;color:var(--muted,#64748b);font-weight:500}
+.production-saw-job{display:grid;gap:7px;padding:12px;margin-top:9px;border:1px solid var(--border-color,#dce3ea);border-radius:10px;background:var(--surface,#fff)}
+.production-saw-job>strong{font-size:.9rem}
+.production-saw-job>span,.production-saw-job>small{color:var(--muted,#64748b);font-size:.8rem}
+.production-saw-job-actions{display:flex;gap:8px;align-items:center}
+.production-saw-job-actions select{min-width:0;flex:1}
+.production-saw-job-actions .button{min-height:40px}
+.production-saw-empty{margin:0;padding:14px 4px;color:var(--muted,#64748b);font-size:.85rem}
+.production-saw-footnote{display:block;margin-top:13px;color:var(--muted,#64748b);font-size:.76rem;line-height:1.5}
+@media(max-width:700px){.production-saw-board{padding:14px}.production-saw-columns{grid-template-columns:1fr}.production-saw-board-heading{flex-direction:column}.production-saw-job-actions select{min-height:42px}}
+
+.production-station-board{margin:18px 0;padding:20px;border:1px solid var(--border-color,#dce3ea);border-radius:16px;background:var(--surface,#fff)}
+.production-station-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px}
+.production-station-heading h3{margin:4px 0;font-size:1.15rem}
+.production-station-heading p{margin:0;color:var(--muted,#64748b);font-size:.88rem}
+.production-station-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.production-station-lane{min-width:0;padding:14px;border:1px solid var(--border-color,#dce3ea);border-radius:12px;background:var(--surface-muted,#f8fafc)}
+.production-station-lane h4{display:flex;align-items:center;gap:8px;margin:0 0 12px;font-size:.95rem}
+.production-station-lane h4 small{margin-left:auto;color:var(--muted,#64748b);font-weight:500;white-space:nowrap}
+.production-station-job{display:grid;gap:7px;padding:12px;margin-top:9px;border:1px solid var(--border-color,#dce3ea);border-radius:10px;background:var(--surface,#fff)}
+.production-station-job>strong{font-size:.88rem}
+.production-station-job>span,.production-station-job>small{color:var(--muted,#64748b);font-size:.78rem}
+.production-station-status{font-weight:700}
+.production-station-status.status-u-tijeku{color:var(--success,#16804a)}
+.production-station-status.status-zastoj{color:var(--danger,#b42318)}
+.production-station-actions{display:flex;gap:8px;flex-wrap:wrap}
+.production-station-actions .button{min-height:40px}
+@media(max-width:700px){.production-station-board{padding:14px}.production-station-heading{flex-direction:column}.production-station-grid{grid-template-columns:1fr}.production-station-actions .button{flex:1}}
+
+
+/* Opterećenje radnih centara */
+.production-load-board{margin:18px 0;padding:20px;border:1px solid var(--border-color,#dce3ea);border-radius:16px;background:var(--surface,#fff)}
+.production-load-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px}
+.production-load-card{min-width:0;padding:13px;border:1px solid var(--border-color,#e1e7ef);border-radius:11px;background:var(--surface-muted,#f8fafc)}
+.production-load-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.production-load-card-head strong{font-size:.82rem;line-height:1.4;color:var(--text,#34445b)}
+.production-load-card-head b{display:grid;place-items:center;min-width:27px;height:27px;padding:0 6px;border-radius:8px;background:#eaf0ff;color:#315fc1;font-size:.85rem}
+.production-load-track{height:6px;margin:12px 0 9px;overflow:hidden;border-radius:9px;background:#e9edf3}
+.production-load-track i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#4778e8,#77a2f8)}
+.production-load-counts{display:flex;flex-wrap:wrap;gap:5px}
+.production-load-counts span{padding:4px 6px;border-radius:6px;font-size:.68rem;font-weight:700;white-space:nowrap}
+.load-active{background:#eaf5ef;color:#26764a}.load-queued{background:#edf2fa;color:#596b83}.load-blocked{background:#fff1e8;color:#ad5c25}
+.production-load-filter{margin:-5px 0 12px;color:var(--muted,#64748b);font-size:.78rem}
+@media(max-width:1000px){.production-load-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.production-load-board{padding:14px}.production-load-grid{grid-template-columns:1fr}.production-load-card{padding:12px}}
+
+
+.production-overdue-flag{display:inline-flex;align-items:center;gap:5px;width:max-content;max-width:100%;padding:5px 8px;border:1px solid #f0c7a8;border-radius:7px;background:#fff3e9;color:#a84c16;font-size:.72rem;font-weight:800}
+
+
+/* Usporedba planiranog i stvarnog vremena proizvodnje */
+.production-time-board{margin:18px 0;padding:20px;border:1px solid var(--border-color,#dce3ea);border-radius:16px;background:var(--surface,#fff)}
+.production-time-table-wrap{width:100%;overflow-x:auto}
+.production-time-table{width:100%;border-collapse:collapse;min-width:650px;font-size:.82rem}
+.production-time-table th,.production-time-table td{padding:11px 10px;border-bottom:1px solid var(--border-color,#e5eaf0);text-align:left;vertical-align:middle}
+.production-time-table thead th{color:var(--muted,#64748b);font-size:.7rem;text-transform:uppercase;letter-spacing:.04em}
+.production-time-table tbody th{font-weight:750;color:var(--text,#34445b)}
+.production-time-table td small{color:var(--muted,#64748b);font-size:.7rem}
+.production-time-over{color:#b45309}.production-time-under{color:#26764a}
+@media(max-width:600px){.production-time-board{padding:14px}}
+
+.production-time-details{margin-top:14px;border:1px solid var(--border-color,#e1e7ef);border-radius:10px;overflow:hidden}
+.production-time-details summary{padding:12px 14px;cursor:pointer;font-size:.82rem;font-weight:750;color:var(--text,#34445b);background:var(--surface-muted,#f8fafc)}
+.production-time-details[open] summary{border-bottom:1px solid var(--border-color,#e1e7ef)}
+.production-time-details .production-time-table-wrap{padding:0 10px 10px}
+.production-time-details .production-time-table{min-width:850px}
+.production-time-details .production-time-table tbody td:first-child small{display:block;margin-top:3px;color:var(--muted,#64748b)}
+
+/* Vizualni prijedlog rasporeda pilanja */
+.cut-plan-actions{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:14px 0;padding:12px;border:1px solid var(--border-color,#dce3ea);border-radius:11px;background:var(--surface-muted,#f8fafc)}
+.cut-plan-actions>span{font-size:.74rem;color:var(--muted,#64748b)}
+.cut-plan-preview{margin:12px 0;padding:14px;border:1px solid var(--border-color,#dce3ea);border-radius:12px;background:var(--surface,#fff)}
+.cut-plan-preview-head,.cut-plan-sheet-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.cut-plan-preview-head strong,.cut-plan-sheet-head strong{font-size:.88rem;color:var(--text,#34445b)}
+.cut-plan-preview-head small,.cut-plan-sheet-head small{display:block;margin-top:3px;color:var(--muted,#64748b);font-size:.72rem}
+.cut-plan-preview-head>span{font-weight:800;font-size:.8rem;color:var(--text,#34445b)}
+.cut-plan-sheet{margin-top:12px;padding:10px;border:1px solid var(--border-color,#e5eaf0);border-radius:9px;background:var(--surface-muted,#f8fafc)}
+.cut-plan-drawing{display:block;width:100%;max-height:420px;margin-top:10px;background:#f1f4f8;border:1px solid #cbd5e1;border-radius:5px}
+.cut-plan-stock{fill:#eef1f5;stroke:#64748b;stroke-width:8}
+.cut-plan-piece{fill:#dbeafe;stroke:#315fc1;stroke-width:6}
+.cut-plan-drawing text{fill:#1e3a5f;font-size:65px;font-weight:700;pointer-events:none}
+.cut-plan-drawing .cut-plan-dim{font-size:40px;font-weight:500;fill:#52657d}
+.cut-plan-footnote,.cut-plan-warning{display:block;margin-top:9px;font-size:.72rem;color:var(--muted,#64748b)}
+.cut-plan-warning{padding:9px;border-radius:8px;background:#fff1e8;color:#9a4c17;font-weight:700}
+@media(max-width:600px){.cut-plan-preview{padding:10px}.cut-plan-drawing{max-height:260px}.cut-plan-actions{align-items:flex-start}.cut-plan-actions .button{width:100%;justify-content:center}}
+
+.cut-plan-steps{margin-top:10px;border-top:1px solid var(--border-color,#e5eaf0)}
+.cut-plan-steps summary{padding:9px 2px;cursor:pointer;font-size:.76rem;font-weight:800;color:var(--text,#34445b)}
+.cut-plan-steps ol{margin:0;padding:0 0 8px 28px;columns:2;column-gap:24px}
+.cut-plan-steps li{padding:3px 0;font-size:.72rem;color:var(--muted,#52657d);break-inside:avoid}
+@media(max-width:600px){.cut-plan-steps ol{columns:1}}
+
+
+/* Spremljeni plan pilanja na pločama pila */
+.production-saw-cut-plan{margin-top:12px;padding:11px;border:1px solid var(--border-color,#cbd5e1);border-radius:10px;background:var(--surface,#fff)}
+.production-saw-cut-plan>summary{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.82rem;font-weight:800;color:var(--primary,#315fc1)}
+.production-saw-plan-note{margin:9px 0;color:var(--muted,#64748b);font-size:.75rem}
+.cut-plan-sheet-group{display:grid;gap:6px;margin-top:12px}
+.cut-plan-sheet-group>strong{font-size:.82rem}
+.cut-plan-sheet-group>small{font-size:.72rem;color:var(--muted,#64748b)}
+@media(max-width:600px){.production-saw-cut-plan{padding:9px}.production-saw-cut-plan .cut-plan-drawing{max-height:220px}}
