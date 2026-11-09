@@ -1,11 +1,12 @@
 const MOVEMENTS_KEY = 'kamen-app-movements-v1';
 
 export function readInventoryJson(storage, key, fallback) {
+  const raw = storage.getItem(key);
+  if (raw === null) return fallback;
   try {
-    const raw = storage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
+    return JSON.parse(raw);
   } catch {
-    return fallback;
+    throw new Error('Skladišni zapis ' + key + ' nije valjan JSON. Podaci nisu promijenjeni.');
   }
 }
 
