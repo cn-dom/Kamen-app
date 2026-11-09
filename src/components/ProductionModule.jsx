@@ -10,6 +10,7 @@ import {
   blankPieceProductionRecord as blankUnit,
   buildProductionUnits as unitRows,
   isValidProductionWorkCenter,
+  workerCanPerformProductionStage,
   PRODUCTION_WORK_CENTERS,
   startProductionStage,
   pauseProductionStage,
@@ -148,7 +149,7 @@ export default function ProductionModule({ onBack, onCreateProject }) {
     if (deployment?.area === 'Teren' && stageName !== 'Terenski rad / montaža') { window.alert('Radnik je danas raspoređen na teren i nije slobodan kapacitet radionice.'); return; }
     if (stageName === 'Terenski rad / montaža' && deployment?.area !== 'Teren') { window.alert('Prije početka montaže rasporedi radnika na teren u postavkama radnika.'); return; }
     const skills = records.workerSkills?.[currentStage.assignedTo] || [];
-    if (skills.length && !skills.includes(stageName)) { window.alert('Radniku nije evidentirana vještina za ovu fazu. Provjeri raspored i vještine prije početka.'); return; }
+    if (!workerCanPerformProductionStage(stageName, skills)) { window.alert('Radniku nije evidentirana vještina za ovu fazu. Provjeri raspored i vještine prije početka.'); return; }
     const currentEquipmentId = currentStage.equipmentId || '';
     const occupied = Object.entries(records.pieces || {}).flatMap(([otherKey, otherUnit]) => stages.flatMap(otherStageName => {
       const otherStage = otherUnit.stages?.[otherStageName] || blankStage();
@@ -374,7 +375,8 @@ export default function ProductionModule({ onBack, onCreateProject }) {
   const todayCapacityWarnings = useMemo(() => workerLoads.flatMap(load => {
     const attendance = records.attendance?.date === todayKey() ? records.attendance.statuses?.[load.name] : '';
     const deployment = records.deployment?.date === todayKey() ? records.deployment.assignments?.[load.name] : null;
-    if (attendance === 'Odsutan' || attendance === 'Izvan smjene' || deployment?.area === 'Teren') return [{ name: load.name, reason: deployment?.area === 'Teren' ? 'Raspoređen na teren' : attendance }];
+    if (attendance === 'Odsutan' || attendance === 'Izvan smjene') return [{ name: load.name, reason: attendance }];
+    if (deployment?.area === 'Teren' && load.tasks.some(task => task.stageName !== 'Terenski rad / montaža')) return [{ name: load.name, reason: 'Raspoređen na teren' }];
     return [];
   }), [workerLoads, records.attendance, records.deployment]);
 
