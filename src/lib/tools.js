@@ -7,7 +7,8 @@ export function issueTool(tool,{person,workOrder='',dueDate,condition='Ispravno'
  const issue={id:'ZAD-'+now.getTime(),kind:'Izdavanje',toolId:tool.id,person:String(person).trim(),workOrder:String(workOrder).trim(),dueDate,condition,notes,issuedBy,issuedAt:now.toISOString(),createdAt:now.toISOString(),returnedAt:null,returnCondition:null,returnNotes:''};
  return {tool:{...tool,status:'Zadužen',currentIssueId:issue.id},issue,event:{id:'ALAT-'+now.getTime(),toolId:tool.id,kind:'Izdavanje',person:issue.person,workOrder:issue.workOrder,condition,notes,dueDate,createdAt:now.toISOString()}};
 }
-export function returnTool(tool,issue,{condition='Ispravno',notes='',returnedBy='Vlasnik'},now=new Date()){
+export function returnTool(tool,issue,options={},now=new Date()){
+ const {condition='Ispravno',notes='',returnedBy='Vlasnik'}=options||{};
  if(!tool||tool.status!=='Zadužen'||!issue||issue.returnedAt)throw new Error('Za ovaj alat nema otvorenog zaduženja.');
  const returnedAt=now.toISOString(),updatedIssue={...issue,returnedAt,returnCondition:condition,returnNotes:notes,returnedBy};
  const status=condition==='Neispravno'||condition==='Oštećeno'?'Na popravku':'Dostupan';
