@@ -95,12 +95,17 @@ export default function ScheduleModule({ onBack }) {
   const [error,setError] = useState('');
   const [newMachine,setNewMachine] = useState('');
   useEffect(() => {
-    const refreshWorkers = () => setWorkers(read(PRODUCTION_KEY,{}).workers || []);
-    window.addEventListener('focus', refreshWorkers);
-    window.addEventListener('storage', refreshWorkers);
+    const refreshFromStorage = () => {
+      setTasks(read(KEY, []));
+      setWorkers(read(PRODUCTION_KEY,{}).workers || []);
+    };
+    window.addEventListener('focus', refreshFromStorage);
+    window.addEventListener('storage', refreshFromStorage);
+    window.addEventListener('kamen-app-schedule-updated', refreshFromStorage);
     return () => {
-      window.removeEventListener('focus', refreshWorkers);
-      window.removeEventListener('storage', refreshWorkers);
+      window.removeEventListener('focus', refreshFromStorage);
+      window.removeEventListener('storage', refreshFromStorage);
+      window.removeEventListener('kamen-app-schedule-updated', refreshFromStorage);
     };
   }, []);
   const units = useMemo(()=>buildProductionUnits(orders),[orders]);
