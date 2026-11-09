@@ -2,7 +2,7 @@ export const PRODUCTION_STAGES = ['Pilanje', 'Kanterica / obrada rubova', 'Polir
 export const PRODUCTION_STAGE_STATUSES = ['Nije započeto', 'U tijeku', 'Zastoj', 'Završeno', 'Nije potrebno'];
 
 export function blankStageRecord() {
-  return { status: 'Nije započeto', assignedTo: '', startedAt: null, completedAt: null, sessions: [], blockedReason: '', note: '', history: [] };
+  return { status: 'Nije započeto', assignedTo: '', startedAt: null, completedAt: null, sessions: [], downtime: [], blockedReason: '', note: '', history: [] };
 }
 export function blankPieceProductionRecord() {
   return {
@@ -43,6 +43,61 @@ export function normalizeProductionRecords(raw, orders) {
   });
   return { version: 2, pieces, workers: [], migratedAt: new Date().toISOString(), legacyRecordsPreserved: raw || {} };
 }
+export function startProductionStage(stage, timestamp = new Date().toISOString()) {
+  const previous = stage || blankStageRecord();
+  const downtime = [...(previous.downtime || [])];
+  for (let index = downtime.length - 1; index >= 0; index -= 1) {
+    if (!downtime[index].endedAt) { downtime[index] = { ...downtime[index], endedAt: timestamp }; break; }
+  }
+  return {
+    ...previous,
+    status: 'U tijeku',
+    startedAt: previous.startedAt || timestamp,
+    completedAt: null,
+    blockedReason: '',
+    downtime,
+    sessions: [...(previous.sessions || []), { startedAt: timestamp, endedAt: null }]
+  };
+}
+
+export function pauseProductionStage(stage, timestamp = new Date().toISOString(), reason = '') {
+  const previous = stage || blankStageRecord();
+  if (previous.status !== 'U tijeku') return previous;
+  const sessions = [...(previous.sessions || [])];
+  for (let index = sessions.length - 1; index >= 0; index -= 1) {
+    if (!sessions[index].endedAt) { sessions[index] = { ...sessions[index], endedAt: timestamp }; break; }
+  }
+  return {
+    ...previous,
+    status: 'Zastoj',
+    blockedReason: String(reason || '').trim(),
+    sessions,
+    downtime: [...(previous.downtime || []), { startedAt: timestamp, endedAt: null, reason: String(reason || '').trim() }]
+  };
+}
+
+export function finishProductionStage(stage, timestamp = new Date().toISOString()) {
+  const previous = stage || blankStageRecord();
+  const sessions = [...(previous.sessions || [])];
+  for (let index = sessions.length - 1; index >= 0; index -= 1) {
+    if (!sessions[index].endedAt) { sessions[index] = { ...sessions[index], endedAt: timestamp }; break; }
+  }
+  const downtime = [...(previous.downtime || [])];
+  for (let index = downtime.length - 1; index >= 0; index -= 1) {
+    if (!downtime[index].endedAt) { downtime[index] = { ...downtime[index], endedAt: timestamp }; break; }
+  }
+  return { ...previous, status: 'Završeno', completedAt: timestamp, blockedReason: '', sessions, downtime };
+}
+
+export function calculateStageDowntimeMs(stage, now = Date.now()) {
+  return (Array.isArray(stage?.downtime) ? stage.downtime : []).reduce((sum, interval) => {
+    if (!interval.startedAt) return sum;
+    const start = new Date(interval.startedAt).getTime();
+    const end = interval.endedAt ? new Date(interval.endedAt).getTime() : now;
+    return sum + (Number.isFinite(start) && Number.isFinite(end) ? Math.max(0, end - start) : 0);
+  }, 0);
+}
+
 export function calculateStageElapsedMs(stage, now = Date.now()) {
   const sessions = Array.isArray(stage?.sessions) ? stage.sessions : [];
   return sessions.reduce((sum, session) => {
@@ -74,6 +129,8 @@ export function isProductionOrderComplete(order, productionRecords) {
 
 
 export const PRODUCTION_WORK_CENTERS = {
+  'Pilanje': ['Pila 1', 'Pila 2'],
+  'Kanterica / obrada rubova': ['Kanterica · obline'],
   'Poliranje': [
     'Polirka za šmuse i okapnice',
     'Vanjska polirka za ravne spomenike i obloge'
@@ -85,6 +142,7 @@ export const PRODUCTION_WORK_CENTERS = {
 };
 
 export function isValidProductionWorkCenter(stageName, workCenter) {
-  if (!Object.prototype.hasOwnProperty.call(PRODUCTION_WORK_CENTERS, stageName)) return true;
-  return PRODUCTION_WORK_CENTERS[stageName].includes(String(workCenter || '').trim());
+  const options = PRODUCTION_WORK_CENTERS[stageName];
+  if (!options) return true;
+  return options.includes(String(workCenter || '').trim());
 }
