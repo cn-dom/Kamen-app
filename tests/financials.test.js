@@ -208,3 +208,39 @@ test('umanjuje stvarni trošak radnog naloga za vrijednost uporabnog ostatka', (
   assert.equal(result.totalActualCost, 140);
   assert.equal(result.netDifference, 360);
 });
+
+
+test('razdvaja stvarne troškove po vrstama i izračunava PDV i realiziranu maržu', () => {
+  const result = calculateOrderFinancials(
+    { id: 'RN-008', pieces: [] },
+    [
+      { orderId: 'RN-008', kind: 'Stvarni trošak', amount: 120, categories: ['Rad'] },
+      { orderId: 'RN-008', kind: 'Stvarni trošak', amount: 45, categories: ['Prijevoz'] },
+      { orderId: 'RN-008', kind: 'Stvarni trošak', amount: 80, categories: ['Vanjska obrada'] },
+      { orderId: 'RN-008', kind: 'Stvarni trošak', amount: 30, categories: ['Montaža'] },
+      { orderId: 'RN-008', kind: 'Stvarni trošak', amount: 25, categories: ['Najam stroja'] }
+    ],
+    { pieces: {} },
+    Date.now(),
+    [{ id: 'R-8', orderId: 'RN-008', netTotal: 500, grossTotal: 625 }],
+    []
+  );
+  assert.deepEqual(result.costBreakdown, {
+    material: 0, labor: 120, transport: 45, processing: 80,
+    installation: 30, equipment: 25, other: 0,
+    warehouseMaterial: 0, total: 300
+  });
+  assert.equal(result.invoicedVat, 125);
+  assert.equal(result.realizedGrossMargin, 200);
+  assert.equal(result.realizedMarginPercent, 40);
+});
+
+test('ne prikazuje maržu kada projekt još nema izdani račun', () => {
+  const result = calculateOrderFinancials(
+    { id: 'RN-009', pieces: [] },
+    [{ orderId: 'RN-009', kind: 'Stvarni trošak', amount: 100 }],
+    { pieces: {} }
+  );
+  assert.equal(result.realizedGrossMargin, null);
+  assert.equal(result.realizedMarginPercent, null);
+});
