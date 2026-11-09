@@ -12,7 +12,8 @@ import {
   finishProductionStage,
   calculateStageDowntimeMs,
   isValidProductionWorkCenter,
-  PRODUCTION_WORK_CENTERS
+  PRODUCTION_WORK_CENTERS,
+  workerCanPerformProductionStage
 } from '../src/lib/production.js';
 
 test('proizvodnja stvara zaseban zapis za svaki fizički komad', () => {
@@ -160,4 +161,12 @@ test('migracija starog naloga čuva staru ručnu fazu i ne nameće novu montažu
   const unit = migrated.pieces['RN-009::0::1'];
   assert.equal(unit.stages['Ručna obrada'].status, 'Završeno');
   assert.equal(unit.stages['Terenski rad / montaža'].status, 'Nije potrebno');
+});
+
+
+test('provjera vještina prepoznaje postojeću vještinu montaže i ručne obrade', () => {
+  assert.equal(workerCanPerformProductionStage('Terenski rad / montaža', ['Montaža']), true);
+  assert.equal(workerCanPerformProductionStage('Ručna obrada', ['Ostala obrada']), true);
+  assert.equal(workerCanPerformProductionStage('Poliranje', ['Montaža']), false);
+  assert.equal(workerCanPerformProductionStage('Poliranje', []), true);
 });
