@@ -69,6 +69,46 @@ export function commitInventoryTransaction(storage, { operationId, writes = [], 
   return { duplicate: false, movements: nextLedger };
 }
 
+export function applyMaterialStockAction(material, {
+  operationId, kind, quantity, reason = '', date = new Date().toISOString()
+}) {
+  if (!material?.id) return { error: 'Skladišna stavka nije pronađena.' };
+  const operation = String(operationId || '').trim();
+  if (!operation) return { error: 'Nedostaje oznaka skladišne operacije.' };
+  const amount = Number(quantity);
+  const unit = material.unit || 'jed.';
+  const wholeUnit = material.form === 'Ostatak' || ['kom', 'par', 'set'].includes(unit);
+  if (!Number.isFinite(amount) || amount <= 0 || Math.round(amount * 100) !== amount * 100 || (wholeUnit && !Number.isInteger(amount))) {
+    return { error: wholeUnit ? 'Za ovu stavku unesi pozitivan cijeli broj.' : 'Količina mora biti veća od nule (najviše dvije decimale).' };
+  }
+  if (!['Zaprimanje', 'Izdavanje', 'Otpis'].includes(kind)) return { error: 'Nepoznata skladišna radnja.' };
+  if (kind === 'Otpis' && !String(reason).trim()) return { error: 'Za otpis je obvezan razlog.' };
+  const previousQuantity = Number(material.quantity || 0);
+  if (!Number.isFinite(previousQuantity) || previousQuantity < 0) return { error: 'Postojeće stanje zalihe nije valjano.' };
+  const delta = kind === 'Zaprimanje' ? amount : -amount;
+  if (delta < 0 && amount - previousQuantity > 0.000001) {
+    return { error: 'Nema dovoljno zalihe. Raspoloživo: ' + previousQuantity + ' ' + unit + '.' };
+  }
+  const nextQuantity = Number((previousQuantity + delta).toFixed(4));
+  return {
+    duplicate: false,
+    material: { ...material, quantity: nextQuantity, updatedAt: date },
+    movement: {
+      id: operation,
+      operationId: operation,
+      material: material.name,
+      materialId: material.id,
+      kind,
+      quantity: amount,
+      previousQuantity,
+      nextQuantity,
+      reason: String(reason).trim(),
+      location: material.location || '',
+      date: new Date(date).toLocaleDateString('hr-HR')
+    }
+  };
+}
+
 export function applyFinishedProductStockAction(product, {
   operationId, kind, quantity, reason = '', date = new Date().toISOString()
 }) {
