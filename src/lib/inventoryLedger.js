@@ -131,6 +131,8 @@ export function applyFinishedProductStockAction(product, {
       material: product.name,
       kind: transactionKind,
       quantity: transaction.quantity,
+      previousQuantity: available,
+      nextQuantity: remaining,
       reason: transaction.reason,
       location: product.location || '',
       date: new Date(timestamp).toLocaleDateString('hr-HR'),
