@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { getMaterialLineage } from '../lib/materialLineage.js';
 import { applyFinishedProductStockAction, commitInventoryTransaction } from '../lib/inventoryLedger.js';
 import { PackageCheck, Plus, Search, X, Ruler, Boxes, Hammer, ClipboardList, Image as ImageIcon, CheckCircle2 } from 'lucide-react';
 
@@ -157,7 +158,7 @@ export default function FinishedProductsModule({ onBack }) {
             <h3>{item.name}</h3><p className="finished-product-category">{item.category} · {item.material}</p>
             <div className="finished-product-specs"><span><Ruler size={14}/>{[item.length, item.width, item.thickness].some(v => v) ? [item.length, item.width, item.thickness].map(v => v || '—').join(' × ') + ' cm' : 'Dimenzije nisu unesene'}</span><strong>{availableQuantity(item)} {item.unit} na zalihi</strong></div>
             {item.processes?.length > 0 && <div className="finished-process-list">{item.processes.map(p => <span key={p}>{p}</span>)}</div>}
-            <div className="finished-product-meta">{item.orderId && <span>Nalog: {item.orderId}</span>}{item.customer && <span>Kupac: {item.customer}</span>}<span>Lokacija: {item.location}</span></div>
+            <div className="finished-product-meta">{item.orderId && <span>Nalog: {item.orderId}</span>}{item.customer && <span>Kupac: {item.customer}</span>}{item.parentMaterialId && <span>Porijeklo: {getMaterialLineage(item, materials).map(row => row.name).join(' ← ')}</span>}<span>Lokacija: {item.location}</span></div>
             {item.note && <p className="finished-product-note">{item.note}</p>}
             <div className="finished-stock-actions">
               {['Ugrađen', 'Prodano'].includes(item.status) ? <span className="finished-status-control">Stavka je zatvorena · preostalo 0</span> : <label className="finished-status-control">Status<select value={item.status} onChange={e => updateStatus(item.id, e.target.value)}>{statuses.filter(status => !['Ugrađen', 'Prodano'].includes(status)).map(status => <option key={status}>{status}</option>)}</select></label>}
