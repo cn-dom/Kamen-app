@@ -1,22 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isValidProductionWorkCenter } from './production.js';
+import { isValidProductionWorkCenter, PRODUCTION_WORK_CENTERS, workerCanPerformProductionStage } from './production.js';
 
-test('poliranje zahtijeva jednu od dvije odgovarajuće polirke', () => {
-  assert.equal(isValidProductionWorkCenter('Poliranje', 'Polirka za šmuse i okapnice'), true);
-  assert.equal(isValidProductionWorkCenter('Poliranje', 'Vanjska polirka za ravne spomenike i obloge'), true);
-  assert.equal(isValidProductionWorkCenter('Poliranje', ''), false);
+test('svaka proizvodna faza zahtijeva odgovarajući radni centar', () => {
+  for (const [stage, centers] of Object.entries(PRODUCTION_WORK_CENTERS)) {
+    assert.equal(isValidProductionWorkCenter(stage, ''), false);
+    for (const center of centers) assert.equal(isValidProductionWorkCenter(stage, center), true);
+  }
   assert.equal(isValidProductionWorkCenter('Poliranje', 'Ručna obrada'), false);
+  assert.equal(isValidProductionWorkCenter('Kanterica / obrada rubova', 'Vanjska polirka za ravne spomenike i obloge'), false);
+  assert.equal(isValidProductionWorkCenter('nepoznata faza', ''), true);
 });
 
-test('ostala obrada zahtijeva ručnu obradu ili terenski rad', () => {
-  assert.equal(isValidProductionWorkCenter('Ostala obrada', 'Ručna obrada'), true);
-  assert.equal(isValidProductionWorkCenter('Ostala obrada', 'Terenski rad / montaža grobnica'), true);
-  assert.equal(isValidProductionWorkCenter('Ostala obrada', ''), false);
-  assert.equal(isValidProductionWorkCenter('Ostala obrada', 'Vanjska polirka za ravne spomenike i obloge'), false);
-});
-
-test('faze bez posebnog radnog centra ne traže odabir', () => {
-  assert.equal(isValidProductionWorkCenter('Pilanje', ''), true);
-  assert.equal(isValidProductionWorkCenter('Kanterica / obrada rubova', ''), true);
+test('postojeće vještine ručne obrade i montaže ostaju kompatibilne', () => {
+  assert.equal(workerCanPerformProductionStage('Ručna obrada', ['Ostala obrada']), true);
+  assert.equal(workerCanPerformProductionStage('Terenski rad / montaža', ['Montaža']), true);
+  assert.equal(workerCanPerformProductionStage('Poliranje', ['Montaža']), false);
+  assert.equal(workerCanPerformProductionStage('Poliranje', []), true);
 });

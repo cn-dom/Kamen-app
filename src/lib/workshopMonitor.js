@@ -42,7 +42,7 @@ export function analyzeWorkshopCapacity(orders = [], production = {}) {
   });
   const idleWorkers = workshopWorkers.filter(name => !activeAssignments.has(name));
   const activeWorkshopWorkers = workshopWorkers.filter(name => activeAssignments.has(name));
-  const manual = stages.find(item => item.stage === 'Ostala obrada');
+  const manual = stages.find(item => item.stage === 'Ručna obrada');
   const workerSkills = production?.workerSkills || {};
   const recommendations = stages.flatMap(stage => {
     if (!stage.waiting) return [];
@@ -81,7 +81,7 @@ export function analyzeWorkshopCapacity(orders = [], production = {}) {
       workers: workshopWorkers.length
     });
   }
-  stages.filter(item => item.waiting > 0 && item.stage !== 'Ostala obrada').forEach(item => alerts.push({
+  stages.filter(item => item.waiting > 0 && item.stage !== 'Ručna obrada').forEach(item => alerts.push({
     id: 'stage-waiting-' + item.stage,
     severity: 'warning',
     title: 'Posao čeka fazu: ' + item.stage,

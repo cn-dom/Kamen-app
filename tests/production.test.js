@@ -6,7 +6,15 @@ import {
   normalizeProductionRecords,
   calculateStageElapsedMs,
   calculatePieceProgress,
-  isProductionOrderComplete
+  isProductionOrderComplete,
+  startProductionStage,
+  pauseProductionStage,
+  finishProductionStage,
+  resetProductionStage,
+  calculateStageDowntimeMs,
+  isValidProductionWorkCenter,
+  PRODUCTION_WORK_CENTERS,
+  workerCanPerformProductionStage
 } from '../src/lib/production.js';
 
 test('proizvodnja stvara zaseban zapis za svaki fizički komad', () => {
@@ -26,7 +34,7 @@ test('migracija čuva stare statuse i stvara neovisne komade', () => {
   const migrated = normalizeProductionRecords({
     'RN-002': { Pilanje: 'Završeno', Poliranje: 'U tijeku', updatedAt: '2026-01-01T08:00:00.000Z' }
   }, [{ id: 'RN-002', pieces: [{ name: 'Element', quantity: 2 }] }]);
-  assert.equal(migrated.version, 2);
+  assert.equal(migrated.version, 3);
   assert.equal(migrated.pieces['RN-002::0::1'].stages.Pilanje.status, 'Završeno');
   assert.equal(migrated.pieces['RN-002::0::2'].stages.Pilanje.status, 'Završeno');
   assert.equal(migrated.pieces['RN-002::0::1'].stages.Poliranje.status, 'U tijeku');
@@ -55,7 +63,7 @@ test('napredak komada broji završene i nepotrebne faze, ali ne aktivne', () => 
     [PRODUCTION_STAGES[2]]: { status: 'U tijeku' },
     [PRODUCTION_STAGES[3]]: { status: 'Nije započeto' }
   } };
-  assert.equal(calculatePieceProgress(record), 50);
+  assert.equal(calculatePieceProgress(record), 40);
 });
 
 test('migracija prenosi završenu staru fazu završne kontrole', () => {
@@ -97,4 +105,84 @@ test('radni nalog se može zatvoriti tek nakon kontrole svakog fizičkog komada'
   records.pieces[keys[0]].stages[PRODUCTION_STAGES[2]].status = 'U tijeku';
   assert.equal(isProductionOrderComplete(order, records), false);
   assert.equal(isProductionOrderComplete({ id: 'RN-007', pieces: [] }, records), false);
+});
+
+
+test('proizvodna pauza prekida aktivni radni interval i mjeri zastoj odvojeno', () => {
+  const started = startProductionStage({ status: 'Nije započeto', sessions: [], downtime: [] }, '2026-11-09T08:00:00.000Z');
+  const paused = pauseProductionStage(started, '2026-11-09T09:15:00.000Z', 'Kvar pile');
+  assert.equal(paused.status, 'Zastoj');
+  assert.equal(calculateStageElapsedMs(paused, new Date('2026-11-09T10:00:00.000Z').getTime()), 75 * 60 * 1000);
+  assert.equal(calculateStageDowntimeMs(paused, new Date('2026-11-09T10:00:00.000Z').getTime()), 45 * 60 * 1000);
+  assert.equal(paused.downtime[0].reason, 'Kvar pile');
+});
+
+test('nastavak zatvara zastoj i završetak zatvara drugi radni interval', () => {
+  const first = startProductionStage({ status: 'Nije započeto', sessions: [], downtime: [] }, '2026-11-09T08:00:00.000Z');
+  const paused = pauseProductionStage(first, '2026-11-09T09:00:00.000Z', 'Čekanje materijala');
+  const resumed = startProductionStage(paused, '2026-11-09T09:30:00.000Z');
+  const done = finishProductionStage(resumed, '2026-11-09T10:30:00.000Z');
+  assert.equal(done.status, 'Završeno');
+  assert.equal(done.sessions.length, 2);
+  assert.equal(done.sessions[1].endedAt, '2026-11-09T10:30:00.000Z');
+  assert.equal(done.downtime[0].endedAt, '2026-11-09T09:30:00.000Z');
+  assert.equal(calculateStageElapsedMs(done), 120 * 60 * 1000);
+  assert.equal(calculateStageDowntimeMs(done), 30 * 60 * 1000);
+});
+
+test('svaka faza ima obvezan odgovarajući radni centar', () => {
+  for (const [stage, centers] of Object.entries(PRODUCTION_WORK_CENTERS)) {
+    assert.equal(isValidProductionWorkCenter(stage, ''), false);
+    for (const center of centers) assert.equal(isValidProductionWorkCenter(stage, center), true);
+  }
+  assert.equal(isValidProductionWorkCenter('nepoznata faza', ''), true);
+});
+
+
+test('migracija verzije 2 odvaja ručnu obradu i montažu bez gubitka stare evidencije', () => {
+  const oldStage = { status: 'Završeno', workCenter: 'Terenski rad / montaža grobnica', sessions: [{ startedAt: '2026-01-01T08:00:00.000Z', endedAt: '2026-01-01T09:00:00.000Z' }] };
+  const migrated = normalizeProductionRecords({
+    version: 2,
+    workers: ['Ivan'],
+    pieces: { 'RN-008::0::1': { stages: { 'Ostala obrada': oldStage }, quality: { status: 'Čeka kontrolu' } } }
+  }, [{ id: 'RN-008', pieces: [{ name: 'Spomenik', quantity: 1 }] }]);
+  const unit = migrated.pieces['RN-008::0::1'];
+  assert.equal(migrated.version, 3);
+  assert.equal(unit.stages['Terenski rad / montaža'].status, 'Završeno');
+  assert.equal(unit.stages['Ručna obrada'].status, 'Nije potrebno');
+  assert.deepEqual(unit.legacyStages['Ostala obrada'], oldStage);
+  assert.deepEqual(migrated.workers, ['Ivan']);
+  assert.equal(normalizeProductionRecords(migrated, [{ id: 'RN-008', pieces: [{ name: 'Spomenik', quantity: 1 }] }]), migrated);
+});
+
+test('migracija starog naloga čuva staru ručnu fazu i ne nameće novu montažu', () => {
+  const migrated = normalizeProductionRecords({
+    'RN-009': { 'Ostala obrada': 'Završeno', Pilanje: 'Završeno', 'Kanterica / obrada rubova': 'Nije potrebno', Poliranje: 'Završeno' }
+  }, [{ id: 'RN-009', pieces: [{ name: 'Klupica', quantity: 1 }] }]);
+  const unit = migrated.pieces['RN-009::0::1'];
+  assert.equal(unit.stages['Ručna obrada'].status, 'Završeno');
+  assert.equal(unit.stages['Terenski rad / montaža'].status, 'Nije potrebno');
+});
+
+
+test('provjera vještina prepoznaje postojeću vještinu montaže i ručne obrade', () => {
+  assert.equal(workerCanPerformProductionStage('Terenski rad / montaža', ['Montaža']), true);
+  assert.equal(workerCanPerformProductionStage('Ručna obrada', ['Ostala obrada']), true);
+  assert.equal(workerCanPerformProductionStage('Poliranje', ['Montaža']), false);
+  assert.equal(workerCanPerformProductionStage('Poliranje', []), true);
+});
+
+
+test('vraćanje faze na doradu zatvara otvoreni radni interval i zastoj', () => {
+  const stage = {
+    status: 'Zastoj',
+    sessions: [{ startedAt: '2026-11-09T08:00:00.000Z', endedAt: '2026-11-09T09:00:00.000Z' }],
+    downtime: [{ startedAt: '2026-11-09T09:00:00.000Z', endedAt: null, reason: 'Kvar stroja' }],
+    history: []
+  };
+  const reset = resetProductionStage(stage, '2026-11-09T10:00:00.000Z', 'Dorada');
+  assert.equal(reset.status, 'Nije započeto');
+  assert.equal(reset.downtime[0].endedAt, '2026-11-09T10:00:00.000Z');
+  assert.equal(calculateStageDowntimeMs(reset), 60 * 60 * 1000);
+  assert.equal(reset.history[0].reason, 'Dorada');
 });
