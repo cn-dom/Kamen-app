@@ -135,6 +135,26 @@ export function finishProductionStage(stage, timestamp = new Date().toISOString(
   }
   return { ...previous, status: 'Završeno', completedAt: timestamp, blockedReason: '', sessions, downtime };
 }
+export function resetProductionStage(stage, timestamp = new Date().toISOString(), reason = 'Ponovno otvoreno zbog dorade') {
+  const previous = stage || blankStageRecord();
+  const sessions = [...(previous.sessions || [])];
+  const downtime = [...(previous.downtime || [])];
+  for (let index = sessions.length - 1; index >= 0; index -= 1) {
+    if (!sessions[index].endedAt) { sessions[index] = { ...sessions[index], endedAt: timestamp }; break; }
+  }
+  for (let index = downtime.length - 1; index >= 0; index -= 1) {
+    if (!downtime[index].endedAt) { downtime[index] = { ...downtime[index], endedAt: timestamp }; break; }
+  }
+  return {
+    ...previous,
+    status: 'Nije započeto',
+    completedAt: null,
+    blockedReason: '',
+    sessions,
+    downtime,
+    history: [...(previous.history || []), { from: previous.status, to: 'Nije započeto', at: timestamp, reason }]
+  };
+}
 export function calculateStageDowntimeMs(stage, now = Date.now()) {
   return (Array.isArray(stage?.downtime) ? stage.downtime : []).reduce((sum, interval) => {
     if (!interval.startedAt) return sum;
