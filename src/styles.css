@@ -1577,3 +1577,13 @@ input,select,textarea{border-radius:9px}
 .cut-plan-steps ol{margin:0;padding:0 0 8px 28px;columns:2;column-gap:24px}
 .cut-plan-steps li{padding:3px 0;font-size:.72rem;color:var(--muted,#52657d);break-inside:avoid}
 @media(max-width:600px){.cut-plan-steps ol{columns:1}}
+
+
+/* Spremljeni plan pilanja na pločama pila */
+.production-saw-cut-plan{margin-top:12px;padding:11px;border:1px solid var(--border-color,#cbd5e1);border-radius:10px;background:var(--surface,#fff)}
+.production-saw-cut-plan>summary{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.82rem;font-weight:800;color:var(--primary,#315fc1)}
+.production-saw-plan-note{margin:9px 0;color:var(--muted,#64748b);font-size:.75rem}
+.cut-plan-sheet-group{display:grid;gap:6px;margin-top:12px}
+.cut-plan-sheet-group>strong{font-size:.82rem}
+.cut-plan-sheet-group>small{font-size:.72rem;color:var(--muted,#64748b)}
+@media(max-width:600px){.production-saw-cut-plan{padding:9px}.production-saw-cut-plan .cut-plan-drawing{max-height:220px}}
