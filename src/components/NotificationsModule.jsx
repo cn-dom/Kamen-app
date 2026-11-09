@@ -12,7 +12,7 @@ function buildNotifications(){
  orders.forEach(o=>{const status=o.status||o.stage||'';const due=o.dueDate||o.deadline||o.deliveryDate||o.date;
   if(['Zastoj','Blokirano','Blokiran'].includes(status))push('order-block-'+o.id,'blocked','Blokiran posao: '+(o.title||o.project||o.id),o.customer||'Potrebna je provjera razloga blokade.','Radni nalozi','high');
   if(due&&/^\d{4}-\d{2}-\d{2}$/.test(due)&&!['Završen','Otkazan','Isporučen'].includes(status)&&due<today)push('order-late-'+o.id,'deadline','Zakašnjeli rok: '+(o.title||o.project||o.id),'Rok '+due+' · '+(o.customer||'Kupac nije naveden'),'Radni nalozi','high');
-  else if(due&&/^\d{4}-\d{2}-\d{2}$/.test(due)&&!['Završen','Otkazan','Isporučen'].includes(status)&&due>=today&&due<=addDays(today,3))push('order-soon-'+o.id,'deadline,'+'Rok se približava: '+(o.title||o.project||o.id),'Rok '+due+' · '+(o.customer||'Kupac nije naveden'),'Radni nalozi','warning');
+  else if(due&&/^\d{4}-\d{2}-\d{2}$/.test(due)&&!['Završen','Otkazan','Isporučen'].includes(status)&&due>=today&&due<=addDays(today,3))push('order-soon-'+o.id,'deadline','Rok se približava: '+(o.title||o.project||o.id),'Rok '+due+' · '+(o.customer||'Kupac nije naveden'),'Radni nalozi','warning');
  });
  const inventory=parse('kamen-app-materials-v1',[]);
  lowStockSuggestions(inventory).forEach(x=>push('stock-'+x.id,'stock','Niska zaliha: '+(x.name||'Materijal'), 'Stanje '+x.currentQuantity+' '+(x.unit||'kom')+' · minimum '+x.minimumQuantity+' '+(x.unit||'kom'),'Nabava','high'));
