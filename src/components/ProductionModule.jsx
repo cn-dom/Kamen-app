@@ -452,6 +452,49 @@ export default function ProductionModule({ onBack, onCreateProject }) {
     });
   }, [rowsWithRecords, selectedWorker, sawAssignments, clockNow]);
 
+  const timeComparisonDetails = useMemo(() => {
+    const centers = [
+      { id: 'Pila 1', stage: 'Pilanje', machine: '1' },
+      { id: 'Pila 2', stage: 'Pilanje', machine: '2' },
+      { id: 'Kanterica · obline', stage: 'Kanterica / obrada rubova' },
+      { id: 'Polirka · šmuse i okapnice', stage: 'Poliranje', workCenter: 'Polirka za šmuse i okapnice' },
+      { id: 'Vanjska polirka · ravne površine', stage: 'Poliranje', workCenter: 'Vanjska polirka za ravne spomenike i obloge' },
+      { id: 'Ručna obrada', stage: 'Ostala obrada', workCenter: 'Ručna obrada' },
+      { id: 'Teren · montaža grobnica', stage: 'Ostala obrada', workCenter: 'Terenski rad / montaža grobnica' }
+    ];
+    return rowsWithRecords.flatMap(row => {
+      if (row.order.status === 'Otkazan') return [];
+      return centers.flatMap(center => {
+        const stage = row.record.stages?.[center.stage] || blankStage();
+        if (selectedWorker && stage.assignedTo !== selectedWorker) return [];
+        if (center.machine && (sawAssignments[row.key] || '1') !== center.machine) return [];
+        if (center.workCenter && stage.workCenter !== center.workCenter) return [];
+        const start = new Date(stage.plannedStart || '').getTime();
+        const end = new Date(stage.plannedEnd || '').getTime();
+        if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return [];
+        const validSessions = (Array.isArray(stage.sessions) ? stage.sessions : []).filter(session =>
+          session?.startedAt &&
+          Number.isFinite(new Date(session.startedAt).getTime()) &&
+          (!session.endedAt || Number.isFinite(new Date(session.endedAt).getTime()))
+        );
+        if (!validSessions.length) return [];
+        const plannedMs = end - start;
+        const actualMs = elapsedMs({ sessions: validSessions }, clockNow);
+        return [{
+          key: row.key + '::' + center.id,
+          orderId: row.order.id,
+          project: row.order.project || '—',
+          piece: row.label + ' #' + row.unitIndex,
+          stage: center.id,
+          worker: stage.assignedTo || '—',
+          plannedMs,
+          actualMs,
+          deltaMs: actualMs - plannedMs
+        }];
+      });
+    }).sort((a,b) => b.deltaMs - a.deltaMs);
+  }, [rowsWithRecords, selectedWorker, sawAssignments, clockNow]);
+
   const exportCsv = () => {
     const headers = ['Radni nalog', 'Kupac', 'Projekt', 'Komad', 'Redni broj', 'Materijal', 'Duljina cm', 'Širina cm', 'Debljina cm', 'Faza', 'Status', 'Radnik', 'Stroj / oprema', 'Početak', 'Završetak', 'Trajanje minuta', 'Razlog zastoja', 'Napomena', 'Kontrola kvalitete'];
     const lines = [headers.map(csvCell).join(';')];
@@ -565,6 +608,22 @@ export default function ProductionModule({ onBack, onCreateProject }) {
             </tr>)}</tbody>
           </table>
         </div>
+        <details className="production-time-details">
+          <summary>Prikaži usporedbu po radnom nalogu i komadu ({timeComparisonDetails.length})</summary>
+          <div className="production-time-table-wrap">
+            <table className="production-time-table">
+              <thead><tr><th>Radni nalog / projekt</th><th>Komad</th><th>Radni centar</th><th>Radnik</th><th>Planirano</th><th>Stvarno</th><th>Odstupanje</th></tr></thead>
+              <tbody>{timeComparisonDetails.map(item => <tr key={item.key}>
+                <td><strong>{item.orderId}</strong><small>{item.project}</small></td>
+                <td>{item.piece}</td><td>{item.stage}</td><td>{item.worker}</td>
+                <td>{formatDuration(item.plannedMs)}</td><td>{formatDuration(item.actualMs)}</td>
+                <td><strong className={item.deltaMs > 0 ? 'production-time-over' : item.deltaMs < 0 ? 'production-time-under' : ''}>{item.deltaMs > 0 ? '+' : item.deltaMs < 0 ? '−' : ''}{formatDuration(Math.abs(item.deltaMs))}</strong></td>
+              </tr>)}
+              {!timeComparisonDetails.length && <tr><td colSpan="7">Nema komada s potpunim planom i evidentiranim radnim intervalom.</td></tr>}</tbody>
+            </table>
+          </div>
+          <small className="production-saw-footnote">Popis je sortiran od najvećeg prekoračenja prema najmanjem odstupanju. Uključeni su samo usporedivi zapisi.</small>
+        </details>
         <small className="production-saw-footnote">Razlika se računa samo za komade koji imaju i valjan planirani početak/završetak i barem jedan evidentirani radni interval. „Stvarno” zbraja aktivne i završene intervale, ne vrijeme zastoja. Prikaz je informativan i ne mijenja radne naloge.</small>
       </section>
       <section className="production-saw-board">
