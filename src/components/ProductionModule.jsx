@@ -10,6 +10,11 @@ import {
   blankPieceProductionRecord as blankUnit,
   buildProductionUnits as unitRows,
   isValidProductionWorkCenter,
+  PRODUCTION_WORK_CENTERS,
+  startProductionStage,
+  pauseProductionStage,
+  finishProductionStage,
+  calculateStageDowntimeMs,
   normalizeProductionRecords as normalizeRecords,
   calculateStageElapsedMs as elapsedMs,
   formatProductionDuration as formatDuration,
@@ -131,7 +136,7 @@ export default function ProductionModule({ onBack, onCreateProject }) {
     const currentStage = unit.stages?.[stageName] || blankStage();
     if (currentStage.status === 'Završeno' || currentStage.status === 'Nije potrebno' || currentStage.status === 'U tijeku') return;
     if (!String(currentStage.assignedTo || '').trim()) { window.alert('Prije početka faze odaberi ili upiši odgovornog radnika.'); return; }
-    if (['Poliranje', 'Ostala obrada'].includes(stageName) && !isValidProductionWorkCenter(stageName, currentStage.workCenter)) {
+    if (!isValidProductionWorkCenter(stageName, currentStage.workCenter)) {
       window.alert('Prije početka odaberi točan radni centar kako bi se komad prikazao na odgovarajućoj radnoj stanici.');
       return;
     }
@@ -159,11 +164,7 @@ export default function ProductionModule({ onBack, onCreateProject }) {
       return;
     }
     const now = new Date().toISOString();
-    updateStage(key, stageName, previous => ({
-      ...previous, status: 'U tijeku', startedAt: previous.startedAt || now,
-      completedAt: null, blockedReason: '',
-      sessions: [...(previous.sessions || []), { startedAt: now, endedAt: null }]
-    }));
+    updateStage(key, stageName, previous => startProductionStage(previous, now));
     syncLinkedScheduleTask(currentStage, 'U tijeku', now);
   };
   const stopStage = (key, stageName) => {
@@ -172,28 +173,14 @@ export default function ProductionModule({ onBack, onCreateProject }) {
     const reason = window.prompt('Upiši razlog zastoja. Primjer: kvar stroja, čekanje materijala, promjena nacrta.');
     if (!reason?.trim()) return;
     const now = new Date().toISOString();
-    updateStage(key, stageName, previous => {
-      if (previous.status !== 'U tijeku') return previous;
-      const sessions = [...(previous.sessions || [])];
-      let open = sessions.length - 1;
-      while (open >= 0 && sessions[open].endedAt) open -= 1;
-      if (open >= 0) sessions[open] = { ...sessions[open], endedAt: now };
-      return { ...previous, status: 'Zastoj', blockedReason: reason.trim(), sessions };
-    });
+    updateStage(key, stageName, previous => pauseProductionStage(previous, now, reason.trim()));
     syncLinkedScheduleTask(currentStage, 'Zastoj', now, reason.trim());
   };
   const finishStage = (key, stageName) => {
     const currentStage = records.pieces?.[key]?.stages?.[stageName] || blankStage();
     if (currentStage.status !== 'U tijeku') return;
     const now = new Date().toISOString();
-    updateStage(key, stageName, previous => {
-      if (previous.status !== 'U tijeku') return previous;
-      const sessions = [...(previous.sessions || [])];
-      let open = sessions.length - 1;
-      while (open >= 0 && sessions[open].endedAt) open -= 1;
-      if (open >= 0) sessions[open] = { ...sessions[open], endedAt: now };
-      return { ...previous, status: 'Završeno', completedAt: now, blockedReason: '', sessions };
-    });
+    updateStage(key, stageName, previous => finishProductionStage(previous, now));
     syncLinkedScheduleTask(currentStage, 'Završeno', now);
   };
   const setStageWorker = (key, stageName, assignedTo) => updateStage(key, stageName, previous => ({ ...previous, assignedTo }));
@@ -394,7 +381,7 @@ export default function ProductionModule({ onBack, onCreateProject }) {
     const centers = [
       { id: 'Pila 1', stage: 'Pilanje', machine: '1' },
       { id: 'Pila 2', stage: 'Pilanje', machine: '2' },
-      { id: 'Kanterica · obline', stage: 'Kanterica / obrada rubova' },
+      { id: 'Kanterica · obline', stage: 'Kanterica / obrada rubova', workCenter: 'Kanterica · obline' },
       { id: 'Polirka · šmuse i okapnice', stage: 'Poliranje', workCenter: 'Polirka za šmuse i okapnice' },
       { id: 'Vanjska polirka · ravne površine', stage: 'Poliranje', workCenter: 'Vanjska polirka za ravne spomenike i obloge' },
       { id: 'Ručna obrada', stage: 'Ostala obrada', workCenter: 'Ručna obrada' },
@@ -406,7 +393,7 @@ export default function ProductionModule({ onBack, onCreateProject }) {
         const index = stages.indexOf(center.stage);
         const ready = stages.slice(0, index).every(previous => ['Završeno', 'Nije potrebno'].includes(row.record.stages?.[previous]?.status));
         const assignedSaw = (sawAssignments[row.key] || '1') === center.machine;
-        const matchesCenter = center.machine ? assignedSaw : center.workCenter ? stage.workCenter === center.workCenter : true;
+        const matchesCenter = center.machine ? (stage.workCenter || ((sawAssignments[row.key] || '1') === '2' ? 'Pila 2' : 'Pila 1')) === center.id : center.workCenter ? stage.workCenter === center.workCenter : true;
         const matchesWorker = !selectedWorker || stage.assignedTo === selectedWorker;
         if (!ready || !matchesCenter || !matchesWorker || ['Završeno', 'Nije potrebno'].includes(stage.status) || row.order.status === 'Otkazan') return [];
         return [{ status: stage.status, key: row.key }];
@@ -425,7 +412,7 @@ export default function ProductionModule({ onBack, onCreateProject }) {
     const centers = [
       { id: 'Pila 1', stage: 'Pilanje', machine: '1' },
       { id: 'Pila 2', stage: 'Pilanje', machine: '2' },
-      { id: 'Kanterica · obline', stage: 'Kanterica / obrada rubova' },
+      { id: 'Kanterica · obline', stage: 'Kanterica / obrada rubova', workCenter: 'Kanterica · obline' },
       { id: 'Polirka · šmuse i okapnice', stage: 'Poliranje', workCenter: 'Polirka za šmuse i okapnice' },
       { id: 'Vanjska polirka · ravne površine', stage: 'Poliranje', workCenter: 'Vanjska polirka za ravne spomenike i obloge' },
       { id: 'Ručna obrada', stage: 'Ostala obrada', workCenter: 'Ručna obrada' },
@@ -666,7 +653,7 @@ export default function ProductionModule({ onBack, onCreateProject }) {
         <div className="production-saw-board-heading"><div><span className="eyebrow">RADNA PLOČA · PILANJE</span><h3>Dvije mostne pile</h3><p>Poslovi se preuzimaju iz radnih naloga. Odaberi pilu, a nakon fizičkog rezanja potvrdi završetak.</p></div><span className="production-saw-count">{rowsWithRecords.filter(row => !['Završeno','Nije potrebno'].includes(row.record.stages?.['Pilanje']?.status)).length} za pilanje</span></div>
         <div className="production-saw-columns">
           {[1,2].map(machine => {
-            const machineRows = rowsWithRecords.filter(row => workerHasTask(row, ['Pilanje']) && !['Završeno','Nije potrebno'].includes(row.record.stages?.['Pilanje']?.status) && (sawAssignments[row.key] || '1') === String(machine));
+            const machineRows = rowsWithRecords.filter(row => workerHasTask(row, ['Pilanje']) && !['Završeno','Nije potrebno'].includes(row.record.stages?.['Pilanje']?.status) && (row.record.stages?.['Pilanje']?.workCenter || ((sawAssignments[row.key] || '1') === '2' ? 'Pila 2' : 'Pila 1')) === 'Pila ' + machine);
             return <section className="production-saw-lane" key={machine}>
               <h4><Factory size={16}/> Pila {machine}<small>{machineRows.length} poslova</small></h4>
               {machineRows.length ? machineRows.map(row => {
@@ -675,18 +662,8 @@ export default function ProductionModule({ onBack, onCreateProject }) {
                   <strong>{row.order.id} · {row.label} #{row.unitIndex}</strong>
                   <span>{row.material} · {row.piece.length} × {row.piece.width} × {row.piece.thickness} cm</span>
                   <div className="production-saw-job-actions">
-                    <select aria-label={'Odaberi pilu za ' + row.label} value={sawAssignments[row.key] || '1'} onChange={event => setSawAssignments(current => ({...current,[row.key]:event.target.value}))}><option value="1">Pila 1</option><option value="2">Pila 2</option></select>
-                    <button type="button" className="button button-success" onClick={() => {
-                      const now = new Date().toISOString();
-                      updateStage(row.key, 'Pilanje', previous => {
-                        if (['Završeno','Nije potrebno'].includes(previous.status)) return previous;
-                        const sessions = [...(previous.sessions || [])];
-                        let open = sessions.length - 1;
-                        while (open >= 0 && sessions[open].endedAt) open -= 1;
-                        if (open >= 0) sessions[open] = {...sessions[open],endedAt:now};
-                        return {...previous,status:'Završeno',completedAt:now,blockedReason:'',sessions};
-                      });
-                    }}><Check size={14}/> Gotovo</button>
+                    <select aria-label={'Odaberi pilu za ' + row.label} value={stage.workCenter || ((sawAssignments[row.key] || '1') === '2' ? 'Pila 2' : 'Pila 1')} onChange={event => { const value = event.target.value; setSawAssignments(current => ({...current,[row.key]:value === 'Pila 2' ? '2' : '1'})); updateStage(row.key, 'Pilanje', previous => ({...previous,workCenter:value})); }}><option value="Pila 1">Pila 1</option><option value="Pila 2">Pila 2</option></select><input list="production-worker-list" aria-label={'Odgovorni radnik za pilanje ' + row.label} value={stage.assignedTo || ''} onChange={event => setStageWorker(row.key, 'Pilanje', event.target.value)} placeholder="Radnik"/>
+                    {stage.status === 'U tijeku' ? <><button type="button" className="button button-warning" onClick={() => stopStage(row.key, 'Pilanje')}><Pause size={14}/> Zastoj</button><button type="button" className="button button-success" onClick={() => finishStage(row.key, 'Pilanje')}><Check size={14}/> Gotovo</button></> : <button type="button" className="button button-primary" disabled={['Završeno','Nije potrebno'].includes(stage.status)} onClick={() => startStage(row.key, 'Pilanje')}><Play size={14}/> Pokreni</button>}
                   </div>
                   {stage.status === 'U tijeku' && <small>U tijeku · {stage.assignedTo || 'Radnik nije naveden'}</small>}
                   {stage.plannedEnd && new Date(stage.plannedEnd).getTime() < clockNow && !['Završeno','Nije potrebno'].includes(stage.status) && <small className="production-overdue-flag"><AlertTriangle size={13}/> Rok je prošao</small>}
@@ -749,7 +726,7 @@ export default function ProductionModule({ onBack, onCreateProject }) {
         </div>
         <div className="production-station-grid">
           {[
-            { id:'Kanterica / obrada rubova', title:'Kanterica · obline', stage:'Kanterica / obrada rubova' },
+            { id:'Kanterica · obline', title:'Kanterica · obline', stage:'Kanterica / obrada rubova' },
             { id:'Polirka za šmuse i okapnice', title:'Polirka · šmuse i okapnice', stage:'Poliranje' },
             { id:'Vanjska polirka za ravne spomenike i obloge', title:'Vanjska polirka · ravne površine', stage:'Poliranje' },
             { id:'Ručna obrada', title:'Ručna obrada', stage:'Ostala obrada' },
@@ -772,7 +749,7 @@ export default function ProductionModule({ onBack, onCreateProject }) {
               const ready = stages.slice(0,index).every(previous => ['Završeno','Nije potrebno'].includes(row.record.stages?.[previous]?.status));
               const selectedCenter = stage.workCenter || '';
               return ready && !['Završeno','Nije potrebno'].includes(stage.status) &&
-                (center.stage === 'Kanterica / obrada rubova' || selectedCenter === center.id);
+                (selectedCenter === center.id);
             }).filter(row => center.stage ? true : (['Poliranje','Ostala obrada'].some(name => {
               const stage = row.record.stages?.[name] || blankStage();
               const index = stages.indexOf(name);
@@ -842,8 +819,8 @@ export default function ProductionModule({ onBack, onCreateProject }) {
                           <div className="production-stage-title"><span>{String(index + 1).padStart(2, '0')}</span><strong>{stageName}</strong><b>{stage.status}</b></div>
                           <label className="production-worker-field"><UserRound size={14}/><input list="production-worker-list" value={stage.assignedTo || ''} onChange={event => setStageWorker(row.key, stageName, event.target.value)} placeholder="Odgovorni radnik"/></label>
                           <label className="production-equipment-field"><Factory size={14}/><select aria-label={'Stroj za fazu ' + stageName} value={stage.equipmentId || ''} onChange={event => updateStage(row.key, stageName, previous => ({ ...previous, equipmentId: event.target.value }))}><option value="">Bez odabira stroja (nije obavezno)</option>{equipment.filter(item => item.status !== 'Izvan pogona').map(item => <option key={item.id} value={item.id}>{item.name}{item.location ? ' · ' + item.location : ''}</option>)}</select></label>
-                          {(stageName === 'Poliranje' || stageName === 'Ostala obrada') && <label className="production-equipment-field"><Factory size={14}/><select aria-label={'Radni centar za fazu ' + stageName} value={stage.workCenter || ''} onChange={event => updateStage(row.key, stageName, previous => ({ ...previous, workCenter: event.target.value }))}><option value="">Odaberi radni centar</option>{(stageName === 'Poliranje' ? ['Polirka za šmuse i okapnice','Vanjska polirka za ravne spomenike i obloge'] : ['Ručna obrada','Terenski rad / montaža grobnica']).map(center => <option key={center} value={center}>{center}</option>)}</select></label>}
-                          <div className="production-time-row"><Timer size={14}/><span>{formatDuration(duration)}</span>{stage.startedAt && <small>Početak: {formatDate(stage.startedAt)}</small>}</div>
+                          {PRODUCTION_WORK_CENTERS[stageName] && <label className="production-equipment-field"><Factory size={14}/><select aria-label={'Radni centar za fazu ' + stageName} value={stage.workCenter || ''} onChange={event => { const value = event.target.value; updateStage(row.key, stageName, previous => ({ ...previous, workCenter: value })); if (stageName === 'Pilanje') setSawAssignments(current => ({ ...current, [row.key]: value === 'Pila 2' ? '2' : '1' })); }}><option value="">Odaberi radni centar</option>{PRODUCTION_WORK_CENTERS[stageName].map(center => <option key={center} value={center}>{center}</option>)}</select></label>}
+                          <div className="production-time-row"><Timer size={14}/><span>Rad: {formatDuration(duration)}</span>{stage.startedAt && <small>Početak: {formatDate(stage.startedAt)}</small>}{calculateStageDowntimeMs(stage, clockNow) > 0 && <small>Zastoji: {formatDuration(calculateStageDowntimeMs(stage, clockNow))}</small>}</div>
                           {stage.equipmentId && <small className="production-equipment-runtime">Evidentirano korištenje: {equipment.find(item => item.id === stage.equipmentId)?.name || 'Stroj iz registra'} · {formatDuration(duration)} aktivnog vremena faze</small>}
                           {stage.status === 'Zastoj' && <p className="production-block-reason"><AlertTriangle size={13}/>{stage.blockedReason}</p>}
                           {stage.note && <p className="production-stage-note">{stage.note}</p>}
