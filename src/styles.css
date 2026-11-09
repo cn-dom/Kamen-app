@@ -1546,3 +1546,10 @@ input,select,textarea{border-radius:9px}
 .production-time-table td small{color:var(--muted,#64748b);font-size:.7rem}
 .production-time-over{color:#b45309}.production-time-under{color:#26764a}
 @media(max-width:600px){.production-time-board{padding:14px}}
+
+.production-time-details{margin-top:14px;border:1px solid var(--border-color,#e1e7ef);border-radius:10px;overflow:hidden}
+.production-time-details summary{padding:12px 14px;cursor:pointer;font-size:.82rem;font-weight:750;color:var(--text,#34445b);background:var(--surface-muted,#f8fafc)}
+.production-time-details[open] summary{border-bottom:1px solid var(--border-color,#e1e7ef)}
+.production-time-details .production-time-table-wrap{padding:0 10px 10px}
+.production-time-details .production-time-table{min-width:850px}
+.production-time-details .production-time-table tbody td:first-child small{display:block;margin-top:3px;color:var(--muted,#64748b)}
