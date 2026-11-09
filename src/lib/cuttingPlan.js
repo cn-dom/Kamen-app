@@ -21,7 +21,8 @@ export function buildCuttingPlanGroups(pieces = [], materials = []) {
           width: stockLength - 20,
           height: stockWidth - 20,
           kerf: 4,
-          cost: 0
+          cost: 0,
+          ...(stock.form === 'Ostatak' ? { quantity: Math.max(0, Math.floor(Number(stock.quantity) || 0)) } : {})
         },
         demands: []
       });
