@@ -18,6 +18,8 @@ test('dnevnik čuva cijelu povijest i uklanja ponovljene događaje', () => {
   assert.equal(next.length, 141);
   assert.equal(next[0].id, 'new');
   assert.equal(next.filter(row => row.operationId === 'op-1').length, 1);
+  const grouped = appendInventoryMovements([], [{ id: 'op-2:1', operationId: 'op-2' }, { id: 'op-2:2', operationId: 'op-2' }]);
+  assert.equal(grouped.length, 2);
 });
 
 test('djelomična prodaja i ugradnja čuvaju preostalu zalihu', () => {
@@ -77,4 +79,15 @@ test('ako spremanje jednog dijela transakcije ne uspije, vraća sve prethodne za
   }), /vraćeno/i);
   assert.deepEqual(storage.read('a'), [{ id: 1 }]);
   assert.equal(storage.read('kamen-app-movements-v1').length, 0);
+});
+
+test('ne prepisuje oštećen postojeći dnevnik kretanja', () => {
+  const storage = memoryStorage();
+  storage.setItem('kamen-app-movements-v1', '{broken');
+  assert.throws(() => commitInventoryTransaction(storage, {
+    operationId: 'corrupt-1',
+    writes: [{ key: 'a', value: [1] }],
+    movements: [{ id: 'corrupt-1', kind: 'Izdavanje' }]
+  }), /nije valjan JSON/i);
+  assert.equal(storage.getItem('a'), null);
 });
