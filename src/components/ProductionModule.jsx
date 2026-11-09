@@ -33,7 +33,7 @@ function syncLinkedScheduleTask(stage, status, timestamp, blockedReason = '') {
       return {
         ...task,
         status,
-        ...(status === 'U tijeku' ? { actualStartedAt: task.actualStartedAt || timestamp } : {}),
+        ...(status === 'U tijeku' ? { actualStartedAt: task.actualStartedAt || timestamp, blockedReason: '' } : {}),
         ...(status === 'Završeno' ? { completedAt: timestamp, blockedReason: '' } : {}),
         ...(status === 'Zastoj' ? { blockedReason } : {}),
         updatedAt: timestamp
