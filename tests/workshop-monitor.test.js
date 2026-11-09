@@ -22,7 +22,7 @@ test('upozorava da komadi čekaju ručnu obradu kada su prethodne faze završene
       'Pilanje': { status: 'Završeno' },
       'Kanterica / obrada rubova': { status: 'Završeno' },
       'Poliranje': { status: 'Završeno' },
-      'Ostala obrada': { status: 'Nije započeto' }
+      'Ručna obrada': { status: 'Nije započeto' }, 'Terenski rad / montaža': { status: 'Nije potrebno' }
     } };
   }
   const result = analyzeWorkshopCapacity(orders, present(['Ivan'], pieces));
