@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Factory, Search, ClipboardCheck, Clock3, CheckCircle2,
+  Factory, Search, ClipboardCheck, Clock3, CheckCircle2, Scissors,
   Play, Pause, Check, AlertTriangle, UserRound, Timer, Download,
   XCircle, RotateCcw, Printer, UserPlus, X
 } from 'lucide-react';
@@ -14,6 +14,7 @@ import {
   formatProductionDuration as formatDuration,
   calculatePieceProgress as unitProgress
 } from '../lib/production.js';
+import { getSavedCuttingPlan } from '../lib/cuttingPlan.js';
 
 const ORDERS_KEY = 'kamen-app-work-orders-v1';
 const MATERIALS_KEY = 'kamen-app-materials-v1';
@@ -686,6 +687,47 @@ export default function ProductionModule({ onBack, onCreateProject }) {
                   {stage.plannedEnd && new Date(stage.plannedEnd).getTime() < clockNow && !['Završeno','Nije potrebno'].includes(stage.status) && <small className="production-overdue-flag"><AlertTriangle size={13}/> Rok je prošao</small>}
                 </article>;
               }) : <p className="production-saw-empty">Nema poslova na čekanju.</p>}
+              {[...new Map(machineRows.map(row => [row.order.id, row.order])).values()].map(order => {
+                const savedPlan = getSavedCuttingPlan(order);
+                if (!savedPlan) return null;
+                const orderRows = rowsWithRecords.filter(row => row.order.id === order.id);
+                const allOnThisSaw = orderRows.length > 0 && orderRows.every(row => (sawAssignments[row.key] || '1') === String(machine));
+                return <details className="production-saw-cut-plan" key={order.id}>
+                  <summary><Scissors size={15}/> Plan pilanja · {order.id}</summary>
+                  {!allOnThisSaw ? <p className="cut-plan-warning">Komadi ovog naloga raspoređeni su na obje pile. Cjeloviti plan nije prikazan kako ne bi došlo do dvostrukog ili pogrešnog rezanja. Rasporedi sve komade na jednu pilu prije korištenja plana.</p> : <>
+                    <p className="production-saw-plan-note">Spremljeni plan uz radni nalog · {savedPlan.materials.length} materijala. Prije rezanja fizički provjeri ploču, smjer žile i mjere.</p>
+                    {savedPlan.materials.map(material => <section className="cut-plan-sheet-group" key={material.stockId}>
+                      <strong>{material.stockName} · {material.stockForm}</strong>
+                      <small>{material.summary.sheetCount} ploča · {material.summary.placedCount} komada raspoređeno · {Number(material.summary.wasteM2 || 0).toLocaleString('hr-HR', { maximumFractionDigits: 3 })} m² otpada</small>
+                      {material.summary.sheets.map((sheet, sheetIndex) => <div className="cut-plan-sheet" key={material.stockId + '-' + sheetIndex}>
+                        <div className="cut-plan-sheet-head"><strong>Ploča {sheetIndex + 1} · {sheet.sheet_name}</strong><small>{(sheet.placements || []).length} komada · {sheet.plan?.num_cuts ?? '—'} rezova</small></div>
+                        <svg className="cut-plan-drawing" viewBox={`0 0 ${sheet.width} ${sheet.height}`} role="img" aria-label={`Spremljeni raspored rezanja ploče ${sheetIndex + 1}`}>
+                          <rect x="0" y="0" width={sheet.width} height={sheet.height} className="cut-plan-stock"/>
+                          {(sheet.placements || []).map((placement, placementIndex) => <g key={placementIndex}>
+                            <rect x={placement.x} y={placement.y} width={placement.width} height={placement.height} className="cut-plan-piece"/>
+                            <text x={placement.x + placement.width / 2} y={placement.y + placement.height / 2} textAnchor="middle" dominantBaseline="middle">{placement.name}</text>
+                            <text x={placement.x + placement.width / 2} y={placement.y + placement.height / 2 + Math.min(placement.height * 0.18, 80)} textAnchor="middle" dominantBaseline="middle" className="cut-plan-dim">{placement.width} × {placement.height} mm</text>
+                          </g>)}
+                        </svg>
+                        {sheet.plan?.steps?.length > 0 && <details className="cut-plan-steps">
+                          <summary>Redoslijed rezova ({sheet.plan.steps.length} koraka)</summary>
+                          <ol>{sheet.plan.steps.map((step, stepIndex) => <li key={stepIndex}>
+                            {step.kind === 'cut' ? `Rez ${step.axis === 'vertical' ? 'okomito' : 'vodoravno'} · položaj ${step.position} mm`
+                              : step.kind === 'line_cut' ? `Rezna linija · (${step.from_x}, ${step.from_y}) → (${step.to_x}, ${step.to_y}) mm`
+                              : step.kind === 'rotate' ? 'Okreni ploču'
+                              : step.kind === 'fence_reset' ? `Postavi graničnik na ${step.new_position} mm`
+                              : step.kind === 'tool_up' ? 'Podigni alat'
+                              : step.kind === 'tool_down' ? 'Spusti alat'
+                              : step.kind === 'travel' ? `Pomak na (${step.to_x}, ${step.to_y}) mm`
+                              : step.kind}
+                          </li>)}</ol>
+                        </details>}
+                      </div>)}
+                      {material.summary.unplaced?.length > 0 && <p className="cut-plan-warning">Nisu raspoređeni: {material.summary.unplaced.map(item => item.name + ' (' + item.quantity + ')').join(', ')}</p>}
+                    </section>)}
+                  </>}
+                </details>;
+              })}
             </section>;
           })}
         </div>
