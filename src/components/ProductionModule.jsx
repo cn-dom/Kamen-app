@@ -20,7 +20,7 @@ const MATERIALS_KEY = 'kamen-app-materials-v1';
 const EQUIPMENT_KEY = 'kamen-app-equipment-register-v1';
 const PRODUCTION_KEY = 'kamen-app-production-stages-v1';
 const SCHEDULE_KEY = 'kamen-app-schedule-v1';
-function syncLinkedScheduleTask(stage, status, timestamp) {
+function syncLinkedScheduleTask(stage, status, timestamp, blockedReason = '') {
   const taskId = stage?.scheduleTaskId;
   if (!taskId) return;
   try {
@@ -34,7 +34,8 @@ function syncLinkedScheduleTask(stage, status, timestamp) {
         ...task,
         status,
         ...(status === 'U tijeku' ? { actualStartedAt: task.actualStartedAt || timestamp } : {}),
-        ...(status === 'Završeno' ? { completedAt: timestamp } : {}),
+        ...(status === 'Završeno' ? { completedAt: timestamp, blockedReason: '' } : {}),
+        ...(status === 'Zastoj' ? { blockedReason } : {}),
         updatedAt: timestamp
       };
     });
