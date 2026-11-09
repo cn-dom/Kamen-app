@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Wallet, Plus, Search, Download, Printer, X, TrendingUp, Clock3, Receipt, FolderKanban, AlertCircle, Trash2 } from 'lucide-react';
 import { calculateOrderFinancials, summarizeFinancials } from '../lib/financials.js';
+import { buildOperationalCostRecords } from '../lib/operationalCosts.js';
 
 const ORDERS_KEY = 'kamen-app-work-orders-v1';
 const COSTS_KEY = 'kamen-app-cost-records-v1';
@@ -9,6 +10,8 @@ const INVOICES_KEY = 'kamen-app-invoices-v1';
 const PAYMENTS_KEY = 'kamen-app-payments-v1';
 const MATERIAL_CONSUMPTION_KEY = 'kamen-app-material-consumption-v1';
 const QUOTES_KEY = 'kamen-app-quotes-v1';
+const FIELD_WORK_KEY = 'kamen-app-field-work-v1';
+const COMPANY_SETTINGS_KEY = 'kamen-app-company-settings-v1';
 const CATEGORIES = ['Materijal', 'Rad', 'Prijevoz', 'Vanjska obrada', 'Montaža', 'Terenski rad', 'Najam stroja', 'Potrošni materijal', 'Ostalo'];
 const SEED_ORDERS = [];
 const categoriesOf = record => Array.isArray(record.categories) ? record.categories : [record.category || 'Ostalo'];
@@ -28,6 +31,10 @@ export default function CostsReportsModule({ onBack }) {
   const [payments] = useState(() => read(PAYMENTS_KEY, []));
   const [materialConsumption] = useState(() => read(MATERIAL_CONSUMPTION_KEY, []));
   const [quotes] = useState(() => read(QUOTES_KEY, []));
+  const [fieldJobs] = useState(() => read(FIELD_WORK_KEY, []));
+  const [companySettings] = useState(() => read(COMPANY_SETTINGS_KEY, { workRules: {} }));
+  const automaticCosts = useMemo(() => buildOperationalCostRecords({ orders, productionRecords, fieldJobs, workRules: companySettings.workRules || {}, existingCosts: records }), [orders, productionRecords, fieldJobs, companySettings, records]);
+  const allCostRecords = useMemo(() => [...records, ...automaticCosts], [records, automaticCosts]);
   const [query, setQuery] = useState('');
   const [selectedOrder, setSelectedOrder] = useState('Svi projekti');
   const [showForm, setShowForm] = useState(false);
@@ -35,7 +42,7 @@ export default function CostsReportsModule({ onBack }) {
   const [error, setError] = useState('');
   useEffect(() => { try { window.localStorage.setItem(COSTS_KEY, JSON.stringify(records)); } catch { setError('Preglednik ne dopušta spremanje. Izvezi evidenciju kako ne bi izgubio podatke.'); } }, [records]);
 
-  const projectRecords = useMemo(() => records.filter(r => selectedOrder === 'Svi projekti' || r.orderId === selectedOrder), [records, selectedOrder]);
+  const projectRecords = useMemo(() => allCostRecords.filter(r => selectedOrder === 'Svi projekti' || r.orderId === selectedOrder), [allCostRecords, selectedOrder]);
   const filtered = useMemo(() => projectRecords.filter(r => {
     const order = orders.find(o => o.id === r.orderId);
     const q = query.trim().toLocaleLowerCase('hr');
@@ -44,7 +51,7 @@ export default function CostsReportsModule({ onBack }) {
   const actual = projectRecords.filter(r => r.kind === 'Stvarni trošak');
   const planned = projectRecords.filter(r => r.kind === 'Planirani trošak');
   const plannedTotal = planned.reduce((sum, r) => sum + Number(r.amount || 0), 0);
-  const hoursTotal = actual.reduce((sum, r) => sum + Number(r.hours || 0), 0);
+  const hoursTotal = actual.reduce((sum, r) => sum + Number(r.hours || 0), 0) + automaticCosts.reduce((sum, r) => sum + Number(r.hours || 0), 0);
   const formatDate = value => value ? new Date(value + 'T12:00:00').toLocaleDateString('hr-HR') : '—';
   const update = (key, value) => setForm(prev => ({ ...prev, [key]: value }));
   const save = event => {
@@ -84,7 +91,7 @@ export default function CostsReportsModule({ onBack }) {
     const link = document.createElement('a'); link.href = url; link.download = 'kamen-troskovi-izvjestaj.csv'; link.click(); URL.revokeObjectURL(url);
   };
 
-  const projects = orders.map(order => ({ ...order, financial: calculateOrderFinancials(order, records, productionRecords, Date.now(), invoices, payments, materialConsumption, quotes) }));
+  const projects = orders.map(order => ({ ...order, financial: calculateOrderFinancials(order, allCostRecords, productionRecords, Date.now(), invoices, payments, materialConsumption, quotes) }));
   const financialSummary = summarizeFinancials(projects.map(project => project.financial));
   const actualTotal = summarizeFinancials(projects.filter(project => selectedOrder === 'Svi projekti' || project.id === selectedOrder).map(project => project.financial)).totalActualCost;
   const movementData = read('kamen-app-movements-v1', []);
@@ -121,7 +128,7 @@ export default function CostsReportsModule({ onBack }) {
 
     <section className="panel costs-ledger-panel">
       <div className="costs-toolbar"><div><h2>Stavke troškova</h2><p>Plan i stvarni izdaci odvojeni su radi jasne kontrole.</p></div><label className="costs-search"><Search size={16}/><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Traži opis, kupca ili kategoriju…"/></label></div>
-      <div className="costs-table-wrap"><table className="costs-table"><thead><tr><th>DATUM</th><th>PROJEKT</th><th>VRSTA / KATEGORIJA</th><th>OPIS</th><th>IZNOS</th><th></th></tr></thead><tbody>{filtered.map(r => { const order = orders.find(o => o.id === r.orderId); return <tr key={r.id}><td>{formatDate(r.date)}</td><td><strong>{r.orderId}</strong><small>{order?.project || 'Projekt nije pronađen'}</small></td><td><span className={'cost-kind ' + (r.kind === 'Planirani trošak' ? 'planned' : 'actual')}>{r.kind}</span><small>{categoriesOf(r).join(' · ')}{r.hours ? ' · ' + r.hours + ' h' : ''}</small></td><td><strong>{r.description}</strong>{r.note && <small>{r.note}</small>}</td><td><strong>{money(r.amount)}</strong></td><td><button className="row-action" onClick={() => remove(r.id)} aria-label="Ukloni stavku" title="Ukloni"><Trash2 size={15}/></button></td></tr>; })}{!filtered.length && <tr><td colSpan="6"><div className="costs-empty"><Receipt size={24}/><strong>Nema stavki za prikaz</strong><span>Dodaj planirani ili stvarni trošak za odabrani projekt.</span></div></td></tr>}</tbody></table></div>
+      <div className="costs-table-wrap"><table className="costs-table"><thead><tr><th>DATUM</th><th>PROJEKT</th><th>VRSTA / KATEGORIJA</th><th>OPIS</th><th>IZNOS</th><th></th></tr></thead><tbody>{filtered.map(r => { const order = orders.find(o => o.id === r.orderId); return <tr key={r.id}><td>{formatDate(r.date)}</td><td><strong>{r.orderId}</strong><small>{order?.project || 'Projekt nije pronađen'}</small></td><td><span className={'cost-kind ' + (r.kind === 'Planirani trošak' ? 'planned' : 'actual')}>{r.kind}</span><small>{categoriesOf(r).join(' · ')}{r.hours ? ' · ' + r.hours + ' h' : ''}</small></td><td><strong>{r.description}</strong>{r.note && <small>{r.note}</small>}</td><td><strong>{money(r.amount)}</strong></td><td>{r.automatic ? <span className="cost-kind actual">Automatski</span> : <button className="row-action" onClick={() => remove(r.id)} aria-label="Ukloni stavku" title="Ukloni"><Trash2 size={15}/></button>}</td></tr>; })}{!filtered.length && <tr><td colSpan="6"><div className="costs-empty"><Receipt size={24}/><strong>Nema stavki za prikaz</strong><span>Dodaj planirani ili stvarni trošak za odabrani projekt.</span></div></td></tr>}</tbody></table></div>
       <div className="costs-foot"><span>Prikazano {filtered.length} stavki · Iznos je u eurima</span><button className="text-action" onClick={() => window.print()}><Printer size={15}/> Ispis izvještaja</button></div>
     </section>
     <section className="panel costs-ledger-panel">
