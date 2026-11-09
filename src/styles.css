@@ -1534,3 +1534,15 @@ input,select,textarea{border-radius:9px}
 
 
 .production-overdue-flag{display:inline-flex;align-items:center;gap:5px;width:max-content;max-width:100%;padding:5px 8px;border:1px solid #f0c7a8;border-radius:7px;background:#fff3e9;color:#a84c16;font-size:.72rem;font-weight:800}
+
+
+/* Usporedba planiranog i stvarnog vremena proizvodnje */
+.production-time-board{margin:18px 0;padding:20px;border:1px solid var(--border-color,#dce3ea);border-radius:16px;background:var(--surface,#fff)}
+.production-time-table-wrap{width:100%;overflow-x:auto}
+.production-time-table{width:100%;border-collapse:collapse;min-width:650px;font-size:.82rem}
+.production-time-table th,.production-time-table td{padding:11px 10px;border-bottom:1px solid var(--border-color,#e5eaf0);text-align:left;vertical-align:middle}
+.production-time-table thead th{color:var(--muted,#64748b);font-size:.7rem;text-transform:uppercase;letter-spacing:.04em}
+.production-time-table tbody th{font-weight:750;color:var(--text,#34445b)}
+.production-time-table td small{color:var(--muted,#64748b);font-size:.7rem}
+.production-time-over{color:#b45309}.production-time-under{color:#26764a}
+@media(max-width:600px){.production-time-board{padding:14px}}
