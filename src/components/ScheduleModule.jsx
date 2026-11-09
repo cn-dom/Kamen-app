@@ -129,7 +129,8 @@ export default function ScheduleModule({ onBack }) {
     const conflict=findScheduleConflict(tasks,{start:form.start,end:form.end,worker:form.worker.trim(),machine:form.machine.trim()},editing);
     if (conflict) { setError('Sukob rasporeda: '+(conflict.worker===form.worker.trim()?'radnik '+form.worker:'stroj '+form.machine)+' već je zauzet u terminu '+formatTime(conflict.start)+'–'+formatTime(conflict.end)+'.'); return; }
     const task={id:editing||('RAS-'+Date.now()),pieceKey:unit.key,orderId:unit.order.id,project:unit.order.project||unit.order.title||'Radni nalog',customer:unit.order.customer||'',pieceLabel:unit.label+' · komad '+unit.unitIndex,material:unit.material,stage:form.stage,worker:form.worker.trim(),machine:form.machine.trim(),start:new Date(form.start).toISOString(),end:new Date(form.end).toISOString(),priority:form.priority,status:form.status,note:form.note.trim(),updatedAt:new Date().toISOString()};
-    syncProductionSchedule(task, editing ? tasks.find(item=>item.id===editing) : null);\n    saveTasks(editing?tasks.map(item=>item.id===editing?task:item):[...tasks,task]);
+    syncProductionSchedule(task, editing ? tasks.find(item=>item.id===editing) : null);
+    saveTasks(editing?tasks.map(item=>item.id===editing?task:item):[...tasks,task]);
     setShowForm(false);setEditing(null);setForm(emptyForm());
   };
   const removeTask = task => { if(!window.confirm('Obrisati planiranu aktivnost '+task.orderId+' – '+task.pieceLabel+'?')) return; clearProductionSchedule(task); saveTasks(tasks.filter(item=>item.id!==task.id)); };
