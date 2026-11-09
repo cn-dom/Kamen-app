@@ -48,3 +48,27 @@ export function summarizeFieldWork(jobs = [], date = new Date().toISOString().sl
     overdue: active.filter(job => job.date && job.date < date).length
   };
 }
+
+export function validateFieldJob(candidate = {}, jobs = [], workerRecords = {}) {
+  const { customer = '', project = '', location = '', date = '', startTime = '08:00', endTime = '16:00' } = candidate;
+  if (!customer.trim() || !project.trim() || !location.trim() || !date) return 'Unesi kupca, projekt, lokaciju i datum terenskog rada.';
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(startTime) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(endTime)) return 'Unesi valjano vrijeme početka i završetka.';
+  const start = Number(startTime.slice(0,2))*60 + Number(startTime.slice(3));
+  const end = Number(endTime.slice(0,2))*60 + Number(endTime.slice(3));
+  if (end <= start) return 'Završetak terenskog posla mora biti nakon početka.';
+  const crew = normalizeFieldCrew(candidate);
+  if (!crew.length) return 'Odaberi barem jednog člana terenske ekipe.';
+  const attendance = workerRecords.attendance;
+  const deployment = workerRecords.deployment;
+  for (const name of crew) {
+    if (attendance?.date === date && ['Odsutan','Izvan smjene'].includes(attendance.statuses?.[name])) return name + ' nije dostupan za odabrani datum.';
+    if (deployment?.date === date && deployment.assignments?.[name]?.area === 'Radionica') return name + ' je već raspoređen u radionici za odabrani dan.';
+  }
+  const conflicts = findFieldCrewConflicts(jobs, candidate);
+  if (conflicts.length) return 'Sukob rasporeda: ' + conflicts.map(c => c.project + ' (' + c.startTime + '–' + c.endTime + ', ' + c.workers.join(', ') + ')').join('; ') + '. Promijeni termin ili ekipu.';
+  return '';
+}
+export function appendFieldEvent(job, event, at = new Date().toISOString()) {
+  const events = Array.isArray(job.events) ? job.events : [];
+  return { ...job, events: [...events, { id: 'FWE-' + at + '-' + events.length, type: event, at }] };
+}
