@@ -9,6 +9,7 @@ import {
   blankStageRecord as blankStage,
   blankPieceProductionRecord as blankUnit,
   buildProductionUnits as unitRows,
+  isValidProductionWorkCenter,
   normalizeProductionRecords as normalizeRecords,
   calculateStageElapsedMs as elapsedMs,
   formatProductionDuration as formatDuration,
@@ -130,6 +131,10 @@ export default function ProductionModule({ onBack, onCreateProject }) {
     const currentStage = unit.stages?.[stageName] || blankStage();
     if (currentStage.status === 'Završeno' || currentStage.status === 'Nije potrebno' || currentStage.status === 'U tijeku') return;
     if (!String(currentStage.assignedTo || '').trim()) { window.alert('Prije početka faze odaberi ili upiši odgovornog radnika.'); return; }
+    if (['Poliranje', 'Ostala obrada'].includes(stageName) && !isValidProductionWorkCenter(stageName, currentStage.workCenter)) {
+      window.alert('Prije početka odaberi točan radni centar kako bi se komad prikazao na odgovarajućoj radnoj stanici.');
+      return;
+    }
     const workerName = String(currentStage.assignedTo).trim().toLocaleLowerCase('hr');
     const today = todayKey();
     const attendanceStatus = records.attendance?.date === today ? records.attendance.statuses?.[currentStage.assignedTo] : '';
