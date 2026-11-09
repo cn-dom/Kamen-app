@@ -513,7 +513,7 @@ export default function ProductionModule({ onBack, onCreateProject }) {
         Math.round(item.deltaMs / 60000), 1, 1, 1
       ].map(csvCell).join(';'));
     });
-    const blob = new Blob(['\\uFEFF' + lines.join('\\r\\n')], { type: 'text/csv;charset=utf-8' });
+    const blob = new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
