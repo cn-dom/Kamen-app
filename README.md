@@ -137,3 +137,8 @@ Modul Korisnici i ovlasti omogućuje lokalni popis članova, dodjelu pet početn
 ## Alati i oprema
 
 Modul **Alati i oprema** vodi lokalni registar ručnog i električnog alata, mjerne, zaštitne i transportne opreme. Za svaki alat evidentiraju se inventarna oznaka, serijski broj, lokacija i stanje. Izdavanje veže alat uz osobu/ekipu, radni nalog i očekivani datum povrata; povrat bilježi stanje i napomenu. Oštećen ili neispravan alat automatski prelazi u status **Na popravku**. Zakašnjela zaduženja prikazuju se kao upozorenje. Povijest izdavanja, povrata i otpisa ostaje zabilježena; registar i događaji uključeni su u JSON sigurnosnu kopiju. Podaci su lokalni u pregledniku, bez sinkronizacije i bez poslužiteljske kontrole pristupa.
+
+
+## Radnici i raspored — Cjelina 7
+
+Modul **Raspored** povezan je s popisom radnika, njihovim evidentiranim vještinama, dnevnom prisutnošću i rasporedom radionica/teren. Prije spremanja termina provjerava se odgovara li evidentirana vještina odabranoj fazi, je li radnik označen odsutnim ili izvan smjene te je li već raspoređen na teren. Postojeća provjera preklapanja radnika i stroja ostaje aktivna. Aktivnosti su ograničene na jedan radni dan; višednevni posao planira se kroz zasebne dnevne termine. Raspored je dostupan kroz glavnu navigaciju. Podaci su lokalni u pregledniku i ne predstavljaju evidenciju radnog vremena ili obračun plaće.
