@@ -304,3 +304,17 @@ Automatizirani testovi uključuju:
 - [ ] Vraćeni alat ne ostaje označen kao zakašnjeli.
 - [ ] CSV izvoz uključuje stanje registra.
 - [ ] JSON sigurnosna kopija uključuje registar i povijest događaja.
+
+
+## Cjelina 7 — radnici i raspored
+
+- [ ] Raspored se otvara iz glavne navigacije.
+- [ ] Radnik s evidentiranom odgovarajućom vještinom može dobiti termin.
+- [ ] Radnik bez odgovarajuće evidentirane vještine ne može dobiti termin.
+- [ ] Odsutan radnik ne može dobiti termin na datum odsutnosti.
+- [ ] Radnik izvan smjene ne može dobiti termin na taj datum.
+- [ ] Radnik raspoređen na teren ne može istog dana dobiti radionicu.
+- [ ] Postojeća provjera sprječava preklapanje termina radnika i stroja.
+- [ ] Višednevni termin mora biti razdvojen na dnevne aktivnosti.
+- [ ] Otkazani termin ne blokira novi termin.
+- [ ] Promjene statusa radnika osvježavaju se pri ponovnom ulasku u raspored.
