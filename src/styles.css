@@ -1531,3 +1531,6 @@ input,select,textarea{border-radius:9px}
 .production-load-filter{margin:-5px 0 12px;color:var(--muted,#64748b);font-size:.78rem}
 @media(max-width:1000px){.production-load-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.production-load-board{padding:14px}.production-load-grid{grid-template-columns:1fr}.production-load-card{padding:12px}}
+
+
+.production-overdue-flag{display:inline-flex;align-items:center;gap:5px;width:max-content;max-width:100%;padding:5px 8px;border:1px solid #f0c7a8;border-radius:7px;background:#fff3e9;color:#a84c16;font-size:.72rem;font-weight:800}
