@@ -19,6 +19,31 @@ const ORDERS_KEY = 'kamen-app-work-orders-v1';
 const MATERIALS_KEY = 'kamen-app-materials-v1';
 const EQUIPMENT_KEY = 'kamen-app-equipment-register-v1';
 const PRODUCTION_KEY = 'kamen-app-production-stages-v1';
+const SCHEDULE_KEY = 'kamen-app-schedule-v1';
+function syncLinkedScheduleTask(stage, status, timestamp) {
+  const taskId = stage?.scheduleTaskId;
+  if (!taskId) return;
+  try {
+    const tasks = JSON.parse(window.localStorage.getItem(SCHEDULE_KEY) || '[]');
+    if (!Array.isArray(tasks)) return;
+    let changed = false;
+    const next = tasks.map(task => {
+      if (task.id !== taskId) return task;
+      changed = true;
+      return {
+        ...task,
+        status,
+        ...(status === 'U tijeku' ? { actualStartedAt: task.actualStartedAt || timestamp } : {}),
+        ...(status === 'Završeno' ? { completedAt: timestamp } : {}),
+        updatedAt: timestamp
+      };
+    });
+    if (changed) {
+      window.localStorage.setItem(SCHEDULE_KEY, JSON.stringify(next));
+      window.dispatchEvent(new Event('kamen-app-schedule-updated'));
+    }
+  } catch { /* Raspored ostaje nepromijenjen ako lokalna pohrana nije dostupna. */ }
+}
 const todayKey = () => { const date = new Date(); return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`; };
 const formatDate = value => {
   if (!value) return '—';
@@ -126,10 +151,13 @@ export default function ProductionModule({ onBack, onCreateProject }) {
       window.alert('Najprije završi prethodnu fazu obrade ili je označi kao nije potrebnu.');
       return;
     }
-    updateStage(key, stageName, previous => {
     const now = new Date().toISOString();
-    return { ...previous, status: 'U tijeku', startedAt: previous.startedAt || now, completedAt: null, blockedReason: '', sessions: [...(previous.sessions || []), { startedAt: now, endedAt: null }] };
-    });
+    updateStage(key, stageName, previous => ({
+      ...previous, status: 'U tijeku', startedAt: previous.startedAt || now,
+      completedAt: null, blockedReason: '',
+      sessions: [...(previous.sessions || []), { startedAt: now, endedAt: null }]
+    }));
+    syncLinkedScheduleTask(currentStage, 'U tijeku', now);
   };
   const stopStage = (key, stageName) => {
     const reason = window.prompt('Upiši razlog zastoja. Primjer: kvar stroja, čekanje materijala, promjena nacrta.');
@@ -143,15 +171,20 @@ export default function ProductionModule({ onBack, onCreateProject }) {
       return { ...previous, status: 'Zastoj', blockedReason: reason.trim(), sessions };
     });
   };
-  const finishStage = (key, stageName) => updateStage(key, stageName, previous => {
-    if (previous.status !== 'U tijeku') return previous;
+  const finishStage = (key, stageName) => {
+    const currentStage = records.pieces?.[key]?.stages?.[stageName] || blankStage();
+    if (currentStage.status !== 'U tijeku') return;
     const now = new Date().toISOString();
-    const sessions = [...(previous.sessions || [])];
-    let open = sessions.length - 1;
-    while (open >= 0 && sessions[open].endedAt) open -= 1;
-    if (open >= 0) sessions[open] = { ...sessions[open], endedAt: now };
-    return { ...previous, status: 'Završeno', completedAt: now, blockedReason: '', sessions };
-  });
+    updateStage(key, stageName, previous => {
+      if (previous.status !== 'U tijeku') return previous;
+      const sessions = [...(previous.sessions || [])];
+      let open = sessions.length - 1;
+      while (open >= 0 && sessions[open].endedAt) open -= 1;
+      if (open >= 0) sessions[open] = { ...sessions[open], endedAt: now };
+      return { ...previous, status: 'Završeno', completedAt: now, blockedReason: '', sessions };
+    });
+    syncLinkedScheduleTask(currentStage, 'Završeno', now);
+  };
   const setStageWorker = (key, stageName, assignedTo) => updateStage(key, stageName, previous => ({ ...previous, assignedTo }));
   const setStageNote = (key, stageName, note) => updateStage(key, stageName, previous => ({ ...previous, note }));
   const markNotRequired = (key, stageName) => {
