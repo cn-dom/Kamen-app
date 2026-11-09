@@ -28,7 +28,7 @@ export default function WarehouseModule({ onBack, mode = 'warehouse' }) {
   const companySettings = readStored(COMPANY_SETTINGS_KEY, {});
   const warehouseLocations = Array.isArray(companySettings.locations) ? companySettings.locations : [];
   const warehouseMaterialTypes = Array.isArray(companySettings.materialTypes) ? companySettings.materialTypes : [];
-  const warehouseUnits = [...new Set([...(Array.isArray(companySettings.units) ? companySettings.units : ['ploča', 'kom', 'm²', 'm³']), form.unit].filter(Boolean))];
+  const configuredWarehouseUnits = Array.isArray(companySettings.units) ? companySettings.units : ['ploča', 'kom', 'm²', 'm³'];
   const [materials, setMaterials] = useState(() => readStored(MATERIALS_KEY, []));
   const [warehouseTab, setWarehouseTab] = useState('materials');
   const [movements, setMovements] = useState(() => readStored(MOVEMENTS_KEY, []));
@@ -39,6 +39,7 @@ export default function WarehouseModule({ onBack, mode = 'warehouse' }) {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(emptyForm);
+  const warehouseUnits = [...new Set([...configuredWarehouseUnits, form.unit].filter(Boolean))];
   const [movement, setMovement] = useState(null);
   const [showCut, setShowCut] = useState(false);
   const sourceThicknessForCut = (items, id) => items.find(item => item.id === id)?.thickness ?? 0;
