@@ -147,3 +147,11 @@ Modul **Raspored** povezan je s popisom radnika, njihovim evidentiranim vještin
 ## Terenski rad i montaža — Cjelina 8
 
 Terenski nalog povezuje kupca, projekt, radni nalog, lokaciju/groblje, datum i termin, vozilo, planirani materijal/opremu te članove ekipe. Prije spremanja provjeravaju se obvezni podaci, valjan vremenski raspon, dnevna prisutnost i raspored članova ekipe te preklapanje s drugim terenskim nalozima. Statusi se vode slijedno: Planirano → Na putu → Na lokaciji → Montaža u tijeku → Završeno → Vraćeno. Svaki prijelaz ostavlja lokalni kronološki događaj. Podaci ostaju u pregledniku; evidencija nije GPS praćenje ni službena evidencija radnog vremena. Izdavanje/ugradnja materijala i alata ostaju povezani kroz zasebne module, bez automatskog skidanja zalihe samim zatvaranjem terenskog naloga.
+
+
+## Dokumenti i obavijesti — Cjelina 9
+
+Modul **Dokumenti** omogućuje lokalno spremanje datoteka uz naziv, vrstu, datum, autora, povezani tip i oznaku zapisa te napomenu. Datoteke do 5 MB mogu se pretražiti, preuzeti ili ukloniti. Dokumenti su uključeni u JSON sigurnosnu kopiju. Pohrana je u localStorage preglednika, pa ukupni prostor ovisi o pregledniku i uređaju; datoteke nisu dostupne na drugim uređajima i ne šalju se na poslužitelj.
+
+Modul **Obavijesti** pri otvaranju izračunava upozorenja iz lokalnih podataka: približavanje i prekoračenje roka, blokirani poslovi, niske zalihe, zakašnjeli povrat alata, nadolazeće održavanje, zastoji proizvodnih faza i današnji terenski poslovi. Obavijesti se mogu filtrirati i označiti pročitanima; odabir vodi u pripadajući modul. Ovo nije push sustav niti kontinuirani nadzor u pozadini. Prikaz upozorenja nije zamjena za pregled izvornog zapisa.
+

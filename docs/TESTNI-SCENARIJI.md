@@ -332,3 +332,21 @@ Automatizirani testovi uključuju:
 - [ ] Svaki statusni prijelaz ostavlja događaj u povijesti.
 - [ ] Završetak i povratak bilježe zasebne vremenske oznake.
 - [ ] Terenski nalog ostaje povezan s radnim nalogom/projektom.
+
+
+## Cjelina 9 — dokumenti i obavijesti
+
+- [ ] Dodavanje dokumenta zahtijeva naziv i datoteku.
+- [ ] Datoteka veća od 5 MB odbija se bez spremanja zapisa.
+- [ ] Dokument čuva vrstu, datum, autora, povezani tip/zapis i napomenu.
+- [ ] Pretraživanje i filtar vrste prikazuju samo odgovarajuće dokumente.
+- [ ] Preuzimanje vraća izvornu datoteku; uklanjanje zahtijeva potvrdu.
+- [ ] JSON sigurnosna kopija uključuje dokumente i njihove privitke.
+- [ ] Obavijest se stvara za otvoreni zakašnjeli rok, a ne za završeni/otkazani nalog.
+- [ ] Obavijest se stvara za rok u sljedeća tri dana.
+- [ ] Upozoravaju se blokirani poslovi, niska zaliha i zakašnjeli alat.
+- [ ] Upozorava se na zastoj proizvodne faze, održavanje i planirani teren za danas.
+- [ ] Obavijest se može označiti pročitanom; stanje ostaje nakon ponovnog otvaranja.
+- [ ] Odabir obavijesti vodi u odgovarajući modul.
+- [ ] Sučelje jasno navodi da su dokumenti i obavijesti lokalni, bez push poruka i sinkronizacije.
+
