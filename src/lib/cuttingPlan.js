@@ -55,3 +55,25 @@ export function summarizeCuttingPlan(layout, cutPlan) {
     }))
   };
 }
+
+
+export function createSavedCuttingPlan(materials, createdAt = new Date().toISOString()) {
+  if (!Array.isArray(materials) || !materials.length) return null;
+  return {
+    version: 1,
+    createdAt,
+    materials: materials.map(item => ({
+      stockId: item.stockId,
+      stockName: item.stockName,
+      stockForm: item.stockForm || 'Ploča',
+      summary: item.summary
+    }))
+  };
+}
+
+export function getSavedCuttingPlan(order) {
+  const plan = order?.cuttingPlan;
+  return plan?.version === 1 && Array.isArray(plan.materials) && plan.materials.length
+    ? plan
+    : null;
+}
