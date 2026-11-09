@@ -1553,3 +1553,21 @@ input,select,textarea{border-radius:9px}
 .production-time-details .production-time-table-wrap{padding:0 10px 10px}
 .production-time-details .production-time-table{min-width:850px}
 .production-time-details .production-time-table tbody td:first-child small{display:block;margin-top:3px;color:var(--muted,#64748b)}
+
+/* Vizualni prijedlog rasporeda pilanja */
+.cut-plan-actions{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:14px 0;padding:12px;border:1px solid var(--border-color,#dce3ea);border-radius:11px;background:var(--surface-muted,#f8fafc)}
+.cut-plan-actions>span{font-size:.74rem;color:var(--muted,#64748b)}
+.cut-plan-preview{margin:12px 0;padding:14px;border:1px solid var(--border-color,#dce3ea);border-radius:12px;background:var(--surface,#fff)}
+.cut-plan-preview-head,.cut-plan-sheet-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.cut-plan-preview-head strong,.cut-plan-sheet-head strong{font-size:.88rem;color:var(--text,#34445b)}
+.cut-plan-preview-head small,.cut-plan-sheet-head small{display:block;margin-top:3px;color:var(--muted,#64748b);font-size:.72rem}
+.cut-plan-preview-head>span{font-weight:800;font-size:.8rem;color:var(--text,#34445b)}
+.cut-plan-sheet{margin-top:12px;padding:10px;border:1px solid var(--border-color,#e5eaf0);border-radius:9px;background:var(--surface-muted,#f8fafc)}
+.cut-plan-drawing{display:block;width:100%;max-height:420px;margin-top:10px;background:#f1f4f8;border:1px solid #cbd5e1;border-radius:5px}
+.cut-plan-stock{fill:#eef1f5;stroke:#64748b;stroke-width:8}
+.cut-plan-piece{fill:#dbeafe;stroke:#315fc1;stroke-width:6}
+.cut-plan-drawing text{fill:#1e3a5f;font-size:65px;font-weight:700;pointer-events:none}
+.cut-plan-drawing .cut-plan-dim{font-size:40px;font-weight:500;fill:#52657d}
+.cut-plan-footnote,.cut-plan-warning{display:block;margin-top:9px;font-size:.72rem;color:var(--muted,#64748b)}
+.cut-plan-warning{padding:9px;border-radius:8px;background:#fff1e8;color:#9a4c17;font-weight:700}
+@media(max-width:600px){.cut-plan-preview{padding:10px}.cut-plan-drawing{max-height:260px}.cut-plan-actions{align-items:flex-start}.cut-plan-actions .button{width:100%;justify-content:center}}
