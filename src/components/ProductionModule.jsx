@@ -160,16 +160,20 @@ export default function ProductionModule({ onBack, onCreateProject }) {
     syncLinkedScheduleTask(currentStage, 'U tijeku', now);
   };
   const stopStage = (key, stageName) => {
+    const currentStage = records.pieces?.[key]?.stages?.[stageName] || blankStage();
+    if (currentStage.status !== 'U tijeku') return;
     const reason = window.prompt('Upiši razlog zastoja. Primjer: kvar stroja, čekanje materijala, promjena nacrta.');
     if (!reason?.trim()) return;
+    const now = new Date().toISOString();
     updateStage(key, stageName, previous => {
       if (previous.status !== 'U tijeku') return previous;
       const sessions = [...(previous.sessions || [])];
       let open = sessions.length - 1;
       while (open >= 0 && sessions[open].endedAt) open -= 1;
-      if (open >= 0) sessions[open] = { ...sessions[open], endedAt: new Date().toISOString() };
+      if (open >= 0) sessions[open] = { ...sessions[open], endedAt: now };
       return { ...previous, status: 'Zastoj', blockedReason: reason.trim(), sessions };
     });
+    syncLinkedScheduleTask(currentStage, 'Zastoj', now, reason.trim());
   };
   const finishStage = (key, stageName) => {
     const currentStage = records.pieces?.[key]?.stages?.[stageName] || blankStage();
