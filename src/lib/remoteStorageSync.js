@@ -1,6 +1,7 @@
 const API_BASE = import.meta.env.VITE_KAMEN_API_URL || 'https://kamen-app-api-staging.patriasoul.workers.dev';
 const META_KEY = 'kamen-app-sync-meta-v1';
 const ENABLED_KEY = 'kamen-app-remote-sync-enabled';
+const IDENTITY_KEY = 'kamen-app-sync-identity-v1';
 const SENSITIVE_KEY = /(token|secret|password|auth|session|access-control)/i;
 let versions = new Map();
 let meta = {};
@@ -13,7 +14,7 @@ let currentRole = 'owner';
 const WORKER_SYNC_KEYS = new Set(['kamen-app-production-stages-v1','kamen-app-schedule-v1','kamen-app-saw-assignments-v1']);
 const pending = new Map();
 
-const syncableKey = key => typeof key === 'string' && key.startsWith('kamen-app-') && key !== META_KEY && key !== ENABLED_KEY && !SENSITIVE_KEY.test(key) && (currentRole !== 'worker' || WORKER_SYNC_KEYS.has(key));
+const syncableKey = key => typeof key === 'string' && key.startsWith('kamen-app-') && key !== META_KEY && key !== ENABLED_KEY && key !== IDENTITY_KEY && !SENSITIVE_KEY.test(key) && (currentRole !== 'worker' || WORKER_SYNC_KEYS.has(key));
 const snapshot = value => JSON.stringify(value);
 function readValue(raw) {
   try { return JSON.parse(raw); } catch { return raw; }
@@ -179,9 +180,27 @@ export async function initializeRemoteSync() {
   if (initialized) return { initialized: true };
   const identity = await api('/api/me');
   currentRole = identity.user?.role || 'owner';
+  const identitySnapshot = { companyId: identity.company?.id || '', email: String(identity.user?.email || '').toLowerCase(), role: currentRole };
+  let previousIdentity = null;
+  try { previousIdentity = JSON.parse(window.localStorage.getItem(IDENTITY_KEY) || 'null'); } catch {}
+  const identityChanged = previousIdentity && (previousIdentity.companyId !== identitySnapshot.companyId || previousIdentity.email !== identitySnapshot.email || previousIdentity.role !== identitySnapshot.role);
+  const firstWorkerSession = currentRole === 'worker' && !previousIdentity;
+  if (identityChanged || firstWorkerSession) {
+    const nativeRemove = originalRemoveItem || Storage.prototype.removeItem;
+    for (let index = window.localStorage.length - 1; index >= 0; index -= 1) {
+      const key = window.localStorage.key(index);
+      if (key?.startsWith('kamen-app-') && key !== ENABLED_KEY && key !== IDENTITY_KEY) nativeRemove.call(window.localStorage, key);
+    }
+    meta = {};
+    versions = new Map();
+    (originalSetItem || Storage.prototype.setItem).call(window.localStorage, IDENTITY_KEY, JSON.stringify(identitySnapshot));
+    emit('ready', { identityChanged: true, clearedLocalCompanyData: true });
+  } else {
+    meta = (() => { try { return JSON.parse(window.localStorage.getItem(META_KEY) || '{}'); } catch { return {}; } })();
+    versions = new Map(Object.entries(meta).map(([key, item]) => [key, Number(item.version || 0)]));
+    (originalSetItem || Storage.prototype.setItem).call(window.localStorage, IDENTITY_KEY, JSON.stringify(identitySnapshot));
+  }
   const result = await api('/api/state');
-  meta = (() => { try { return JSON.parse(window.localStorage.getItem(META_KEY) || '{}'); } catch { return {}; } })();
-  versions = new Map(Object.entries(meta).map(([key, item]) => [key, Number(item.version || 0)]));
   if (!storagePatched) {
     originalSetItem = Storage.prototype.setItem;
     originalRemoveItem = Storage.prototype.removeItem;
