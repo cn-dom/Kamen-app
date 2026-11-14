@@ -45,6 +45,7 @@ const legacyOtherStage = (oldStage, isField = false) => {
   };
 };
 export function normalizeProductionRecords(raw, orders) {
+  if (raw && raw.version === 4 && raw.pieces && typeof raw.pieces === 'object' && Object.values(raw.pieces).every(record => record?.routing)) return raw;
   if (raw && raw.version === 4 && raw.pieces && typeof raw.pieces === 'object') {
     const pieces = { ...raw.pieces };
     buildProductionUnits(orders).forEach(row => {
@@ -106,6 +107,9 @@ export function normalizeProductionRecords(raw, orders) {
       record.updatedAt = legacy.updatedAt || null;
     }
     pieces[row.key] = record;
+  });
+  buildProductionUnits(orders).forEach(row => {
+    if (pieces[row.key]) pieces[row.key] = applyPieceProductionRouting(pieces[row.key], row.piece);
   });
   return {
     version: 4,
