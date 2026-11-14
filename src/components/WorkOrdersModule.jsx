@@ -451,6 +451,15 @@ export default function WorkOrdersModule({ onBack, openCreate = false, onCreateO
             <strong>Brušenje glava poklopnice</strong>
             <label>Odabir glava<select value={p.headGrinding || 'none'} onChange={e => updatePiece(index,'headGrinding',e.target.value)}><option value="none">Bez brušenja</option><option value="left">Brušenje lijeve glave</option><option value="right">Brušenje desne glave</option><option value="both">Brušenje obje glave</option></select></label>
           </div>}
+          <div className="workorders-piece-options">
+            <strong>Dodatne faze po potrebi</strong>
+            {[
+              ['edge-polish','Poliranje šmusa i okapnica'],
+              ['flat-polish','Ravno poliranje'],
+              ['manual','Ručna obrada'],
+              ['field','Terenski rad / montaža']
+            ].map(([operation,label]) => <label className="workorders-option-check" key={operation}><input type="checkbox" checked={(p.customOperations || []).includes(operation)} onChange={e => updatePiece(index,'customOperations',e.target.checked ? [...(p.customOperations || []),operation] : (p.customOperations || []).filter(item => item !== operation))}/>{label}</label>)}
+          </div>
           <label className="piece-material">Materijal<select value={p.materialId} onChange={e => { const stock = plateMaterials.find(item => item.id === e.target.value); setCutPlanPreview([]); setCutPlanError(''); setPieces(prev => prev.map((piece,i) => {
             if (i !== index) return piece;
             const next = { ...piece, materialId: e.target.value, thickness: stock?.thickness ? String(stock.thickness) : piece.thickness };
