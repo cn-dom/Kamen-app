@@ -33,7 +33,7 @@ const parseQuantity = value => Number(String(value ?? '').trim().replace(',', '.
 const calculateOrderAreaM2 = orderPieces => orderPieces.reduce((sum, piece) => sum + Number(piece.length || 0) * Number(piece.width || 0) * Number(piece.quantity || 0), 0) / 10000;
 const money = value => new Intl.NumberFormat('hr-HR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(value || 0));
 const calculateSlabUsage = (stockItem, orderPieces) => calculateMaterialReservation(stockItem, orderPieces);
-const blankPiece = () => ({ name: '', materialId: '', length: '', width: '', thickness: '3', quantity: '1' });
+const blankPiece = () => ({ name: '', productType: 'Spomenik', model: '', monumentShape: 'ravno', includesFan: false, dripEdge: false, benchUse: 'vanjska', headGrinding: 'none', customOperations: [], materialId: '', length: '', width: '', thickness: '3', quantity: '1' });
 const statuses = ['U pripremi', 'Spreman za pilanje', 'U tijeku', 'Čeka kontrolu', 'Završen'];
 
 export default function WorkOrdersModule({ onBack, openCreate = false, onCreateOpened }) {
@@ -221,7 +221,7 @@ export default function WorkOrdersModule({ onBack, openCreate = false, onCreateO
     }
     const id = 'RN-2026-' + String(Math.max(0, ...orders.map(o => Number(o.id.split('-').at(-1)) || 0)) + 1).padStart(3, '0');
     const reservationRecords = allocations.map(group => ({ materialId: group.materialId, material: group.material, form: group.stock.form || 'Ploča', quantity: group.quantity }));
-    const order = { ...form, material: allocations.map(group => group.material).join(', '), materialAllocations: allocations, materialAreaM2: Math.round(calculatedAreaM2 * 10000) / 10000, estimatedMaterialCost: allocations.some(group => group.cost == null) ? null : Math.round(allocations.reduce((sum, group) => sum + group.cost, 0) * 100) / 100, reservedMaterials: reservationRecords, reservedMaterialId: allocations.length === 1 ? allocations[0].materialId : null, reservedMaterialQty: allocations.length === 1 ? allocations[0].quantity : 0, cuttingPlan: createSavedCuttingPlan(cutPlanPreview), id, status: 'U pripremi', pieces: pieces.map(p => ({ ...p, length: Number(p.length), width: Number(p.width), thickness: Number(p.thickness), quantity: Number(p.quantity) })) };
+    const order = { ...form, material: allocations.map(group => group.material).join(', '), materialAllocations: allocations, materialAreaM2: Math.round(calculatedAreaM2 * 10000) / 10000, estimatedMaterialCost: allocations.some(group => group.cost == null) ? null : Math.round(allocations.reduce((sum, group) => sum + group.cost, 0) * 100) / 100, reservedMaterials: reservationRecords, reservedMaterialId: allocations.length === 1 ? allocations[0].materialId : null, reservedMaterialQty: allocations.length === 1 ? allocations[0].quantity : 0, cuttingPlan: createSavedCuttingPlan(cutPlanPreview), id, status: 'U pripremi', pieces: pieces.map(p => ({ ...p, productType: p.productType || 'Ostalo', model: String(p.model || '').trim(), processing: { monumentShape: p.monumentShape || '', includesFan: Boolean(p.includesFan), dripEdge: Boolean(p.dripEdge), benchUse: p.benchUse || '', headGrinding: p.headGrinding || 'none', customOperations: Array.isArray(p.customOperations) ? p.customOperations : [] }, length: Number(p.length), width: Number(p.width), thickness: Number(p.thickness), quantity: Number(p.quantity) })) };
     const nextOrders = [order, ...orders];
     const nextMaterials = materials.map(item => {
       const allocation = allocations.find(group => group.materialId === item.id);
@@ -433,12 +433,33 @@ export default function WorkOrdersModule({ onBack, openCreate = false, onCreateO
           {result.summary.unplaced.length > 0 && <p className="cut-plan-warning">Nisu raspoređeni: {result.summary.unplaced.map(item => item.name + ' (' + item.quantity + ')').join(', ')}. Potrebna je dodatna ploča ili provjera mjera.</p>}
           <small className="cut-plan-footnote">Guillotine raspored: {result.summary.guillotine ? 'da' : 'ne'} · gubitak reza: {result.summary.kerfM2.toLocaleString('hr-HR', { maximumFractionDigits: 3 })} m². Prijedlog ne mijenja skladište ni radni nalog.</small>
         </section>)}
-        {pieces.map((p,index) => <div className="workorders-piece-form" key={index}><label className="piece-name">Opis komada<input value={p.name} onChange={e => updatePiece(index,'name',e.target.value)} placeholder="Npr. gazište, klupčica"/></label><label className="piece-material">Materijal<select value={p.materialId} onChange={e => { const stock = plateMaterials.find(item => item.id === e.target.value); setCutPlanPreview([]); setCutPlanError(''); setPieces(prev => prev.map((piece,i) => {
-      if (i !== index) return piece;
-      const next = { ...piece, materialId: e.target.value, thickness: stock?.thickness ? String(stock.thickness) : piece.thickness };
-      delete next.remnantBoardKeys;
-      return next;
-    })); }}><option value="">Odaberi ploču ili ostatak</option>{plateMaterials.map(item => <option key={item.id} value={item.id}>{item.form === 'Ostatak' ? 'OSTATAK · ' : 'PLOČA · '}{item.name} · {item.length} × {item.width} × {item.thickness} cm · {Number(item.quantity).toLocaleString('hr-HR')} {item.unit}{item.pricePerM2 == null ? ' · bez nabavne cijene' : ' · ' + money(Number(item.pricePerM2)) + '/m²'}</option>)}</select></label><label>Duljina<input type="number" min="0.1" step="0.1" value={p.length} onChange={e => updatePiece(index,'length',e.target.value)} placeholder="cm"/></label><label>Širina<input type="number" min="0.1" step="0.1" value={p.width} onChange={e => updatePiece(index,'width',e.target.value)} placeholder="cm"/></label><label>Debljina<input type="number" min="0.1" step="0.1" value={p.thickness} onChange={e => updatePiece(index,'thickness',e.target.value)}/></label><label>Količina<input type="number" min="1" step="1" value={p.quantity} onChange={e => updatePiece(index,'quantity',e.target.value)}/></label>{pieces.length > 1 && <button type="button" className="piece-remove" onClick={() => { setCutPlanPreview([]); setCutPlanError(''); setPieces(prev => prev.filter((_,i) => i !== index)); }} aria-label="Ukloni komad"><X size={16}/></button>}</div>)}
+        {pieces.map((p,index) => <div className="workorders-piece-form" key={index}>
+          <label className="piece-name">Opis komada<input value={p.name} onChange={e => updatePiece(index,'name',e.target.value)} placeholder="Npr. spomenik, klupica, poklopnica"/></label>
+          <label>Vrsta proizvoda<select value={p.productType || 'Ostalo'} onChange={e => updatePiece(index,'productType',e.target.value)}><option>Spomenik</option><option>Klupica</option><option>Poklopnica</option><option>Postolje</option><option>Obloga</option><option>Stepenica</option><option>Gazište</option><option>Čelo stepenice</option><option>Vaza</option><option>Svijećnjak</option><option>Ostalo</option></select></label>
+          <label>Model / oznaka<input value={p.model || ''} onChange={e => updatePiece(index,'model',e.target.value)} placeholder="Naziv modela ili nacrta"/></label>
+          {p.productType === 'Spomenik' && <div className="workorders-piece-options">
+            <strong>Obrada spomenika</strong>
+            <label>Oblik<select value={p.monumentShape || 'ravno'} onChange={e => updatePiece(index,'monumentShape',e.target.value)}><option value="ravno">Ravno</option><option value="obline">S oblinama</option></select></label>
+            <label className="workorders-option-check"><input type="checkbox" checked={Boolean(p.includesFan)} onChange={e => updatePiece(index,'includesFan',e.target.checked)}/> Lepeza – ručna obrada</label>
+            <label className="workorders-option-check"><input type="checkbox" checked={Boolean(p.dripEdge)} onChange={e => updatePiece(index,'dripEdge',e.target.checked)}/> Okapnica</label>
+          </div>}
+          {p.productType === 'Klupica' && <div className="workorders-piece-options">
+            <strong>Namjena klupice</strong>
+            <label>Izvedba<select value={p.benchUse || 'vanjska'} onChange={e => updatePiece(index,'benchUse',e.target.value)}><option value="vanjska">Vanjska klupica</option><option value="unutarnja">Unutarnja klupica</option></select></label>
+          </div>}
+          {p.productType === 'Poklopnica' && <div className="workorders-piece-options">
+            <strong>Brušenje glava poklopnice</strong>
+            <label>Odabir glava<select value={p.headGrinding || 'none'} onChange={e => updatePiece(index,'headGrinding',e.target.value)}><option value="none">Bez brušenja</option><option value="left">Brušenje lijeve glave</option><option value="right">Brušenje desne glave</option><option value="both">Brušenje obje glave</option></select></label>
+          </div>}
+          <label className="piece-material">Materijal<select value={p.materialId} onChange={e => { const stock = plateMaterials.find(item => item.id === e.target.value); setCutPlanPreview([]); setCutPlanError(''); setPieces(prev => prev.map((piece,i) => {
+            if (i !== index) return piece;
+            const next = { ...piece, materialId: e.target.value, thickness: stock?.thickness ? String(stock.thickness) : piece.thickness };
+            delete next.remnantBoardKeys;
+            return next;
+          })); }}><option value="">Odaberi ploču ili ostatak</option>{plateMaterials.map(item => <option key={item.id} value={item.id}>{item.form === 'Ostatak' ? 'OSTATAK · ' : 'PLOČA · '}{item.name} · {item.length} × {item.width} × {item.thickness} cm · {Number(item.quantity).toLocaleString('hr-HR')} {item.unit}{item.pricePerM2 == null ? ' · bez nabavne cijene' : ' · ' + money(Number(item.pricePerM2)) + '/m²'}</option>)}</select></label>
+          <label>Duljina<input type="number" min="0.1" step="0.1" value={p.length} onChange={e => updatePiece(index,'length',e.target.value)} placeholder="cm"/></label><label>Širina<input type="number" min="0.1" step="0.1" value={p.width} onChange={e => updatePiece(index,'width',e.target.value)} placeholder="cm"/></label><label>Debljina<input type="number" min="0.1" step="0.1" value={p.thickness} onChange={e => updatePiece(index,'thickness',e.target.value)}/></label><label>Količina<input type="number" min="1" step="1" value={p.quantity} onChange={e => updatePiece(index,'quantity',e.target.value)}/></label>
+          {pieces.length > 1 && <button type="button" className="piece-remove" onClick={() => { setCutPlanPreview([]); setCutPlanError(''); setPieces(prev => prev.filter((_,i) => i !== index)); }} aria-label="Ukloni komad"><X size={16}/></button>}
+        </div>)}
         <label className="workorders-note-label">Napomena<textarea value={form.note} onChange={e => updateForm('note',e.target.value)} rows="2" placeholder="Posebne upute, rubovi, završna obrada…"/></label>
         {error && <p className="workorders-error">{error}</p>}
         <div className="workorders-modal-footer"><button type="button" className="button button-secondary" onClick={() => setShowForm(false)}>Odustani</button><button type="submit" className="button button-primary"><Plus size={16}/> Izradi nalog</button></div>
