@@ -1,10 +1,12 @@
 import React, { useRef, useState } from 'react';
 import { DEFAULT_COMPANY_SETTINGS, normalizeCompanySettings, validateCompanyProfile, validateCompanyWorkRules, calculateNetShiftMinutes } from '../lib/companySettings.js';
-import { ArrowLeft, Building2, CheckCircle2, Clock3, MapPin, Plus, Settings2, Upload, X } from 'lucide-react';
+import { ArrowLeft, Building2, CheckCircle2, Clock3, MapPin, Plus, Settings2, Upload, X, Scissors } from 'lucide-react';
 
 const PROFILE_KEY = 'kamen-app-company-profile-v1';
 const SETTINGS_KEY = 'kamen-app-company-settings-v1';
 const AUDIT_KEY = 'kamen-app-settings-audit-v1';
+const SAW_SETTINGS_KEY = 'kamen-app-saw-settings-v1';
+const DEFAULT_SAW_SETTINGS = { 'Pila 1': { kerfMm: 4, trimMm: 10 }, 'Pila 2': { kerfMm: 4, trimMm: 10 } };
 const read = (key, fallback) => { try { const value = window.localStorage.getItem(key); return value ? JSON.parse(value) : fallback; } catch { return fallback; } };
 const field = (label, key, value, onChange, props = {}) => <label>{label}<input value={value ?? ''} onChange={event => onChange(key, event.target.value)} {...props}/></label>;
 
@@ -12,6 +14,7 @@ export default function SettingsModule({ onBack }) {
   const [profile, setProfile] = useState(() => ({ name: '', address: '', city: '', oib: '', phone: '', email: '', iban: '', website: '', logoDataUrl: '', ...read(PROFILE_KEY, {}) }));
   const [settings, setSettings] = useState(() => normalizeCompanySettings(read(SETTINGS_KEY, DEFAULT_COMPANY_SETTINGS)));
   const [audit, setAudit] = useState(() => read(AUDIT_KEY, []));
+  const [sawSettings, setSawSettings] = useState(() => ({ ...DEFAULT_SAW_SETTINGS, ...read(SAW_SETTINGS_KEY, {}) }));
   const [tab, setTab] = useState('company');
   const [newLocation, setNewLocation] = useState('');
   const [newType, setNewType] = useState('');
@@ -19,19 +22,22 @@ export default function SettingsModule({ onBack }) {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const logoRef = useRef(null);
-  const tabs = [{ id: 'company', label: 'Profil tvrtke', icon: Building2 }, { id: 'warehouse', label: 'Skladište', icon: MapPin }, { id: 'rules', label: 'Pravila rada', icon: Clock3 }];
+  const tabs = [{ id: 'company', label: 'Profil tvrtke', icon: Building2 }, { id: 'warehouse', label: 'Skladište', icon: MapPin }, { id: 'rules', label: 'Pravila rada', icon: Clock3 }, { id: 'saws', label: 'Postavke pila', icon: Scissors }];
   const recordChange = (action, details) => ({ id: 'SET-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7), action, details, createdAt: new Date().toISOString() });
-  const save = (nextProfile = profile, nextSettings = settings, action = 'Spremanje postavki') => {
+  const save = (nextProfile = profile, nextSettings = settings, action = 'Spremanje postavki', nextSawSettings = sawSettings) => {
     setMessage(''); setError('');
     const profileIssue = validateCompanyProfile(nextProfile);
     const rulesIssue = validateCompanyWorkRules(nextSettings.workRules);
-    if (profileIssue || rulesIssue) { setError(profileIssue || rulesIssue); return; }
+    const sawIssue = Object.entries(nextSawSettings).some(([name, value]) => !Number.isFinite(Number(value.kerfMm)) || Number(value.kerfMm) < 0 || Number(value.kerfMm) > 20 || !Number.isFinite(Number(value.trimMm)) || Number(value.trimMm) < 0 || Number(value.trimMm) > 50)
+      ? 'Za svaku pilu unesi širinu reza 0–20 mm i obrezivanje 0–50 mm po rubu.' : '';
+    if (profileIssue || rulesIssue || sawIssue) { setError(profileIssue || rulesIssue || sawIssue); return; }
     const nextAudit = [recordChange(action, nextProfile.name || 'Postavke tvrtke'), ...audit].slice(0, 300);
     try {
       window.localStorage.setItem(PROFILE_KEY, JSON.stringify(nextProfile));
       window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(nextSettings));
       window.localStorage.setItem(AUDIT_KEY, JSON.stringify(nextAudit));
-      setProfile(nextProfile); setSettings(nextSettings); setAudit(nextAudit);
+      window.localStorage.setItem(SAW_SETTINGS_KEY, JSON.stringify(nextSawSettings));
+      setProfile(nextProfile); setSettings(nextSettings); setSawSettings(nextSawSettings); setAudit(nextAudit);
       setMessage('Postavke su spremljene u ovom pregledniku.');
     } catch {
       setError('Spremanje nije uspjelo. Provjeri slobodan prostor preglednika.');
@@ -39,6 +45,7 @@ export default function SettingsModule({ onBack }) {
   };
   const updateProfile = (key, value) => setProfile(current => ({ ...current, [key]: value }));
   const updateRule = (key, value) => setSettings(current => ({ ...current, workRules: { ...current.workRules, [key]: value } }));
+  const updateSaw = (saw, key, value) => setSawSettings(current => ({ ...current, [saw]: { ...(current[saw] || DEFAULT_SAW_SETTINGS[saw]), [key]: value } }));
   const updateList = (key, next) => setSettings(current => ({ ...current, [key]: next }));
   const addToList = (key, value, clear) => {
     const clean = value.trim();
@@ -85,6 +92,20 @@ export default function SettingsModule({ onBack }) {
       <div className="settings-rule-checks"><label><input type="checkbox" checked={Boolean(rules.requireWriteoffReason)} onChange={event => updateRule('requireWriteoffReason', event.target.checked)}/> Obvezan razlog za otpis materijala</label><label><input type="checkbox" checked={Boolean(rules.requireStocktakeApproval)} onChange={event => updateRule('requireStocktakeApproval', event.target.checked)}/> Zahtijevaj odobrenje inventurne korekcije</label></div>
       <div className="settings-rule-summary"><strong>Informativni pregled smjene</strong><span>{workMinutes > 0 ? calculateNetShiftMinutes(rules) : '—'} minuta rada nakon pauze</span></div>
       <div className="settings-actions"><button className="button button-primary" onClick={() => save(profile, settings, 'Promjena pravila rada')}><CheckCircle2 size={15}/> Spremi pravila</button></div>
+    </section>}
+    {tab === 'saws' && <section className="settings-config-grid">
+      <div className="panel settings-panel">
+        <div className="panel-heading"><div><h2>Stvarni parametri pila</h2><p>Postavi vrijednosti prema izmjerenoj širini lista i načinu obrezivanja u radionici.</p></div><Scissors size={20}/></div>
+        <div className="settings-form-grid">
+          {['Pila 1','Pila 2'].map(saw => <div className="panel settings-list-card" key={saw}>
+            <div className="panel-heading"><div><h3>{saw}</h3><p>Zaseban profil stroja za automatski plan.</p></div><Scissors size={18}/></div>
+            <label>Stvarna širina reza (mm)<input type="number" min="0" max="20" step="0.1" value={sawSettings[saw]?.kerfMm ?? 4} onChange={event => updateSaw(saw,'kerfMm',event.target.value)}/></label>
+            <label>Rubno obrezivanje po strani (mm)<input type="number" min="0" max="50" step="0.5" value={sawSettings[saw]?.trimMm ?? 10} onChange={event => updateSaw(saw,'trimMm',event.target.value)}/></label>
+          </div>)}
+        </div>
+        <p className="backup-footnote">Početne vrijednosti 4 mm i 10 mm služe samo kao zadane postavke. Izmjeri stvarni rez na svakoj pili i unesi točne vrijednosti prije korištenja plana u proizvodnji.</p>
+        <div className="settings-actions"><button className="button button-primary" onClick={() => save(profile, settings, 'Promjena postavki pila', sawSettings)}><CheckCircle2 size={15}/> Spremi postavke pila</button></div>
+      </div>
     </section>}
     {message && <div className="module-notice backup-message"><CheckCircle2 size={16}/>{message}</div>}
     {error && <div className="module-notice backup-error">{error}</div>}
