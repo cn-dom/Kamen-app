@@ -8,9 +8,12 @@ let initialized = false;
 let syncing = false;
 let originalSetItem = null;
 let originalRemoveItem = null;
+let storagePatched = false;
+let currentRole = 'owner';
+const WORKER_SYNC_KEYS = new Set(['kamen-app-production-stages-v1','kamen-app-schedule-v1','kamen-app-saw-assignments-v1']);
 const pending = new Map();
 
-const syncableKey = key => typeof key === 'string' && key.startsWith('kamen-app-') && key !== META_KEY && key !== ENABLED_KEY && !SENSITIVE_KEY.test(key);
+const syncableKey = key => typeof key === 'string' && key.startsWith('kamen-app-') && key !== META_KEY && key !== ENABLED_KEY && !SENSITIVE_KEY.test(key) && (currentRole !== 'worker' || WORKER_SYNC_KEYS.has(key));
 const snapshot = value => JSON.stringify(value);
 function readValue(raw) {
   try { return JSON.parse(raw); } catch { return raw; }
@@ -68,7 +71,6 @@ export async function importLocalBusinessData() {
 export async function downloadSharedBusinessData() {
   const result = await api('/api/state');
   if (!Array.isArray(result.records) || !result.records.length) throw new Error('Zajednička pohrana još nema poslovnih podataka.');
-  if (originalSetItem === null) originalSetItem = Storage.prototype.setItem;
   meta = {};
   versions = new Map();
   result.records.forEach(record => {
@@ -83,8 +85,8 @@ export async function downloadSharedBusinessData() {
   await initializeRemoteSync();
   return { downloaded: result.records.length };
 }
-async function pushKey(key) {
-  if (!syncableKey(key) || !initialized || syncing) return;
+async function pushKey(key, duringReconcile = false) {
+  if (!syncableKey(key) || !initialized || (syncing && !duringReconcile)) return;
   const raw = window.localStorage.getItem(key);
   if (raw === null) return;
   const value = readValue(raw);
@@ -139,7 +141,7 @@ async function reconcileRemoteState() {
         versions.set(key, record.version);
       } else if (previous && localSnapshot !== previous.snapshot && record.version === previous.version) {
         versions.set(key, record.version);
-        await pushKey(key);
+        await pushKey(key, true);
       } else if (localSnapshot !== snapshot(record.value)) {
         conflicts.push(key);
       } else {
@@ -151,7 +153,7 @@ async function reconcileRemoteState() {
       if (remote.has(key)) continue;
       if (meta[key]) { conflicts.push(key); continue; }
       versions.set(key, 0);
-      await pushKey(key);
+      await pushKey(key, true);
     }
     originalSetItem.call(window.localStorage, META_KEY, JSON.stringify(meta));
     if (downloaded) {
@@ -169,10 +171,12 @@ async function reconcileRemoteState() {
 }
 export async function initializeRemoteSync() {
   if (initialized) return { initialized: true };
+  const identity = await api('/api/me');
+  currentRole = identity.user?.role || 'owner';
   const result = await api('/api/state');
   meta = (() => { try { return JSON.parse(window.localStorage.getItem(META_KEY) || '{}'); } catch { return {}; } })();
   versions = new Map(Object.entries(meta).map(([key, item]) => [key, Number(item.version || 0)]));
-  if (!originalSetItem) {
+  if (!storagePatched) {
     originalSetItem = Storage.prototype.setItem;
     originalRemoveItem = Storage.prototype.removeItem;
     Storage.prototype.setItem = function(key, value) {
@@ -185,6 +189,7 @@ export async function initializeRemoteSync() {
     };
     window.addEventListener('storage', event => { if (event.key) schedulePush(event.key); });
     window.addEventListener('focus', () => { reconcileRemoteState().catch(() => {}); });
+    storagePatched = true;
   }
   initialized = true;
   const remoteKeys = new Set((result.records || []).map(item => item.key));
