@@ -1,7 +1,8 @@
 export const PRODUCTION_STAGES = [
   'Pilanje',
   'Kanterica / obrada rubova',
-  'Poliranje',
+  'Poliranje šmusa i okapnica',
+  'Ravno poliranje',
   'Ručna obrada',
   'Terenski rad / montaža'
 ];
@@ -42,7 +43,23 @@ const legacyOtherStage = (oldStage, isField = false) => {
   };
 };
 export function normalizeProductionRecords(raw, orders) {
-  if (raw && raw.version === 3 && raw.pieces && typeof raw.pieces === 'object') return raw;
+  if (raw && raw.version === 4 && raw.pieces && typeof raw.pieces === 'object') return raw;
+  if (raw && raw.version === 3 && raw.pieces && typeof raw.pieces === 'object') {
+    const pieces = Object.fromEntries(Object.entries(raw.pieces).map(([key, oldRecord]) => {
+      const oldStages = oldRecord?.stages || {};
+      const oldPolishing = oldStages['Poliranje'] || blankStageRecord();
+      const wasFlatPolishing = oldPolishing.workCenter === 'Vanjska polirka za ravne spomenike i obloge';
+      const edgePolishing = wasFlatPolishing ? { ...blankStageRecord(), status: 'Nije potrebno' } : { ...blankStageRecord(), ...oldPolishing };
+      const flatPolishing = wasFlatPolishing ? { ...blankStageRecord(), ...oldPolishing } : { ...blankStageRecord(), status: 'Nije potrebno' };
+      return [key, { ...oldRecord, stages: {
+        ...oldStages,
+        'Poliranje': undefined,
+        'Poliranje šmusa i okapnica': edgePolishing,
+        'Ravno poliranje': flatPolishing
+      }}];
+    }));
+    return { ...raw, version: 4, pieces, migratedAt: new Date().toISOString() };
+  }
   const pieces = {};
   buildProductionUnits(orders).forEach(row => {
     const record = blankPieceProductionRecord();
@@ -81,7 +98,7 @@ export function normalizeProductionRecords(raw, orders) {
     pieces[row.key] = record;
   });
   return {
-    version: 3,
+    version: 4,
     pieces,
     workers: Array.isArray(raw?.workers) ? raw.workers : [],
     ...(raw?.attendance ? { attendance: raw.attendance } : {}),
@@ -195,7 +212,8 @@ export function isProductionOrderComplete(order, productionRecords) {
 export const PRODUCTION_WORK_CENTERS = {
   'Pilanje': ['Pila 1', 'Pila 2'],
   'Kanterica / obrada rubova': ['Kanterica · obline'],
-  'Poliranje': ['Polirka za šmuse i okapnice', 'Vanjska polirka za ravne spomenike i obloge'],
+  'Poliranje šmusa i okapnica': ['Polirka za šmuse i okapnice'],
+  'Ravno poliranje': ['Vanjska polirka za ravne spomenike i obloge'],
   'Ručna obrada': ['Ručna obrada'],
   'Terenski rad / montaža': ['Terenski rad / montaža grobnica']
 };
@@ -208,7 +226,11 @@ export function workerCanPerformProductionStage(stageName, skills) {
   if (!Array.isArray(skills) || !skills.length) return true;
   const accepted = stageName === 'Terenski rad / montaža'
     ? ['Terenski rad / montaža', 'Montaža']
-    : stageName === 'Ručna obrada'
+    : stageName === 'Poliranje šmusa i okapnica'
+      ? ['Poliranje šmusa i okapnica', 'Poliranje']
+      : stageName === 'Ravno poliranje'
+        ? ['Ravno poliranje', 'Poliranje']
+        : stageName === 'Ručna obrada'
       ? ['Ručna obrada', 'Ostala obrada']
       : [stageName];
   return accepted.some(skill => skills.includes(skill));
