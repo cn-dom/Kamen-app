@@ -11,7 +11,7 @@ const DEFAULT_SAW_SETTINGS = { 'Pila 1': { kerfMm: 4, trimMm: 10 }, 'Pila 2': { 
 const read = (key, fallback) => { try { const value = window.localStorage.getItem(key); return value ? JSON.parse(value) : fallback; } catch { return fallback; } };
 const field = (label, key, value, onChange, props = {}) => <label>{label}<input value={value ?? ''} onChange={event => onChange(key, event.target.value)} {...props}/></label>;
 
-export default function SettingsModule({ onBack }) {
+export default function SettingsModule({ onBack, initialTab = 'company' }) {
   const [profile, setProfile] = useState(() => ({ name: '', address: '', city: '', oib: '', phone: '', email: '', iban: '', website: '', logoDataUrl: '', ...read(PROFILE_KEY, {}) }));
   const [settings, setSettings] = useState(() => normalizeCompanySettings(read(SETTINGS_KEY, DEFAULT_COMPANY_SETTINGS)));
   const [audit, setAudit] = useState(() => read(AUDIT_KEY, []));
@@ -27,7 +27,7 @@ export default function SettingsModule({ onBack }) {
   const [memberEmail, setMemberEmail] = useState('');
   const [memberName, setMemberName] = useState('');
   const [memberRole, setMemberRole] = useState('worker');
-  const [tab, setTab] = useState('company');
+  const [tab, setTab] = useState(initialTab);
   const [newLocation, setNewLocation] = useState('');
   const [newType, setNewType] = useState('');
   const [newUnit, setNewUnit] = useState('');
