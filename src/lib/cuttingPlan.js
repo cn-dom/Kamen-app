@@ -1,6 +1,8 @@
 const roundMm = value => Math.round(Number(value) * 10);
 
-export function buildCuttingPlanGroups(pieces = [], materials = []) {
+export function buildCuttingPlanGroups(pieces = [], materials = [], machine = {}) {
+  const kerfMm = Number.isFinite(Number(machine.kerfMm)) ? Math.max(0, Number(machine.kerfMm)) : 4;
+  const trimMm = Number.isFinite(Number(machine.trimMm)) ? Math.max(0, Number(machine.trimMm)) : 10;
   const groups = new Map();
   for (const [index, piece] of (Array.isArray(pieces) ? pieces : []).entries()) {
     const stock = (Array.isArray(materials) ? materials : []).find(item => item.id === piece.materialId);
@@ -18,9 +20,9 @@ export function buildCuttingPlanGroups(pieces = [], materials = []) {
         stock,
         sheet: {
           name: stock.name,
-          width: stockLength - 20,
-          height: stockWidth - 20,
-          kerf: 4,
+          width: stockLength - trimMm * 2,
+          height: stockWidth - trimMm * 2,
+          kerf: kerfMm,
           cost: 0,
           // The optimizer needs a count of physical boards, not just one
           // representative board. Fractional stock remains represented by
