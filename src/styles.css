@@ -2044,3 +2044,38 @@ button:active{transform:translateY(1px)}
 .shared-member-active,.shared-member-inactive{font-size:9px;white-space:nowrap;color:#16815c}
 .shared-member-inactive{color:#a16a22}
 @media(max-width:760px){.shared-member-invite{grid-template-columns:1fr 1fr}.shared-member-invite .button{grid-column:1/-1}.shared-member-row{flex-wrap:wrap}.shared-member-row>div{flex-basis:100%}}
+
+
+/* Operativni pregled proizvodnje po projektima */
+.production-project-overview{padding:22px;margin:18px 0}
+.production-project-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:14px 0}
+.production-project-toolbar label{display:flex;align-items:center;gap:8px;color:#627188;font-size:10px;font-weight:700}
+.production-project-toolbar select{height:34px;min-width:170px;padding:0 9px;border:1px solid #dfe5ee;border-radius:7px;background:#fff;color:#344055;font-size:10px}
+.production-project-toolbar>small{font-size:9px;color:#8994a5}
+.production-project-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.production-project-card{min-width:0;border:1px solid #e5eaf1;border-radius:11px;background:#fff;overflow:hidden}
+.production-project-card>header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:14px 15px;background:#f8faff;border-bottom:1px solid #e9edf4}
+.production-project-card>header>div:first-child{min-width:0}
+.production-project-id{font-size:9px;font-weight:800;letter-spacing:.5px;color:#5573b7}
+.production-project-card h3{margin:4px 0;color:#344055;font-size:13px;overflow-wrap:anywhere}
+.production-project-card header small{font-size:9px;color:#8994a5}
+.production-project-counts{display:flex;justify-content:flex-end;gap:5px;flex-wrap:wrap}
+.production-project-counts span{padding:5px 7px;border-radius:6px;font-size:8px;font-weight:800;white-space:nowrap}
+.project-count-active{background:#eaf5ef;color:#39815d}
+.project-count-waiting{background:#f1f4f8;color:#6f7c90}
+.project-count-blocked{background:#fff0ed;color:#bd5b50}
+.production-project-items{display:grid;padding:0 14px}
+.production-project-item{padding:12px 0;border-bottom:1px solid #edf0f5}
+.production-project-item:last-child{border-bottom:0}
+.production-project-piece{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.production-project-piece>strong{font-size:10px;color:#3e4d61}
+.production-project-status{padding:4px 7px;border-radius:5px;font-size:8px;font-weight:800;white-space:nowrap}
+.production-project-status.active{background:#eaf5ef;color:#39815d}
+.production-project-status.waiting{background:#f1f4f8;color:#6f7c90}
+.production-project-status.blocked{background:#fff0ed;color:#bd5b50}
+.production-project-assignment{display:flex;gap:8px 14px;flex-wrap:wrap;margin-top:7px}
+.production-project-assignment span{font-size:9px;color:#748197}
+.production-project-assignment b{color:#526178}
+.production-project-reason{display:flex;align-items:center;gap:5px;margin-top:7px;color:#b45d4f;font-size:9px}
+@media(max-width:850px){.production-project-grid{grid-template-columns:1fr}}
+@media(max-width:560px){.production-project-overview{padding:14px}.production-project-toolbar{align-items:stretch;flex-direction:column}.production-project-toolbar label{align-items:flex-start;flex-wrap:wrap}.production-project-toolbar select{width:100%}.production-project-card>header{flex-direction:column}.production-project-counts{justify-content:flex-start}.production-project-assignment{display:grid;gap:5px}}
