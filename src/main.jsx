@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   Activity, AlertTriangle, ArrowDownRight, ArrowRight, ArrowUpRight,
@@ -24,6 +24,7 @@ import NotificationsModule from './components/NotificationsModule.jsx';
 import SettingsModule from './components/SettingsModule.jsx';
 import { buildProductionUnits, PRODUCTION_STAGES } from './lib/production.js';
 import { analyzeWorkshopCapacity } from './lib/workshopMonitor.js';
+import { initializeRemoteSync, isRemoteSyncEnabled } from './lib/remoteStorageSync.js';
 
 const initialOrders = [];
 const nav = [
@@ -50,6 +51,17 @@ const nav = [
 const money = n => new Intl.NumberFormat('hr-HR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n);
 
 function App(){
+  useEffect(() => {
+    if (!isRemoteSyncEnabled()) return;
+    const refreshAfterRemoteUpdate = () => window.location.reload();
+    window.addEventListener('kamen-app-remote-data-updated', refreshAfterRemoteUpdate);
+    initializeRemoteSync().then(result => {
+      if (result.downloaded > 0) window.location.reload();
+    }).catch(error => {
+      console.warn('Kamen-app shared storage is not connected:', error?.message || error);
+    });
+    return () => window.removeEventListener('kamen-app-remote-data-updated', refreshAfterRemoteUpdate);
+  }, []);
   const [orders,setOrders] = useState(()=>{try{const saved=window.localStorage.getItem('kamen-app-work-orders-v1');return saved?JSON.parse(saved):initialOrders}catch{return initialOrders}});
   const [activeNav,setActiveNav] = useState('Pregled');
   const [query,setQuery] = useState('');
