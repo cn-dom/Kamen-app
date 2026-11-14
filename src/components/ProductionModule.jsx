@@ -426,6 +426,46 @@ export default function ProductionModule({ onBack, onCreateProject }) {
     if (!['U tijeku', 'Zastoj'].includes(stage.status)) return [];
     return [{ key: row.key, orderId: row.order.id, project: row.order.project || 'Projekt bez naziva', piece: row.label, stageName, status: stage.status, worker: stage.assignedTo || 'Nije dodijeljen', workerKey: String(stage.assignedTo || '').trim().toLocaleLowerCase('hr'), equipmentId: stage.equipmentId || '', equipmentName: equipment.find(item => item.id === stage.equipmentId)?.name || 'Bez stroja', workCenter: stage.workCenter || (stageName === 'Pilanje' ? ((sawAssignments[row.key] || '1') === '2' ? 'Pila 2' : 'Pila 1') : ''), duration: elapsedMs(stage, clockNow), reason: stage.blockedReason || '' }];
   })), [rowsWithRecords, equipment, clockNow]);
+  const projectOverview = useMemo(() => {
+    const projects = new Map();
+    rowsWithRecords.forEach(row => {
+      if (row.order.status === 'Otkazan' || row.order.status === 'Završen') return;
+      const pieceStages = stages.map((stageName, index) => ({
+        name: stageName,
+        record: row.record.stages?.[stageName] || blankStage(),
+        previousReady: stages.slice(0, index).every(previous => ['Završeno', 'Nije potrebno'].includes(row.record.stages?.[previous]?.status))
+      }));
+      let current = pieceStages.find(item => ['U tijeku', 'Zastoj'].includes(item.record.status));
+      if (!current) current = pieceStages.find(item => item.previousReady && !['Završeno', 'Nije potrebno'].includes(item.record.status));
+      if (!current) return;
+      if (selectedWorker && current.record.assignedTo !== selectedWorker) return;
+      const key = row.order.id;
+      if (!projects.has(key)) projects.set(key, {
+        id: key,
+        title: row.order.project || row.order.title || 'Projekt bez naziva',
+        customer: row.order.customer || '',
+        items: []
+      });
+      const stage = current.record;
+      const machine = stage.workCenter || (current.name === 'Pilanje' ? ((sawAssignments[row.key] || '1') === '2' ? 'Pila 2' : 'Pila 1') : 'Radni centar nije odabran');
+      projects.get(key).items.push({
+        key: row.key,
+        piece: row.label + ' #' + row.unitIndex,
+        stage: current.name,
+        status: stage.status || 'Nije započeto',
+        worker: stage.assignedTo || 'Nije dodijeljen',
+        machine,
+        reason: stage.blockedReason || ''
+      });
+    });
+    return [...projects.values()].map(project => ({
+      ...project,
+      active: project.items.filter(item => item.status === 'U tijeku').length,
+      blocked: project.items.filter(item => item.status === 'Zastoj').length,
+      waiting: project.items.filter(item => !['U tijeku', 'Zastoj'].includes(item.status)).length
+    })).sort((a, b) => (b.active + b.blocked) - (a.active + a.blocked) || a.title.localeCompare(b.title, 'hr'));
+  }, [rowsWithRecords, sawAssignments, selectedWorker]);
+
   const workerLoads = useMemo(() => {
     const map = new Map();
     activeAssignments.filter(item => item.status === 'U tijeku' && item.workerKey).forEach(item => {
@@ -662,6 +702,40 @@ export default function ProductionModule({ onBack, onCreateProject }) {
         </div>
       </div>
       <div className="production-capacity-footer"><span>Aktivno: <strong>{activeAssignments.filter(item=>item.status==='U tijeku').length}</strong></span><span>Zastoji: <strong>{activeAssignments.filter(item=>item.status==='Zastoj').length}</strong></span><span>Prepoznati sukobi: <strong>{resourceConflicts.length}</strong></span><span>Ovaj pregled ne mijenja dodjele ni stanje skladišta.</span></div>
+    </section>
+    <section className="panel production-project-overview">
+      <div className="panel-heading">
+        <div><h2>Projekti i trenutačna zaduženja</h2><p>Pregled po radnom nalogu: koji komadi se obrađuju, tko ih radi i na kojem radnom centru.</p></div>
+        <span className="count-pill">{projectOverview.length} projekata</span>
+      </div>
+      <div className="production-project-toolbar">
+        <label><UserRound size={14}/><span>Prikaži zaduženja radnika</span>
+          <select value={selectedWorker} onChange={event => setSelectedWorker(event.target.value)}>
+            <option value="">Svi radnici</option>
+            {(records.workers || []).map(worker => <option key={worker} value={worker}>{worker}</option>)}
+          </select>
+        </label>
+        <small>Podaci se preuzimaju iz faza svakog pojedinog komada.</small>
+      </div>
+      {projectOverview.length ? <div className="production-project-grid">
+        {projectOverview.map(project => <article className="production-project-card" key={project.id}>
+          <header>
+            <div><span className="production-project-id">{project.id}</span><h3>{project.title}</h3>{project.customer && <small>{project.customer}</small>}</div>
+            <div className="production-project-counts">
+              <span className="project-count-active">{project.active} u radu</span>
+              <span className="project-count-waiting">{project.waiting} čeka</span>
+              {project.blocked > 0 && <span className="project-count-blocked">{project.blocked} zastoj</span>}
+            </div>
+          </header>
+          <div className="production-project-items">
+            {project.items.map(item => <div className="production-project-item" key={item.key}>
+              <div className="production-project-piece"><strong>{item.piece}</strong><span className={'production-project-status ' + (item.status === 'U tijeku' ? 'active' : item.status === 'Zastoj' ? 'blocked' : 'waiting')}>{item.status}</span></div>
+              <div className="production-project-assignment"><span><b>Faza:</b> {item.stage}</span><span><b>Radnik:</b> {item.worker}</span><span><b>Stroj:</b> {item.machine}</span></div>
+              {item.reason && <small className="production-project-reason"><AlertTriangle size={12}/>{item.reason}</small>}
+            </div>)}
+          </div>
+        </article>)}
+      </div> : <div className="production-capacity-empty">Nema aktivnih projekata za odabrani prikaz. Provjeri filter radnika ili dodaj radni nalog s komadima.</div>}
     </section>
     <section className="panel warehouse-panel production-workspace">
       <div className="panel-heading"><div><h2>Proizvodnja po komadima</h2><p>Svaka jedinica narudžbe ima vlastite faze, radnika, vremenske zapise i kontrolu.</p></div><span className="demo-label"><span/> LOKALNA EVIDENCIJA</span></div>
