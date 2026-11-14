@@ -1,0 +1,23 @@
+name = "kamen-app-api-staging"
+main = "workers/api/index.js"
+compatibility_date = "2026-11-14"
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "kamen-app-staging"
+database_id = "79055e30-3f7f-4125-bb89-8606f29723c7"
+
+[ai]
+binding = "AI"
+
+# Add these variables after configuring a Cloudflare Access application:
+# ACCESS_TEAM_DOMAIN = "your-team.cloudflareaccess.com"
+# ACCESS_AUD = "your-Cloudflare-Access-application-audience"
+# BOOTSTRAP_EMAIL = "the-owner-email-used-for-first-company-setup"
+# ALLOWED_ORIGINS = "https://your-app-domain.example"
+#
+# Enable R2 in Cloudflare Dashboard, create a private bucket, then add:
+# [[r2_buckets]]
+# binding = "DOCUMENTS"
+# bucket_name = "kamen-app-documents-staging"
