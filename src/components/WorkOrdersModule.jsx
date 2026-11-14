@@ -147,6 +147,24 @@ export default function WorkOrdersModule({ onBack, openCreate = false, onCreateO
       setCutPlanError('Plan nije moguće izračunati: ' + (error?.message || 'provjeri dimenzije i odabrani materijal.'));
     }
   };
+  const generateExistingOrderPlan = order => {
+    const machine = sawSettings[selectedSaw] || DEFAULT_SAW_SETTINGS[selectedSaw];
+    const reserved = new Map((order.reservedMaterials || []).map(item => [item.materialId, Number(item.quantity || 0)]));
+    const planningStock = materials.map(item => reserved.has(item.id) ? { ...item, quantity: Number(item.quantity || 0) + reserved.get(item.id) } : item);
+    const groups = buildCuttingPlanGroups(order.pieces || [], planningStock.filter(item => ['Ploča','Ostatak'].includes(item.form) && !item.archived && Number(item.quantity || 0) > 0), machine);
+    if (!groups.length) { window.alert('Nije moguće izraditi plan. Provjeri jesu li u nalogu spremljene dimenzije, materijali i debljine.'); return; }
+    try {
+      const results = groups.map(group => {
+        const layout = solve2d({ sheets: [group.sheet], demands: group.demands }, { algorithm: 'auto', guillotine_required: true, seed: 42, min_usable_side: 100 });
+        const plan = plan2dCuts(layout, { preset: 'panel_saw' });
+        return { stockId: group.stock.id, stockName: group.stock.name, stockForm: group.stock.form || 'Ploča', sawName: selectedSaw, kerfMm: machine.kerfMm, trimMm: machine.trimMm, summary: summarizeCuttingPlan(layout, plan) };
+      });
+      const nextOrders = orders.map(item => item.id === order.id ? { ...item, cuttingPlan: createSavedCuttingPlan(results), cuttingPlanUpdatedAt: new Date().toISOString() } : item);
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextOrders));
+      setOrders(nextOrders);
+      setExpanded(order.id);
+    } catch (error) { window.alert('Plan postojećeg naloga nije moguće izračunati: ' + (error?.message || 'provjeri mjere i zalihe.')); }
+  };
   const applyRemnantSuggestions = () => {
     const suggestion = suggestRemnantAssignments(pieces, materials, { kerf: 0.4, trim: 1, allowRotation: true });
     if (!suggestion.assignedCount) {
@@ -360,6 +378,11 @@ export default function WorkOrdersModule({ onBack, openCreate = false, onCreateO
         {expanded === order.id && <div className="workorder-details">
           <div className="workorder-detail-top"><div><strong>Komadi za izradu</strong><p>{order.pieces.length} stavki · naručeno {order.pieces.reduce((n,p) => n + Number(p.quantity || 0),0)} komada · izrađeno {order.pieces.reduce((n,p) => n + Number(p.producedQuantity || 0),0)} · preostalo {order.pieces.reduce((n,p) => n + Math.max(0, Number(p.quantity || 0) - Number(p.producedQuantity || 0)),0)}</p>{order.estimatedMaterialCost != null && <p><strong>Procijenjeni trošak kamena: {money(order.estimatedMaterialCost)}</strong> · {Number(order.materialAreaM2 || 0).toLocaleString('hr-HR', { maximumFractionDigits: 4 })} m² · {Array.isArray(order.materialAllocations) ? order.materialAllocations.map(group => `${group.material}: ${Number(group.areaM2 || 0).toLocaleString('hr-HR')} m²`).join(' · ') : money(order.materialPricePerM2) + ' / m²'}</p>}</div><label>Status naloga<select value={order.status} disabled={order.status === 'Otkazan'} onChange={e => changeStatus(order.id, e.target.value)}>{statuses.map(s => <option key={s}>{s}</option>)}</select></label></div>
           <div className="workorder-pieces-wrap"><table className="workorder-pieces"><thead><tr><th>Opis komada</th><th>Materijal</th><th>Duljina (cm)</th><th>Širina (cm)</th><th>Debljina (cm)</th><th>Naručeno</th><th>Izrađeno</th><th>Preostalo</th></tr></thead><tbody>{order.pieces.map((p,i) => { const produced = Number(p.producedQuantity || 0); const remaining = Math.max(0, Number(p.quantity || 0) - produced); return <tr key={i}><td>{p.name}</td><td>{p.material || materials.find(item => item.id === p.materialId)?.name || order.material || '—'}</td><td>{p.length}</td><td>{p.width}</td><td>{p.thickness}</td><td>{p.quantity}</td><td><strong>{produced}</strong></td><td><span className={remaining === 0 ? "piece-progress-done" : ""}>{remaining}</span></td></tr>; })}</tbody></table></div>
+                    <div className="workorder-cut-plan-actions">
+            <div><strong>{order.cuttingPlan?.materials?.length ? "Plan pilanja spremljen" : "Plan pilanja još nije izrađen"}</strong><small>Dimenzije se preuzimaju iz komada ovog radnog naloga.</small></div>
+            <label>Pila<select value={selectedSaw} onChange={event => setSelectedSaw(event.target.value)}><option>Pila 1</option><option>Pila 2</option></select></label>
+            <button type="button" className="button button-primary" onClick={() => generateExistingOrderPlan(order)}><Scissors size={14}/>{order.cuttingPlan?.materials?.length ? "Ponovno izradi plan" : "Izradi plan iz naloga"}</button>
+          </div>
           {order.note && <p className="workorder-note"><strong>Napomena:</strong> {order.note}</p>}
           <div className="workorder-card-footer"><span><Hammer size={15}/> Sljedeći korak: priprema i evidentiranje pilanja</span>{order.status !== 'Otkazan' ? <button className="button button-danger-light" onClick={() => cancelOrder(order.id)}><Trash2 size={15}/> Otkaži nalog</button> : <span className="muted-icon">Nalog je otkazan · rezervacija je vraćena ako nije bila utrošena</span>}</div>
         </div>}
