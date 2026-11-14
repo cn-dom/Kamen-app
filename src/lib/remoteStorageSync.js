@@ -181,6 +181,7 @@ export async function initializeRemoteSync() {
   const identity = await api('/api/me');
   currentRole = identity.user?.role || 'owner';
   const identitySnapshot = { companyId: identity.company?.id || '', email: String(identity.user?.email || '').toLowerCase(), role: currentRole };
+  const result = await api('/api/state');
   let previousIdentity = null;
   try { previousIdentity = JSON.parse(window.localStorage.getItem(IDENTITY_KEY) || 'null'); } catch {}
   const identityChanged = previousIdentity && (previousIdentity.companyId !== identitySnapshot.companyId || previousIdentity.email !== identitySnapshot.email || previousIdentity.role !== identitySnapshot.role);
@@ -200,7 +201,6 @@ export async function initializeRemoteSync() {
     versions = new Map(Object.entries(meta).map(([key, item]) => [key, Number(item.version || 0)]));
     (originalSetItem || Storage.prototype.setItem).call(window.localStorage, IDENTITY_KEY, JSON.stringify(identitySnapshot));
   }
-  const result = await api('/api/state');
   if (!storagePatched) {
     originalSetItem = Storage.prototype.setItem;
     originalRemoveItem = Storage.prototype.removeItem;
