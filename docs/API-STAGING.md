@@ -13,12 +13,12 @@ This Worker is separate from the currently published static app. It binds only t
 - POST /api/documents — private R2 upload (unavailable until R2 is enabled and the binding is configured).
 
 ## Required Cloudflare Access setup
-The Worker intentionally fails closed until both ACCESS_TEAM_DOMAIN and ACCESS_AUD are configured and a valid `Cf-Access-Jwt-Assertion` is present. Do not replace this with a client-side role or a public API key.
+The Worker validates `Cf-Access-Jwt-Assertion` against Cloudflare Access JWKS. Staging is configured with the Access team domain `mute-frog-153f.cloudflareaccess.com`, application audience, and an email one-time-PIN identity provider. The Access policy currently allows the owner email only. The Worker intentionally fails closed if a valid JWT is missing. Do not replace this with a client-side role or a public API key.
 
-Set the Access application's protected hostname to this staging Worker URL, create an allow policy for the company's users, then configure the exact team domain, application audience and allowed application origin as Worker variables. Set BOOTSTRAP_EMAIL to the intended first owner. The first authenticated owner creates the company; all other users must be invited by an owner/manager through a later membership-management workflow.
+Access protects `kamen-app-api-staging.patriasoul.workers.dev`; its allow policy currently permits `patriasoul@protonmail.com` for initial setup. The API Worker is deployed with the matching team domain, application audience, bootstrap email, and allowed origin `https://kamen-app.patriasoul.workers.dev`. The first authenticated owner creates the company from Settings → Zajednička pohrana. Other user invitations and expansion of the Access allow policy remain a separate onboarding step.
 
 ## Storage
-D1 holds metadata and JSON business records. Uploaded drawings are intended for a private R2 bucket. R2 is currently disabled on the Cloudflare account, so document upload is intentionally unavailable until the bucket is enabled.
+D1 holds tenant-scoped JSON business records, memberships, inventory movements and audit entries. The first browser import and conflict-aware localStorage synchronization are implemented in the app. Uploaded drawings are intended for a private R2 bucket. R2 is currently disabled on the Cloudflare account (Cloudflare API returns `Please enable R2 through the Cloudflare Dashboard`), so persistent document upload is intentionally unavailable until the owner enables R2 and a private bucket is created. AI image/PDF extraction processes the selected file in memory and does not persist the original drawing.
 
 ## Security
 - Every business query is scoped to the company selected by the verified membership.
