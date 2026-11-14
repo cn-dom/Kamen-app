@@ -70,17 +70,19 @@ export async function importLocalBusinessData() {
 }
 export async function downloadSharedBusinessData() {
   const result = await api('/api/state');
+  initialized = false;
+  const nativeSet = originalSetItem || Storage.prototype.setItem;
   if (!Array.isArray(result.records) || !result.records.length) throw new Error('Zajednička pohrana još nema poslovnih podataka.');
   meta = {};
   versions = new Map();
   result.records.forEach(record => {
     const raw = snapshot(record.value);
-    originalSetItem.call(window.localStorage, record.key, raw);
+    nativeSet.call(window.localStorage, record.key, raw);
     versions.set(record.key, record.version);
     meta[record.key] = { version: record.version, snapshot: raw };
   });
-  originalSetItem.call(window.localStorage, META_KEY, JSON.stringify(meta));
-  originalSetItem.call(window.localStorage, ENABLED_KEY, 'true');
+  nativeSet.call(window.localStorage, META_KEY, JSON.stringify(meta));
+  nativeSet.call(window.localStorage, ENABLED_KEY, 'true');
   initialized = false;
   await initializeRemoteSync();
   return { downloaded: result.records.length };
