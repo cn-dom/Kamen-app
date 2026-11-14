@@ -161,6 +161,7 @@ async function reconcileRemoteState() {
     if (downloaded) {
       window.dispatchEvent(new Event('storage'));
       window.dispatchEvent(new Event('focus'));
+      window.dispatchEvent(new Event('kamen-app-remote-data-updated'));
     }
     emit(conflicts.length ? 'conflict' : 'ready', { downloaded, conflicts });
     return { downloaded, conflicts };
