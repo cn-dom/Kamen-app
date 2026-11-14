@@ -56,6 +56,9 @@ export async function getSharedStorageStatus() {
   const [identity, status] = await Promise.all([getSharedIdentity(), api('/api/state/status')]);
   return { ...identity, ...status };
 }
+export async function getSharedMembers() { return api('/api/memberships'); }
+export async function inviteSharedMember(member) { return api('/api/memberships', { method: 'POST', body: JSON.stringify(member) }); }
+export async function deactivateSharedMember(email) { return api('/api/memberships/' + encodeURIComponent(email), { method: 'DELETE' }); }
 export async function importLocalBusinessData() {
   const records = getLocalBusinessData();
   if (!records.length) throw new Error('U ovom pregledniku nema poslovnih podataka za prijenos.');
