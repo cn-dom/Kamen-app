@@ -78,7 +78,7 @@ export function prepareCutConfirmation({ order, materials = [], materialId, remn
         reservedQuantity,
         consumedQuantity: usedSheets,
         returnedRemnants: cleanRemnants.map(item => ({ id: item.id, name: item.name, length: item.length, width: item.width, thickness: item.thickness })),
-        wasteM2: round(Math.max(0, (Number(stock.length) * Number(stock.width) * usedSheets - (order.pieces || []).filter(piece => piece.materialId === materialId).reduce((sum,piece)=>sum+Number(piece.length||0)*Number(piece.width||0)*Number(piece.quantity||0),0) - cleanRemnants.reduce((sum,item)=>sum+item.length*item.width,0)) / 10000),
+        wasteM2: round(Math.max(0, (Number(stock.length) * Number(stock.width) * usedSheets - (order.pieces || []).filter(piece => piece.materialId === materialId).reduce((sum,piece)=>sum+Number(piece.length||0)*Number(piece.width||0)*Number(piece.quantity||0),0) - cleanRemnants.reduce((sum,item)=>sum+item.length*item.width,0)) / 10000)),
         confirmedBy: String(actor || ''),
         confirmedAt: date
       }
