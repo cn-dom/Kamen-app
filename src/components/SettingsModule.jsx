@@ -243,7 +243,9 @@ export default function SettingsModule({ onBack }) {
           <div><small>Zapisi u D1</small><strong>{sharedStatus.count}</strong></div>
           <div><small>Lokalni zapisi</small><strong>{getLocalBusinessData().length}</strong></div>
         </div>
-        {sharedStatus.count === 0 ? <div className="shared-storage-choice">
+        {sharedStatus.count === 0 && sharedStatus.user.role === 'worker' ? <div className="shared-storage-choice">
+          <p>Zajednička pohrana još nema operativnih zapisa dostupnih radnicima. Vlasnik ili voditelj mora prvo prenijeti početne podatke.</p>
+        </div> : sharedStatus.count === 0 ? <div className="shared-storage-choice">
           <p>Zajednička baza je prazna. Postojeći podaci iz ovog preglednika mogu se prenijeti kao početna kopija. Ništa se ne briše iz preglednika.</p>
           <button type="button" className="button button-primary" onClick={importLocalToShared} disabled={sharedBusy || !getLocalBusinessData().length}><Cloud size={15}/> Prenesi lokalne podatke u D1</button>
         </div> : <div className="shared-storage-choice">
