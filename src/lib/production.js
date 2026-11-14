@@ -58,7 +58,8 @@ export function normalizeProductionRecords(raw, orders) {
         'Ravno poliranje': flatPolishing
       }}];
     }));
-    return { ...raw, version: 4, pieces, migratedAt: new Date().toISOString() };
+    const workerSkills = Object.fromEntries(Object.entries(raw.workerSkills || {}).map(([worker, skills]) => [worker, (Array.isArray(skills) ? skills : []).flatMap(skill => skill === 'Poliranje' ? ['Poliranje šmusa i okapnica', 'Ravno poliranje'] : [skill])]));
+    return { ...raw, version: 4, pieces, workerSkills, migratedAt: new Date().toISOString() };
   }
   const pieces = {};
   buildProductionUnits(orders).forEach(row => {
