@@ -189,14 +189,15 @@ async function handleApi(request, env, ctx) {
   if (path === '/api/state/status' && request.method === 'GET') {
     const result = await env.DB.prepare('SELECT record_id,version,updated_at FROM app_records WHERE company_id=? AND record_type=\'browser_state\' ORDER BY record_id')
       .bind(member.company_id).all();
-    return response({ count: result.results?.length || 0, keys: (result.results || []).map(row => row.record_id), updatedAt: result.results?.[0]?.updated_at || null });
+    const visible = (result.results || []).filter(row => member.role !== 'worker' || WORKER_READ_KEYS.has(row.record_id));
+    return response({ count: visible.length, keys: visible.map(row => row.record_id), updatedAt: visible[0]?.updated_at || null });
   }
 
   if (path === '/api/state' && request.method === 'GET') {
     const rows = await env.DB.prepare('SELECT record_id,payload,version,updated_at FROM app_records WHERE company_id=? AND record_type=\'browser_state\' ORDER BY record_id')
       .bind(member.company_id).all();
     const records = (rows.results || []).filter(row => member.role !== 'worker' || WORKER_READ_KEYS.has(row.record_id))
-      .map(row => ({ key: row.record_id, value: JSON.parse(row.payload), version: row.version, updatedAt: row.updated_at }));
+      .map(row => ({ key: row.record_id, value: member.role === 'worker' ? redactForWorker(JSON.parse(row.payload)) : JSON.parse(row.payload), version: row.version, updatedAt: row.updated_at }));
     return response({ records });
   }
 
