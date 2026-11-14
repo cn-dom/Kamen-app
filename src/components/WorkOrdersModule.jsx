@@ -80,30 +80,58 @@ export default function WorkOrdersModule({ onBack, openCreate = false, onCreateO
     }));
   };
   const extractDrawingDimensions = async () => {
-    if (!aiFile) { setAiMessage('Najprije odaberi sliku nacrta.'); return; }
-    if (!/^image\/(png|jpeg|webp)$/.test(aiFile.type)) { setAiMessage('Podržani su PNG, JPG i WEBP nacrti. PDF podrška zahtijeva zasebnu obradu stranica.'); return; }
+    if (!aiFile) { setAiMessage('Najprije odaberi nacrt.'); return; }
+    const isPdf = aiFile.type === 'application/pdf' || aiFile.name.toLowerCase().endsWith('.pdf');
+    if (!isPdf && !/^image\/(png|jpeg|webp)$/.test(aiFile.type)) { setAiMessage('Podržani su PDF, PNG, JPG i WEBP nacrti.'); return; }
+    if (aiFile.size > 10 * 1024 * 1024) { setAiMessage('Datoteka je prevelika. Najveća dopuštena veličina je 10 MB.'); return; }
     setAiLoading(true);
-    setAiMessage('AI čita nacrt i predlaže dimenzije. Sve vrijednosti treba provjeriti prije izrade naloga.');
+    setAiMessage(isPdf ? 'Učitavam PDF i pripremam do tri stranice za AI čitanje…' : 'AI čita nacrt i predlaže dimenzije…');
     try {
-      const dataUrl = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result || ''));
-        reader.onerror = () => reject(new Error('Datoteku nije moguće pročitati.'));
-        reader.readAsDataURL(aiFile);
-      });
-      const imageBase64 = dataUrl.split(',')[1] || '';
+      let pageImages = [];
+      if (isPdf) {
+        const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+        pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/legacy/build/pdf.worker.mjs', import.meta.url).toString();
+        const documentPdf = await pdfjs.getDocument({ data: new Uint8Array(await aiFile.arrayBuffer()) }).promise;
+        const pageCount = Math.min(documentPdf.numPages, 3);
+        for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
+          const page = await documentPdf.getPage(pageNumber);
+          const viewport = page.getViewport({ scale: 1.6 });
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.ceil(viewport.width);
+          canvas.height = Math.ceil(viewport.height);
+          const context = canvas.getContext('2d');
+          await page.render({ canvasContext: context, viewport }).promise;
+          pageImages.push(canvas.toDataURL('image/png').split(',')[1]);
+        }
+        if (documentPdf.numPages > 3) setAiMessage('PDF ima ' + documentPdf.numPages + ' stranica. AI obrađuje prve tri; provjeri ima li važnih mjera na ostalim stranicama.');
+      } else {
+        const dataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result || ''));
+          reader.onerror = () => reject(new Error('Datoteku nije moguće pročitati.'));
+          reader.readAsDataURL(aiFile);
+        });
+        pageImages = [dataUrl.split(',')[1] || ''];
+      }
       const apiBase = import.meta.env.VITE_KAMEN_API_URL || 'https://kamen-app-api-staging.patriasoul.workers.dev';
-      const response = await fetch(apiBase + '/api/ai/extract-dimensions', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ imageBase64, fileName: aiFile.name, contentType: aiFile.type })
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || 'AI obrada nije uspjela (HTTP ' + response.status + ').');
+      const extracted = [];
+      const notes = [];
+      for (let index = 0; index < pageImages.length; index += 1) {
+        setAiMessage('AI obrađuje stranicu ' + (index + 1) + ' od ' + pageImages.length + '…');
+        const response = await fetch(apiBase + '/api/ai/extract-dimensions', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ imageBase64: pageImages[index], fileName: aiFile.name + (isPdf ? ' · stranica ' + (index + 1) : ''), contentType: 'image/png' })
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || 'AI obrada nije uspjela (HTTP ' + response.status + ').');
+        extracted.push(...(payload.pieces || []));
+        notes.push(...(payload.notes || []));
+      }
       const defaultMaterialId = pieces.find(piece => piece.materialId)?.materialId || '';
       const defaultStock = plateMaterials.find(item => item.id === defaultMaterialId);
-      const recognized = (payload.pieces || []).filter(item => Number(item.lengthMm) > 0 && Number(item.widthMm) > 0).map(item => ({
+      const recognized = extracted.filter(item => Number(item.lengthMm) > 0 && Number(item.widthMm) > 0).map(item => ({
         name: item.name || 'Prepoznati komad',
         materialId: defaultMaterialId,
         length: String(Math.round(Number(item.lengthMm) / 10 * 10) / 10),
@@ -113,11 +141,11 @@ export default function WorkOrdersModule({ onBack, openCreate = false, onCreateO
         aiConfidence: item.confidence,
         aiSourceText: item.sourceText
       }));
-      if (!recognized.length) throw new Error('Nije pronađena nijedna dimenzija koju se može sigurno unijeti. Provjeri oštrinu i oznake na nacrtu.');
+      if (!recognized.length) throw new Error('Nije pronađena nijedna dimenzija koju se može sigurno unijeti. Provjeri kvalitetu nacrta i oznake.');
       setPieces(recognized);
       setCutPlanPreview([]);
       setCutPlanError('');
-      setAiMessage('Prepoznato ' + recognized.length + ' stavki. Provjeri sve mjere, debljinu i materijal prije spremanja naloga.' + ((payload.notes || []).length ? ' Napomene: ' + payload.notes.join(' · ') : ''));
+      setAiMessage('Prepoznato ' + recognized.length + ' stavki. Provjeri sve mjere, debljinu i materijal prije spremanja naloga.' + (notes.length ? ' Napomene: ' + notes.join(' · ') : ''));
     } catch (error) {
       setAiMessage(error?.message || 'AI prepoznavanje nije uspjelo.');
     } finally {
@@ -394,8 +422,8 @@ export default function WorkOrdersModule({ onBack, openCreate = false, onCreateO
       <div className="workorders-modal-head"><div><span className="eyebrow">NOVI PROJEKT</span><h2 id="workorders-form-title">Izradi radni nalog</h2><p>Unesi osnovne podatke i popis komada za pilanje.</p></div><button className="icon-button" onClick={() => setShowForm(false)} aria-label="Zatvori"><X size={20}/></button></div>
       <form onSubmit={createOrder}>
         <div className="drawing-ai-panel">
-          <div><strong><Upload size={15}/> Učitaj nacrt i prepoznaj dimenzije</strong><p>Odaberi jasnu fotografiju ili sken nacrta. AI će predložiti komade i mjere u centimetrima; prije spremanja ih obavezno provjeri.</p></div>
-          <div className="drawing-ai-controls"><input type="file" accept="image/png,image/jpeg,image/webp" onChange={event => setAiFile(event.target.files?.[0] || null)} aria-label="Odaberi sliku nacrta"/><button type="button" className="button button-secondary" disabled={!aiFile || aiLoading} onClick={extractDrawingDimensions}>{aiLoading ? 'AI obrađuje…' : 'Prepoznaj dimenzije'}</button></div>
+          <div><strong><Upload size={15}/> Učitaj PDF ili sliku nacrta i prepoznaj dimenzije</strong><p>Odaberi PDF, jasnu fotografiju ili sken nacrta (do tri stranice PDF-a). AI će predložiti komade i mjere u centimetrima; prije spremanja ih obavezno provjeri.</p></div>
+          <div className="drawing-ai-controls"><input type="file" accept="application/pdf,image/png,image/jpeg,image/webp" onChange={event => setAiFile(event.target.files?.[0] || null)} aria-label="Odaberi sliku nacrta"/><button type="button" className="button button-secondary" disabled={!aiFile || aiLoading} onClick={extractDrawingDimensions}>{aiLoading ? 'AI obrađuje…' : 'Prepoznaj dimenzije'}</button></div>
           {aiMessage && <p className="drawing-ai-message">{aiMessage}</p>}
         </div>
         <div className="workorders-form-grid"><label>Kupac *<input value={form.customer} onChange={e => updateForm('customer',e.target.value)} placeholder="Naziv kupca ili tvrtke"/></label><label>Naziv projekta *<input value={form.project} onChange={e => updateForm('project',e.target.value)} placeholder="Npr. kuhinjska ploča"/></label><label>Rok izrade<input type="date" value={form.due} onChange={e => updateForm('due',e.target.value)}/></label><div className="modal-note"><Ruler size={16}/><span>Sustav može rasporediti količinu iste stavke preko više ostataka. Komadi koji ne stanu ostaju na izvornoj ploči. Ostatci se rezerviraju kao cijeli fizički komadi; plan pilanja provjerava stvarni raspored. Površina svih komada: {calculatedAreaM2.toLocaleString('hr-HR', { maximumFractionDigits: 4 })} m².</span></div><div className="modal-note"><Wallet size={16}/><span>{materialGroups.length ? `Procijenjeni nabavni trošak materijala: ${money(calculatedMaterialCost)} (bez procjene za stavke bez unesene nabavne cijene).` : 'Odaberi materijal uz svaku stavku kako bi se izračunala rezervacija i trošak.'}</span></div></div>
