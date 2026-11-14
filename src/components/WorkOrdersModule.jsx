@@ -89,8 +89,8 @@ export default function WorkOrdersModule({ onBack, openCreate = false, onCreateO
     try {
       let pageImages = [];
       if (isPdf) {
-        const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
-        pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/legacy/build/pdf.worker.mjs', import.meta.url).toString();
+        const pdfjs = await import('pdfjs-dist/legacy/build/pdf.js');
+        pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/legacy/build/pdf.worker.js', import.meta.url).toString();
         const documentPdf = await pdfjs.getDocument({ data: new Uint8Array(await aiFile.arrayBuffer()) }).promise;
         const pageCount = Math.min(documentPdf.numPages, 3);
         for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
