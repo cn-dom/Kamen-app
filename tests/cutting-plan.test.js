@@ -9,8 +9,20 @@ test('pretvara mjere u milimetre i ostavlja 1 cm obrezivanja sa svake strane', (
     { name: 'Vertikala', materialId: slab.id, length: 120, width: 30, thickness: 3, quantity: 2 }
   ], [slab]);
   assert.equal(groups.length, 1);
-  assert.deepEqual(groups[0].sheet, { name: 'Impala', width: 3000, height: 2220, kerf: 4, cost: 0 });
+  assert.deepEqual(groups[0].sheet, { name: 'Impala', width: 3000, height: 2220, kerf: 4, cost: 0, quantity: 6 });
   assert.deepEqual(groups[0].demands[0], { name: 'Vertikala', width: 1200, height: 300, quantity: 2, can_rotate: false });
+});
+
+test('u planer šalje broj raspoloživih fizičkih ploča, a ne samo jednu', () => {
+  const groups = buildCuttingPlanGroups([
+    { name: 'Vertikala', materialId: slab.id, length: 120, width: 30, thickness: 3, quantity: 12 }
+  ], [slab]);
+  assert.equal(groups[0].sheet.quantity, 6);
+  const fractionalOnly = { ...slab, quantity: 0.8 };
+  const fractionalGroups = buildCuttingPlanGroups([
+    { name: 'Komad', materialId: slab.id, length: 120, width: 30, thickness: 3, quantity: 1 }
+  ], [fractionalOnly]);
+  assert.equal(fractionalGroups[0].sheet.quantity, 0);
 });
 
 test('grupira komade prema odabranoj ploči i ne miješa materijale', () => {
