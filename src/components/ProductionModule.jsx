@@ -512,8 +512,8 @@ export default function ProductionModule({ onBack, onCreateProject }) {
       { id: 'Pila 1', stage: 'Pilanje', machine: '1' },
       { id: 'Pila 2', stage: 'Pilanje', machine: '2' },
       { id: 'Kanterica · obline', stage: 'Kanterica / obrada rubova', workCenter: 'Kanterica · obline' },
-      { id: 'Polirka · šmuse i okapnice', stage: 'Poliranje', workCenter: 'Polirka za šmuse i okapnice' },
-      { id: 'Vanjska polirka · ravne površine', stage: 'Poliranje', workCenter: 'Vanjska polirka za ravne spomenike i obloge' },
+      { id: 'Polirka · šmuse i okapnice', stage: 'Poliranje šmusa i okapnica', workCenter: 'Polirka za šmuse i okapnice' },
+      { id: 'Vanjska polirka · ravne površine', stage: 'Ravno poliranje', workCenter: 'Vanjska polirka za ravne spomenike i obloge' },
       { id: 'Ručna obrada', stage: 'Ručna obrada', workCenter: 'Ručna obrada' },
       { id: 'Teren · montaža grobnica', stage: 'Terenski rad / montaža', workCenter: 'Terenski rad / montaža grobnica' }
     ];
@@ -543,8 +543,8 @@ export default function ProductionModule({ onBack, onCreateProject }) {
       { id: 'Pila 1', stage: 'Pilanje', machine: '1' },
       { id: 'Pila 2', stage: 'Pilanje', machine: '2' },
       { id: 'Kanterica · obline', stage: 'Kanterica / obrada rubova', workCenter: 'Kanterica · obline' },
-      { id: 'Polirka · šmuse i okapnice', stage: 'Poliranje', workCenter: 'Polirka za šmuse i okapnice' },
-      { id: 'Vanjska polirka · ravne površine', stage: 'Poliranje', workCenter: 'Vanjska polirka za ravne spomenike i obloge' },
+      { id: 'Polirka · šmuse i okapnice', stage: 'Poliranje šmusa i okapnica', workCenter: 'Polirka za šmuse i okapnice' },
+      { id: 'Vanjska polirka · ravne površine', stage: 'Ravno poliranje', workCenter: 'Vanjska polirka za ravne spomenike i obloge' },
       { id: 'Ručna obrada', stage: 'Ručna obrada', workCenter: 'Ručna obrada' },
       { id: 'Teren · montaža grobnica', stage: 'Terenski rad / montaža', workCenter: 'Terenski rad / montaža grobnica' }
     ];
@@ -580,8 +580,8 @@ export default function ProductionModule({ onBack, onCreateProject }) {
       { id: 'Pila 1', stage: 'Pilanje', machine: '1' },
       { id: 'Pila 2', stage: 'Pilanje', machine: '2' },
       { id: 'Kanterica · obline', stage: 'Kanterica / obrada rubova' },
-      { id: 'Polirka · šmuse i okapnice', stage: 'Poliranje', workCenter: 'Polirka za šmuse i okapnice' },
-      { id: 'Vanjska polirka · ravne površine', stage: 'Poliranje', workCenter: 'Vanjska polirka za ravne spomenike i obloge' },
+      { id: 'Polirka · šmuse i okapnice', stage: 'Poliranje šmusa i okapnica', workCenter: 'Polirka za šmuse i okapnice' },
+      { id: 'Vanjska polirka · ravne površine', stage: 'Ravno poliranje', workCenter: 'Vanjska polirka za ravne spomenike i obloge' },
       { id: 'Ručna obrada', stage: 'Ručna obrada', workCenter: 'Ručna obrada' },
       { id: 'Teren · montaža grobnica', stage: 'Terenski rad / montaža', workCenter: 'Terenski rad / montaža grobnica' }
     ];
@@ -755,7 +755,7 @@ export default function ProductionModule({ onBack, onCreateProject }) {
             </div>}
             <div className="worker-skill-list">
               <span>Vještine radnika</span>
-              <div>{['Pilanje','Kanterica / obrada rubova','Poliranje','Ručna obrada','Terenski rad / montaža','Montaža','Izmjera','Prijevoz','Servis'].map(skill => <label key={skill}><input type="checkbox" checked={(records.workerSkills?.[worker] || []).includes(skill)} onChange={event => setRecords(current => { const previous = current.workerSkills?.[worker] || []; const next = event.target.checked ? [...new Set([...previous, skill])] : previous.filter(item => item !== skill); return { ...current, workerSkills: { ...(current.workerSkills || {}), [worker]: next } }; })}/><span>{skill}</span></label>)}</div>
+              <div>{['Pilanje','Kanterica / obrada rubova','Poliranje šmusa i okapnica','Ravno poliranje','Ručna obrada','Terenski rad / montaža','Montaža','Izmjera','Prijevoz','Servis'].map(skill => <label key={skill}><input type="checkbox" checked={(records.workerSkills?.[worker] || []).includes(skill)} onChange={event => setRecords(current => { const previous = current.workerSkills?.[worker] || []; const next = event.target.checked ? [...new Set([...previous, skill])] : previous.filter(item => item !== skill); return { ...current, workerSkills: { ...(current.workerSkills || {}), [worker]: next } }; })}/><span>{skill}</span></label>)}</div>
             </div>
           </article>;
         })}{!(records.workers || []).length && <small>Još nema unesenih radnika. Ime se može upisati i izravno u fazi.</small>}</div>
@@ -917,17 +917,17 @@ export default function ProductionModule({ onBack, onCreateProject }) {
         <div className="production-station-grid">
           {[
             { id:'Kanterica · obline', title:'Kanterica · obline', stage:'Kanterica / obrada rubova' },
-            { id:'Polirka za šmuse i okapnice', title:'Polirka · šmuse i okapnice', stage:'Poliranje' },
-            { id:'Vanjska polirka za ravne spomenike i obloge', title:'Vanjska polirka · ravne površine', stage:'Poliranje' },
+            { id:'Polirka za šmuse i okapnice', title:'Polirka · šmuse i okapnice', stage:'Poliranje šmusa i okapnica' },
+            { id:'Vanjska polirka za ravne spomenike i obloge', title:'Vanjska polirka · ravne površine', stage:'Poliranje šmusa i okapnica' },
             { id:'Ručna obrada', title:'Ručna obrada', stage:'Ručna obrada' },
             { id:'Terenski rad / montaža grobnica', title:'Teren · montaža grobnica', stage:'Terenski rad / montaža' },
             { id:'Nije raspoređeno', title:'Čeka raspored', stage:null }
           ].map(center => {
             const stationRows = rowsWithRecords.filter(row => {
               if (selectedWorker && center.stage && !workerHasTask(row, [center.stage])) return false;
-              if (selectedWorker && !center.stage && !workerHasTask(row, ['Poliranje','Ručna obrada','Terenski rad / montaža'])) return false;
+              if (selectedWorker && !center.stage && !workerHasTask(row, ['Poliranje šmusa i okapnica','Ravno poliranje','Ručna obrada','Terenski rad / montaža'])) return false;
               if (!center.stage) {
-                return ['Poliranje','Ručna obrada','Terenski rad / montaža'].some(name => {
+                return ['Poliranje šmusa i okapnica','Ravno poliranje','Ručna obrada','Terenski rad / montaža'].some(name => {
                   const stage = row.record.stages?.[name] || blankStage();
                   const index = stages.indexOf(name);
                   return stages.slice(0,index).every(previous => ['Završeno','Nije potrebno'].includes(row.record.stages?.[previous]?.status)) &&
@@ -940,7 +940,7 @@ export default function ProductionModule({ onBack, onCreateProject }) {
               const selectedCenter = stage.workCenter || '';
               return ready && !['Završeno','Nije potrebno'].includes(stage.status) &&
                 (selectedCenter === center.id);
-            }).filter(row => center.stage ? true : (['Poliranje','Ručna obrada','Terenski rad / montaža'].some(name => {
+            }).filter(row => center.stage ? true : (['Poliranje šmusa i okapnica','Ravno poliranje','Ručna obrada','Terenski rad / montaža'].some(name => {
               const stage = row.record.stages?.[name] || blankStage();
               const index = stages.indexOf(name);
               return stages.slice(0,index).every(previous => ['Završeno','Nije potrebno'].includes(row.record.stages?.[previous]?.status)) &&
@@ -949,7 +949,7 @@ export default function ProductionModule({ onBack, onCreateProject }) {
             return <section className="production-station-lane" key={center.id}>
               <h4><Factory size={16}/>{center.title}<small>{stationRows.length} kom.</small></h4>
               {stationRows.length ? stationRows.map(row => {
-                const stageName = center.stage || ['Poliranje','Ručna obrada','Terenski rad / montaža'].find(name => {
+                const stageName = center.stage || ['Poliranje šmusa i okapnica','Ravno poliranje','Ručna obrada','Terenski rad / montaža'].find(name => {
                   const stage = row.record.stages?.[name] || blankStage();
                   const index = stages.indexOf(name);
                   return stages.slice(0,index).every(previous => ['Završeno','Nije potrebno'].includes(row.record.stages?.[previous]?.status)) &&
