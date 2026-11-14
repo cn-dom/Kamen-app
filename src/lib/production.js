@@ -94,7 +94,7 @@ export function normalizeProductionRecords(raw, orders) {
     } else {
       const legacy = raw?.[row.order.id] || {};
       PRODUCTION_STAGES.slice(0, 3).forEach(stage => {
-        const oldStatus = legacy[stage];
+        const oldStatus = legacy[stage] ?? (stage === 'Poliranje šmusa i okapnica' ? legacy['Poliranje'] : undefined);
         if (PRODUCTION_STAGE_STATUSES.includes(oldStatus)) record.stages[stage].status = oldStatus;
       });
       if (PRODUCTION_STAGE_STATUSES.includes(legacy['Ostala obrada'])) record.stages['Ručna obrada'].status = legacy['Ostala obrada'];
@@ -223,6 +223,7 @@ export const PRODUCTION_WORK_CENTERS = {
   'Pilanje': ['Pila 1', 'Pila 2'],
   'Kanterica / obrada rubova': ['Kanterica · obline'],
   'Poliranje šmusa i okapnica': ['Polirka za šmuse i okapnice'],
+  'Poliranje': ['Polirka za šmuse i okapnice'],
   'Ravno poliranje': ['Vanjska polirka za ravne spomenike i obloge'],
   'Ručna obrada': ['Ručna obrada'],
   'Terenski rad / montaža': ['Terenski rad / montaža grobnica']
