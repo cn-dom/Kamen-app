@@ -48,7 +48,7 @@ async function memberFor(request, env) {
   const member = await env.DB.prepare(
     'SELECT m.company_id, m.identity_subject, m.email, m.display_name, m.role, c.name AS company_name, c.status AS company_status FROM company_memberships m JOIN companies c ON c.id=m.company_id WHERE m.active=1 AND c.status=\'active\' AND (m.identity_subject=? OR lower(m.email)=lower(?)) LIMIT 1'
   ).bind(claims.sub, claims.email).first();
-  if (!member) throw new Error('MEMBERSHIP_REQUIRED');
+  if (!member) throw new Error(String(claims.email).toLowerCase() === String(env.BOOTSTRAP_EMAIL || '').toLowerCase() ? 'MEMBERSHIP_REQUIRED' : 'INVITATION_REQUIRED');
   return { claims, member };
 }
 function canRead(type, role) {
@@ -329,6 +329,7 @@ export default {
     } catch (error) {
       if (error.message === 'ACCESS_NOT_CONFIGURED') return response({ error: 'Prije korištenja mora se postaviti Cloudflare Access zaštita (team domain i audience).' }, 503);
       if (error.message === 'MEMBERSHIP_REQUIRED') return response({ error: 'Korisnik još nije povezan s tvrtkom. Potrebno je početno postavljanje tvrtke.' }, 403);
+      if (error.message === 'INVITATION_REQUIRED') return response({ error: 'Nemaš aktivno članstvo u Kamen-app tvrtki. Zatraži poziv od vlasnika ili voditelja.' }, 403);
       if (error.message === 'INVALID_ACCESS_TOKEN') return response({ error: 'Prijava nije valjana ili je istekla.' }, 401);
       if (error.message === 'BODY_TOO_LARGE') return response({ error: 'Zahtjev je prevelik.' }, 413);
       if (error.message === 'INVALID_JSON') return response({ error: 'Tijelo zahtjeva nije valjan JSON.' }, 400);
