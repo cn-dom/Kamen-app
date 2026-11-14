@@ -1,6 +1,13 @@
 import { PRODUCTION_STAGES, buildProductionUnits, blankPieceProductionRecord } from './production.js';
 
 const COMPLETE = new Set(['Završeno', 'Nije potrebno']);
+const stageStatus = (record, stageName) => {
+  const current = record?.stages?.[stageName]?.status;
+  if (current) return current;
+  if (stageName === 'Ravno poliranje' && record?.stages?.['Poliranje']?.status) return 'Nije potrebno';
+  if (stageName === 'Poliranje šmusa i okapnica' && record?.stages?.['Poliranje']?.status) return record.stages['Poliranje'].status;
+  return undefined;
+};
 const ACTIVE_ORDER = order => !['Završen', 'Otkazan'].includes(order?.status);
 const todayKey = () => {
   const date = new Date();
@@ -26,8 +33,8 @@ export function analyzeWorkshopCapacity(orders = [], production = {}) {
   const stages = PRODUCTION_STAGES.map((stageName, index) => {
     const rows = units.map(unit => {
       const record = records[unit.key] || blankPieceProductionRecord();
-      const stage = record.stages?.[stageName] || {};
-      const previousReady = PRODUCTION_STAGES.slice(0, index).every(previous => COMPLETE.has(record.stages?.[previous]?.status));
+      const stage = { ...(record.stages?.[stageName] || {}), status: stageStatus(record, stageName) };
+      const previousReady = PRODUCTION_STAGES.slice(0, index).every(previous => COMPLETE.has(stageStatus(record, previous)));
       return { unit, stage, previousReady };
     });
     const inProgress = rows.filter(row => row.stage.status === 'U tijeku');
