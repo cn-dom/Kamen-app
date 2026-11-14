@@ -1,0 +1,23 @@
+name = "kamen-app-api-staging"
+main = "workers/api/index.js"
+compatibility_date = "2026-11-14"
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "kamen-app-staging"
+database_id = "79055e30-3f7f-4125-bb89-8606f29723c7"
+
+[ai]
+binding = "AI"
+
+[vars]
+ACCESS_TEAM_DOMAIN = "mute-frog-153f.cloudflareaccess.com"
+ACCESS_AUD = "ae457c3c3b379cb9a9ff3282188733b2ff4e70c27605e993ee56ea3f0336c7ad"
+BOOTSTRAP_EMAIL = "patriasoul@protonmail.com"
+ALLOWED_ORIGINS = "https://kamen-app.patriasoul.workers.dev,https://cn-dom.github.io"
+
+# Enable R2 in Cloudflare Dashboard, create a private bucket, then add:
+# [[r2_buckets]]
+# binding = "DOCUMENTS"
+# bucket_name = "kamen-app-documents-staging"

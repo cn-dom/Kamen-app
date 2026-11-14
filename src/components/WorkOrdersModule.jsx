@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ClipboardList, Plus, Search, X, CalendarDays, UserRound, Ruler, ChevronDown, CheckCircle2, Clock3, Hammer, Trash2, Wallet, Scissors, Boxes } from 'lucide-react';
+import { ClipboardList, Plus, Search, X, CalendarDays, UserRound, Ruler, ChevronDown, CheckCircle2, Clock3, Hammer, Trash2, Wallet, Scissors, Boxes, Upload } from 'lucide-react';
 import { isProductionOrderComplete } from '../lib/production.js';
 import { calculateMaterialReservation } from '../lib/materialStock.js';
 import { releaseOrderReservations } from '../lib/workOrderStock.js';
@@ -12,6 +12,15 @@ const seedOrders = [];
 const STORAGE_KEY = 'kamen-app-work-orders-v1';
 const MATERIALS_KEY = 'kamen-app-materials-v1';
 const PRODUCTION_KEY = 'kamen-app-production-stages-v1';
+const SAW_SETTINGS_KEY = 'kamen-app-saw-settings-v1';
+const DEFAULT_SAW_SETTINGS = {
+  'Pila 1': { kerfMm: 4, trimMm: 10 },
+  'Pila 2': { kerfMm: 4, trimMm: 10 }
+};
+function readSawSettings() {
+  try { return { ...DEFAULT_SAW_SETTINGS, ...JSON.parse(window.localStorage.getItem(SAW_SETTINGS_KEY) || '{}') }; }
+  catch { return DEFAULT_SAW_SETTINGS; }
+}
 function readStoredOrders() {
   try {
     const saved = window.localStorage.getItem(STORAGE_KEY);
@@ -40,6 +49,11 @@ export default function WorkOrdersModule({ onBack, openCreate = false, onCreateO
   const [remnantSuggestion, setRemnantSuggestion] = useState('');
   const [cutPlanPreview, setCutPlanPreview] = useState([]);
   const [cutPlanError, setCutPlanError] = useState('');
+  const [selectedSaw, setSelectedSaw] = useState('Pila 1');
+  const [sawSettings] = useState(readSawSettings);
+  const [aiFile, setAiFile] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiMessage, setAiMessage] = useState('');
   const [createOperationId, setCreateOperationId] = useState(() => 'RN-CREATE-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8));
   useEffect(() => { try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(orders)); } catch { /* Browser storage may be disabled or full. */ } }, [orders]);
   useEffect(() => {
@@ -65,10 +79,58 @@ export default function WorkOrdersModule({ onBack, openCreate = false, onCreateO
       return next;
     }));
   };
+  const extractDrawingDimensions = async () => {
+    if (!aiFile) { setAiMessage('Najprije odaberi sliku nacrta.'); return; }
+    if (!/^image\/(png|jpeg|webp)$/.test(aiFile.type)) { setAiMessage('Za sada su podržani PNG, JPG i WEBP nacrti. PDF stranicu izvezi kao sliku pa je učitaj.'); return; }
+    if (aiFile.size > 10 * 1024 * 1024) { setAiMessage('Datoteka je prevelika. Najveća dopuštena veličina je 10 MB.'); return; }
+    setAiLoading(true);
+    setAiMessage('AI čita nacrt i predlaže dimenzije. Sve vrijednosti treba provjeriti prije izrade naloga.');
+    try {
+      const bitmap = await createImageBitmap(aiFile);
+      const scale = Math.min(1, 2200 / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      bitmap.close();
+      const imageBase64 = canvas.toDataURL('image/jpeg', 0.88).split(',')[1] || '';
+      const apiBase = import.meta.env.VITE_KAMEN_API_URL || 'https://kamen-app-api-staging.patriasoul.workers.dev';
+      const response = await fetch(apiBase + '/api/ai/extract-dimensions', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ imageBase64, fileName: aiFile.name, contentType: 'image/jpeg' })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || 'AI obrada nije uspjela (HTTP ' + response.status + ').');
+      const defaultMaterialId = pieces.find(piece => piece.materialId)?.materialId || '';
+      const defaultStock = plateMaterials.find(item => item.id === defaultMaterialId);
+      const recognized = (payload.pieces || []).filter(item => Number(item.lengthMm) > 0 && Number(item.widthMm) > 0).map(item => ({
+        name: item.name || 'Prepoznati komad',
+        materialId: defaultMaterialId,
+        length: String(Math.round(Number(item.lengthMm) / 10 * 10) / 10),
+        width: String(Math.round(Number(item.widthMm) / 10 * 10) / 10),
+        thickness: item.thicknessMm > 0 ? String(Math.round(Number(item.thicknessMm) / 10 * 10) / 10) : (defaultStock?.thickness ? String(defaultStock.thickness) : ''),
+        quantity: String(Number.isInteger(Number(item.quantity)) && Number(item.quantity) > 0 ? Number(item.quantity) : 1),
+        aiConfidence: item.confidence,
+        aiSourceText: item.sourceText
+      }));
+      if (!recognized.length) throw new Error('Nije pronađena nijedna dimenzija koju se može sigurno unijeti. Provjeri kvalitetu nacrta i oznake.');
+      setPieces(recognized);
+      setCutPlanPreview([]);
+      setCutPlanError('');
+      setAiMessage('Prepoznato ' + recognized.length + ' stavki. Provjeri sve mjere, debljinu i materijal prije spremanja naloga.' + ((payload.notes || []).length ? ' Napomene: ' + payload.notes.join(' · ') : ''));
+    } catch (error) {
+      setAiMessage(error?.message || 'AI prepoznavanje nije uspjelo.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
   const generateCutPlan = () => {
     setCutPlanError('');
     setCutPlanPreview([]);
-    const groups = buildCuttingPlanGroups(pieces, plateMaterials);
+    const machine = sawSettings[selectedSaw] || DEFAULT_SAW_SETTINGS[selectedSaw];
+    const groups = buildCuttingPlanGroups(pieces, plateMaterials, machine);
     if (!groups.length) {
       setCutPlanError('Unesi valjane dimenzije i količine te odaberi ploču odgovarajuće debljine.');
       return;
@@ -80,12 +142,30 @@ export default function WorkOrdersModule({ onBack, openCreate = false, onCreateO
           { algorithm: 'auto', guillotine_required: true, seed: 42, min_usable_side: 100 }
         );
         const plan = plan2dCuts(layout, { preset: 'panel_saw' });
-        return { stockId: group.stock.id, stockName: group.stock.name, stockForm: group.stock.form || 'Ploča', summary: summarizeCuttingPlan(layout, plan) };
+        return { stockId: group.stock.id, stockName: group.stock.name, stockForm: group.stock.form || 'Ploča', sawName: selectedSaw, kerfMm: machine.kerfMm, trimMm: machine.trimMm, summary: summarizeCuttingPlan(layout, plan) };
       });
       setCutPlanPreview(results);
     } catch (error) {
       setCutPlanError('Plan nije moguće izračunati: ' + (error?.message || 'provjeri dimenzije i odabrani materijal.'));
     }
+  };
+  const generateExistingOrderPlan = order => {
+    const machine = sawSettings[selectedSaw] || DEFAULT_SAW_SETTINGS[selectedSaw];
+    const reserved = new Map((order.reservedMaterials || []).map(item => [item.materialId, Number(item.quantity || 0)]));
+    const planningStock = materials.map(item => reserved.has(item.id) ? { ...item, quantity: Number(item.quantity || 0) + reserved.get(item.id) } : item);
+    const groups = buildCuttingPlanGroups(order.pieces || [], planningStock.filter(item => ['Ploča','Ostatak'].includes(item.form) && !item.archived && Number(item.quantity || 0) > 0), machine);
+    if (!groups.length) { window.alert('Nije moguće izraditi plan. Provjeri jesu li u nalogu spremljene dimenzije, materijali i debljine.'); return; }
+    try {
+      const results = groups.map(group => {
+        const layout = solve2d({ sheets: [group.sheet], demands: group.demands }, { algorithm: 'auto', guillotine_required: true, seed: 42, min_usable_side: 100 });
+        const plan = plan2dCuts(layout, { preset: 'panel_saw' });
+        return { stockId: group.stock.id, stockName: group.stock.name, stockForm: group.stock.form || 'Ploča', sawName: selectedSaw, kerfMm: machine.kerfMm, trimMm: machine.trimMm, summary: summarizeCuttingPlan(layout, plan) };
+      });
+      const nextOrders = orders.map(item => item.id === order.id ? { ...item, cuttingPlan: createSavedCuttingPlan(results), cuttingPlanUpdatedAt: new Date().toISOString() } : item);
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextOrders));
+      setOrders(nextOrders);
+      setExpanded(order.id);
+    } catch (error) { window.alert('Plan postojećeg naloga nije moguće izračunati: ' + (error?.message || 'provjeri mjere i zalihe.')); }
   };
   const applyRemnantSuggestions = () => {
     const suggestion = suggestRemnantAssignments(pieces, materials, { kerf: 0.4, trim: 1, allowRotation: true });
@@ -300,6 +380,11 @@ export default function WorkOrdersModule({ onBack, openCreate = false, onCreateO
         {expanded === order.id && <div className="workorder-details">
           <div className="workorder-detail-top"><div><strong>Komadi za izradu</strong><p>{order.pieces.length} stavki · naručeno {order.pieces.reduce((n,p) => n + Number(p.quantity || 0),0)} komada · izrađeno {order.pieces.reduce((n,p) => n + Number(p.producedQuantity || 0),0)} · preostalo {order.pieces.reduce((n,p) => n + Math.max(0, Number(p.quantity || 0) - Number(p.producedQuantity || 0)),0)}</p>{order.estimatedMaterialCost != null && <p><strong>Procijenjeni trošak kamena: {money(order.estimatedMaterialCost)}</strong> · {Number(order.materialAreaM2 || 0).toLocaleString('hr-HR', { maximumFractionDigits: 4 })} m² · {Array.isArray(order.materialAllocations) ? order.materialAllocations.map(group => `${group.material}: ${Number(group.areaM2 || 0).toLocaleString('hr-HR')} m²`).join(' · ') : money(order.materialPricePerM2) + ' / m²'}</p>}</div><label>Status naloga<select value={order.status} disabled={order.status === 'Otkazan'} onChange={e => changeStatus(order.id, e.target.value)}>{statuses.map(s => <option key={s}>{s}</option>)}</select></label></div>
           <div className="workorder-pieces-wrap"><table className="workorder-pieces"><thead><tr><th>Opis komada</th><th>Materijal</th><th>Duljina (cm)</th><th>Širina (cm)</th><th>Debljina (cm)</th><th>Naručeno</th><th>Izrađeno</th><th>Preostalo</th></tr></thead><tbody>{order.pieces.map((p,i) => { const produced = Number(p.producedQuantity || 0); const remaining = Math.max(0, Number(p.quantity || 0) - produced); return <tr key={i}><td>{p.name}</td><td>{p.material || materials.find(item => item.id === p.materialId)?.name || order.material || '—'}</td><td>{p.length}</td><td>{p.width}</td><td>{p.thickness}</td><td>{p.quantity}</td><td><strong>{produced}</strong></td><td><span className={remaining === 0 ? "piece-progress-done" : ""}>{remaining}</span></td></tr>; })}</tbody></table></div>
+                    <div className="workorder-cut-plan-actions">
+            <div><strong>{order.cuttingPlan?.materials?.length ? "Plan pilanja spremljen" : "Plan pilanja još nije izrađen"}</strong><small>Dimenzije se preuzimaju iz komada ovog radnog naloga.</small></div>
+            <label>Pila<select value={selectedSaw} onChange={event => setSelectedSaw(event.target.value)}><option>Pila 1</option><option>Pila 2</option></select></label>
+            <button type="button" className="button button-primary" onClick={() => generateExistingOrderPlan(order)}><Scissors size={14}/>{order.cuttingPlan?.materials?.length ? "Ponovno izradi plan" : "Izradi plan iz naloga"}</button>
+          </div>
           {order.note && <p className="workorder-note"><strong>Napomena:</strong> {order.note}</p>}
           <div className="workorder-card-footer"><span><Hammer size={15}/> Sljedeći korak: priprema i evidentiranje pilanja</span>{order.status !== 'Otkazan' ? <button className="button button-danger-light" onClick={() => cancelOrder(order.id)}><Trash2 size={15}/> Otkaži nalog</button> : <span className="muted-icon">Nalog je otkazan · rezervacija je vraćena ako nije bila utrošena</span>}</div>
         </div>}
@@ -310,12 +395,17 @@ export default function WorkOrdersModule({ onBack, openCreate = false, onCreateO
     {showForm && <div className="workorders-modal-backdrop" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget) setShowForm(false); }}><section className="workorders-modal" role="dialog" aria-modal="true" aria-labelledby="workorders-form-title">
       <div className="workorders-modal-head"><div><span className="eyebrow">NOVI PROJEKT</span><h2 id="workorders-form-title">Izradi radni nalog</h2><p>Unesi osnovne podatke i popis komada za pilanje.</p></div><button className="icon-button" onClick={() => setShowForm(false)} aria-label="Zatvori"><X size={20}/></button></div>
       <form onSubmit={createOrder}>
+        <div className="drawing-ai-panel">
+          <div><strong><Upload size={15}/> Učitaj sliku nacrta i prepoznaj dimenzije</strong><p>Odaberi jasnu fotografiju ili sken nacrta (PNG, JPG ili WEBP). AI će predložiti komade i mjere u centimetrima; prije spremanja ih obavezno provjeri.</p></div>
+          <div className="drawing-ai-controls"><input type="file" accept="image/png,image/jpeg,image/webp" onChange={event => setAiFile(event.target.files?.[0] || null)} aria-label="Odaberi sliku nacrta"/><button type="button" className="button button-secondary" disabled={!aiFile || aiLoading} onClick={extractDrawingDimensions}>{aiLoading ? 'AI obrađuje…' : 'Prepoznaj dimenzije'}</button></div>
+          {aiMessage && <p className="drawing-ai-message">{aiMessage}</p>}
+        </div>
         <div className="workorders-form-grid"><label>Kupac *<input value={form.customer} onChange={e => updateForm('customer',e.target.value)} placeholder="Naziv kupca ili tvrtke"/></label><label>Naziv projekta *<input value={form.project} onChange={e => updateForm('project',e.target.value)} placeholder="Npr. kuhinjska ploča"/></label><label>Rok izrade<input type="date" value={form.due} onChange={e => updateForm('due',e.target.value)}/></label><div className="modal-note"><Ruler size={16}/><span>Sustav može rasporediti količinu iste stavke preko više ostataka. Komadi koji ne stanu ostaju na izvornoj ploči. Ostatci se rezerviraju kao cijeli fizički komadi; plan pilanja provjerava stvarni raspored. Površina svih komada: {calculatedAreaM2.toLocaleString('hr-HR', { maximumFractionDigits: 4 })} m².</span></div><div className="modal-note"><Wallet size={16}/><span>{materialGroups.length ? `Procijenjeni nabavni trošak materijala: ${money(calculatedMaterialCost)} (bez procjene za stavke bez unesene nabavne cijene).` : 'Odaberi materijal uz svaku stavku kako bi se izračunala rezervacija i trošak.'}</span></div></div>
         <div className="workorders-piece-head"><div><h3>Popis komada</h3><p>Unesi mjere koje je kupac naručio. Svaka stavka može biti od drugog materijala.</p></div><div className="workorders-actions"><button type="button" className="button button-secondary" onClick={applyRemnantSuggestions} disabled={!pieces.some(piece => piece.materialId && Number(piece.length) > 0 && Number(piece.width) > 0)}><Scissors size={15}/> Automatski rasporedi ostatke</button><button type="button" className="button button-secondary" onClick={() => { setPieces(prev => [...prev, blankPiece()]); setRemnantSuggestion(''); setCutPlanPreview([]); setCutPlanError(''); }}><Plus size={15}/> Dodaj komad</button></div></div>{remnantSuggestion && <div className="modal-note"><Boxes size={16}/><span>{remnantSuggestion} Plan koristi 1 cm rubnog obrezivanja i 0,4 cm širine reza.</span></div>}
-        <div className="cut-plan-actions"><button type="button" className="button button-primary" onClick={generateCutPlan} disabled={!pieces.some(piece => piece.materialId && Number(piece.length) > 0 && Number(piece.width) > 0 && Number(piece.quantity) > 0)}><Scissors size={16}/> Izradi automatski plan pilanja</button><span>Raspored na ploči · širina reza 4 mm · rubno obrezivanje 10 mm po strani</span></div>
+        <div className="cut-plan-actions"><label>Pila za planiranje<select value={selectedSaw} onChange={event => { setSelectedSaw(event.target.value); setCutPlanPreview([]); setCutPlanError(''); }}><option>Pila 1</option><option>Pila 2</option></select></label><button type="button" className="button button-primary" onClick={generateCutPlan} disabled={!pieces.some(piece => piece.materialId && Number(piece.length) > 0 && Number(piece.width) > 0 && Number(piece.quantity) > 0)}><Scissors size={16}/> Izradi automatski plan pilanja</button><span>{selectedSaw} · širina reza {Number(sawSettings[selectedSaw]?.kerfMm ?? 4)} mm · rubno obrezivanje {Number(sawSettings[selectedSaw]?.trimMm ?? 10)} mm po strani</span></div>
         {cutPlanError && <p className="workorders-error">{cutPlanError}</p>}
         {cutPlanPreview.map(result => <section className="cut-plan-preview" key={result.stockId}>
-          <div className="cut-plan-preview-head"><div><strong>{result.stockName}</strong><small>{result.stockForm} · {result.summary.sheetCount} ploča · {result.summary.placedCount} komada raspoređeno</small></div><span>{result.summary.wasteM2.toLocaleString('hr-HR', { maximumFractionDigits: 3 })} m² otpada</span></div>
+          <div className="cut-plan-preview-head"><div><strong>{result.stockName}</strong><small>{result.stockForm} · {result.sawName} · rez {result.kerfMm} mm · obrezivanje {result.trimMm} mm/strana · {result.summary.sheetCount} ploča · {result.summary.placedCount} komada raspoređeno</small></div><span>{result.summary.wasteM2.toLocaleString('hr-HR', { maximumFractionDigits: 3 })} m² otpada</span></div>
           {result.summary.sheets.map((sheet, sheetIndex) => <div className="cut-plan-sheet" key={result.stockId + '-' + sheetIndex}>
             <div className="cut-plan-sheet-head"><strong>Ploča {sheetIndex + 1} · {sheet.sheet_name}</strong><small>{sheet.placements.length} komada · {sheet.plan?.num_cuts ?? '—'} rezova</small></div>
             <svg className="cut-plan-drawing" viewBox={`0 0 ${sheet.width} ${sheet.height}`} role="img" aria-label={`Raspored rezanja na ploči ${sheetIndex + 1}`}>

@@ -1979,3 +1979,68 @@ button:active{transform:translateY(1px)}
 .settings-history-row time{white-space:nowrap}
 @media(max-width:760px){.settings-config-grid{grid-template-columns:1fr}.settings-form-grid{grid-template-columns:1fr}.settings-save-strip{align-items:flex-start;flex-direction:column}.settings-tabs{width:100%}.settings-tabs button{flex:1;justify-content:center}.settings-history-row{align-items:flex-start;flex-direction:column;gap:5px}}
 @media(max-width:480px){.settings-panel{padding:0 14px 16px}.settings-logo-row{align-items:flex-start}.settings-tabs button{padding:9px 8px;font-size:10px}.settings-tabs button svg{display:none}.settings-add-row{align-items:stretch;flex-direction:column}.settings-add-row .button{justify-content:center}}
+
+/* Planer pilanja — potvrda proizvodnje, ostatci i AI nacrti */
+.workorder-cut-plan-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:13px 15px;margin:12px 0;border:1px solid #e5eaf2;border-radius:10px;background:#f8faff}
+.workorder-cut-plan-actions>div{display:flex;flex-direction:column;gap:4px;min-width:180px;flex:1}
+.workorder-cut-plan-actions strong{font-size:11px;color:#344055}
+.workorder-cut-plan-actions small{font-size:9px;color:#8b96a6}
+.workorder-cut-plan-actions label{display:flex;align-items:center;gap:7px;font-size:10px;color:#66748a}
+.workorder-cut-plan-actions select{height:35px;padding:0 9px;border:1px solid #dfe5ee;border-radius:7px;background:#fff;color:#344055;font-size:10px}
+.drawing-ai-panel{display:grid;gap:10px;padding:14px;margin:12px 0;border:1px solid #dfe7f6;border-radius:11px;background:linear-gradient(135deg,#f8faff,#f3f7ff)}
+.drawing-ai-panel>div:first-child strong{display:flex;align-items:center;gap:7px;color:#30466c;font-size:11px}
+.drawing-ai-panel>div:first-child p,.drawing-ai-message{margin:5px 0 0;color:#78869b;font-size:10px;line-height:1.55}
+.drawing-ai-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.drawing-ai-controls input{min-width:180px;flex:1;font-size:10px}
+.drawing-ai-message{padding:8px 10px;border-radius:7px;background:#fff}
+.cut-confirmation-panel{display:grid;gap:10px;margin:12px 0;padding:12px;border:1px solid #e3eaf3;border-radius:10px;background:#f9fbfe}
+.cut-confirmation-success{display:grid;gap:6px;color:#187a5b;font-size:10px}
+.cut-confirmation-success strong{display:flex;align-items:center;gap:6px}
+.cut-confirmation-success span,.cut-confirmation-success li{font-size:10px;color:#64748b}
+.cut-confirmation-success ul{margin:4px 0 0;padding-left:18px;display:grid;gap:4px}
+.cut-confirmation-form{display:grid;gap:10px;padding-top:10px;border-top:1px solid #e6ebf3}
+.cut-confirmation-form>strong{font-size:11px;color:#344055}
+.cut-confirmation-form>p{margin:0;color:#7f8a9b;font-size:10px;line-height:1.5}
+.cut-remnant-input-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) auto;gap:8px;align-items:end}
+.cut-remnant-input-row label{display:grid;gap:5px;color:#66748a;font-size:9px}
+.cut-remnant-input-row input{width:100%;height:36px;padding:0 9px;border:1px solid #dfe5ee;border-radius:7px;font-size:10px}
+.cut-confirmation-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.cut-confirmation-actions .button{height:35px}
+.production-saw-plan-note{font-size:10px;color:#748198;line-height:1.5}
+@media(max-width:700px){.cut-remnant-input-row{grid-template-columns:1fr 1fr}.cut-remnant-input-row label:last-of-type{grid-column:1/-1}.workorder-cut-plan-actions{align-items:stretch}.workorder-cut-plan-actions .button{width:100%}.drawing-ai-controls{align-items:stretch;flex-direction:column}.drawing-ai-controls .button{width:100%}}
+
+/* Zajednička D1 pohrana */
+.shared-storage-panel{display:grid;gap:15px}
+.shared-storage-status{display:flex;align-items:center;gap:11px;padding:13px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc}
+.shared-storage-status>div{display:grid;gap:4px}
+.shared-storage-status strong{font-size:11px;color:#344055}
+.shared-storage-status small{font-size:9px;color:#8490a1}
+.shared-status-dot{width:10px;height:10px;flex:0 0 10px;border-radius:50%;background:#cbd5e1}
+.shared-status-dot.connected{background:#16a36d;box-shadow:0 0 0 4px #16a36d20}
+.shared-storage-actions{display:flex;gap:8px;flex-wrap:wrap}
+.shared-company-bootstrap,.shared-storage-choice{display:grid;gap:10px;padding:14px;border:1px solid #e2e8f0;border-radius:10px;background:#fbfcfe}
+.shared-company-bootstrap strong{font-size:11px;color:#344055}
+.shared-company-bootstrap p,.shared-storage-choice p{margin:0;color:#78869b;font-size:10px;line-height:1.55}
+.shared-company-bootstrap label{display:grid;gap:6px;color:#66748a;font-size:10px}
+.shared-company-bootstrap input{height:38px;padding:0 10px;border:1px solid #dfe5ee;border-radius:7px}
+.shared-storage-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.shared-storage-metrics>div{display:grid;gap:5px;padding:12px;border:1px solid #e5eaf1;border-radius:9px;background:#fff;min-width:0}
+.shared-storage-metrics small{color:#8a96a7;font-size:9px}
+.shared-storage-metrics strong{color:#344055;font-size:11px;overflow-wrap:anywhere}
+.shared-sync-state{margin:0;color:#748198;font-size:10px}
+@media(max-width:650px){.shared-storage-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.shared-storage-actions .button{flex:1}}
+
+.shared-members-panel{display:grid;gap:12px;padding:14px;border:1px solid #e2e8f0;border-radius:10px;background:#fbfcfe}
+.shared-members-panel>div:first-child strong{font-size:11px;color:#344055}
+.shared-members-panel>div:first-child p{margin:5px 0 0;color:#78869b;font-size:10px;line-height:1.55}
+.shared-member-invite{display:grid;grid-template-columns:1.2fr 1fr .8fr auto;gap:8px;align-items:end}
+.shared-member-invite label{display:grid;gap:5px;color:#66748a;font-size:9px}
+.shared-member-invite input,.shared-member-invite select{height:36px;width:100%;padding:0 9px;border:1px solid #dfe5ee;border-radius:7px;font-size:10px;background:#fff}
+.shared-members-list{display:grid;gap:7px}
+.shared-member-row{display:flex;align-items:center;gap:10px;padding:9px 10px;border:1px solid #e8edf4;border-radius:8px;background:#fff}
+.shared-member-row>div{display:grid;gap:3px;min-width:0;flex:1}
+.shared-member-row strong{font-size:10px;color:#344055;overflow-wrap:anywhere}
+.shared-member-row small{font-size:9px;color:#8792a3;overflow-wrap:anywhere}
+.shared-member-active,.shared-member-inactive{font-size:9px;white-space:nowrap;color:#16815c}
+.shared-member-inactive{color:#a16a22}
+@media(max-width:760px){.shared-member-invite{grid-template-columns:1fr 1fr}.shared-member-invite .button{grid-column:1/-1}.shared-member-row{flex-wrap:wrap}.shared-member-row>div{flex-basis:100%}}

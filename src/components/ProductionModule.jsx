@@ -23,6 +23,8 @@ import {
   calculatePieceProgress as unitProgress
 } from '../lib/production.js';
 import { getSavedCuttingPlan } from '../lib/cuttingPlan.js';
+import { prepareCutConfirmation } from '../lib/cutConfirmation.js';
+import { commitInventoryTransaction } from '../lib/inventoryLedger.js';
 
 const ORDERS_KEY = 'kamen-app-work-orders-v1';
 const MATERIALS_KEY = 'kamen-app-materials-v1';
@@ -83,6 +85,9 @@ export default function ProductionModule({ onBack, onCreateProject }) {
   const [newWorker, setNewWorker] = useState('');
   const [clockNow, setClockNow] = useState(Date.now());
   const [sawAssignments, setSawAssignments] = useState(() => readJson('kamen-app-saw-assignments-v1', {}));
+  const [cutConfirmationDraft, setCutConfirmationDraft] = useState(null);
+  const [cutConfirmationError, setCutConfirmationError] = useState('');
+  const [cutConfirmationMessage, setCutConfirmationMessage] = useState('');
   useEffect(() => {
     try { window.localStorage.setItem('kamen-app-saw-assignments-v1', JSON.stringify(sawAssignments)); }
     catch { /* Browser storage may be unavailable. */ }
@@ -132,6 +137,86 @@ export default function ProductionModule({ onBack, onCreateProject }) {
       : (next.history || previous.history || []);
     return { ...unit, stages: { ...unit.stages, [stageName]: { ...next, history } } };
   });
+
+  const openCutConfirmation = (order, materialId) => {
+    setCutConfirmationError('');
+    setCutConfirmationMessage('');
+    setCutConfirmationDraft({ orderId: order.id, materialId, remnants: [{ length: '', width: '', note: '' }] });
+  };
+  const updateCutRemnant = (index, field, value) => setCutConfirmationDraft(current => ({
+    ...current,
+    remnants: current.remnants.map((item, itemIndex) => itemIndex === index ? { ...item, [field]: value } : item)
+  }));
+  const confirmCut = () => {
+    if (!cutConfirmationDraft) return;
+    const order = orders.find(item => item.id === cutConfirmationDraft.orderId);
+    if (!order) { setCutConfirmationError('Radni nalog više nije dostupan.'); return; }
+    const materialPlan = order.cuttingPlan?.materials?.find(item => item.stockId === cutConfirmationDraft.materialId);
+    const plannedSaw = materialPlan?.sawName || 'Pila 1';
+    const orderUnits = rowsWithRecords.filter(row => row.order.id === order.id && row.piece.materialId === cutConfirmationDraft.materialId);
+    const missingWorker = orderUnits.find(row => !['Završeno','Nije potrebno'].includes(row.record.stages?.['Pilanje']?.status) && !String(row.record.stages?.['Pilanje']?.assignedTo || '').trim());
+    if (missingWorker) { setCutConfirmationError('Prije potvrde pilanja upiši odgovornog radnika za svaki komad.'); return; }
+    const now = new Date().toISOString();
+    const operationId = 'CUT-' + order.id + '-' + cutConfirmationDraft.materialId + '-' + Date.now();
+    const prepared = prepareCutConfirmation({
+      order,
+      materials,
+      materialId: cutConfirmationDraft.materialId,
+      remnants: cutConfirmationDraft.remnants.filter(item => String(item.length).trim() || String(item.width).trim()),
+      operationId,
+      actor: orderUnits.map(row => row.record.stages?.['Pilanje']?.assignedTo).filter(Boolean)[0] || 'Radionica',
+      date: now
+    });
+    if (prepared.error) { setCutConfirmationError(prepared.error); return; }
+    const nextOrders = orders.map(item => item.id === order.id ? prepared.order : item);
+    const nextRecords = { ...records, version: 3, pieces: { ...(records.pieces || {}) } };
+    orderUnits.forEach(row => {
+      const previous = nextRecords.pieces[row.key] || blankUnit();
+      const previousStage = previous.stages?.['Pilanje'] || blankStage();
+      if (['Završeno','Nije potrebno'].includes(previousStage.status)) return;
+      const startedAt = previousStage.startedAt || now;
+      const activeStage = {
+        ...previousStage,
+        status: 'U tijeku',
+        workCenter: plannedSaw,
+        assignedTo: previousStage.assignedTo,
+        startedAt,
+        sessions: previousStage.sessions?.length ? previousStage.sessions : [{ startedAt, endedAt: now }]
+      };
+      const finished = finishProductionStage(activeStage, now);
+      nextRecords.pieces[row.key] = {
+        ...previous,
+        stages: {
+          ...(previous.stages || {}),
+          'Pilanje': {
+            ...finished,
+            history: [...(previousStage.history || []), { from: previousStage.status, to: 'Završeno', at: now, reason: 'Fizičko pilanje potvrđeno i proknjiženo u skladištu' }]
+          }
+        },
+        updatedAt: now
+      };
+    });
+    try {
+      const committed = commitInventoryTransaction(window.localStorage, {
+        operationId,
+        writes: [
+          { key: ORDERS_KEY, value: nextOrders },
+          { key: MATERIALS_KEY, value: prepared.materials },
+          { key: PRODUCTION_KEY, value: nextRecords }
+        ],
+        movements: prepared.movements
+      });
+      if (committed.duplicate) { setCutConfirmationError('Ova je operacija već proknjižena. Osvježi prikaz.'); return; }
+    } catch (error) {
+      setCutConfirmationError(error?.message || 'Pilanje nije potvrđeno. Skladište nije promijenjeno.');
+      return;
+    }
+    setOrders(nextOrders);
+    setMaterials(prepared.materials);
+    setRecords(nextRecords);
+    setCutConfirmationMessage('Pilanje je potvrđeno. Utrošak ploče i nastali ostatci evidentirani su u skladištu.');
+    setCutConfirmationDraft(null);
+  };
 
   const startStage = (key, stageName) => {
     const unit = records.pieces?.[key] || blankUnit();
@@ -654,11 +739,12 @@ export default function ProductionModule({ onBack, onCreateProject }) {
         </details>
         <small className="production-saw-footnote">Razlika se računa samo za komade koji imaju i valjan planirani početak/završetak i barem jedan evidentirani radni interval. „Stvarno” zbraja aktivne i završene intervale, ne vrijeme zastoja. Prikaz je informativan i ne mijenja radne naloge.</small>
       </section>
+      {cutConfirmationMessage && <div className="module-notice backup-message">{cutConfirmationMessage}</div>}
       <section className="production-saw-board">
         <div className="production-saw-board-heading"><div><span className="eyebrow">RADNA PLOČA · PILANJE</span><h3>Dvije mostne pile</h3><p>Poslovi se preuzimaju iz radnih naloga. Odaberi pilu, a nakon fizičkog rezanja potvrdi završetak.</p></div><span className="production-saw-count">{rowsWithRecords.filter(row => !['Završeno','Nije potrebno'].includes(row.record.stages?.['Pilanje']?.status)).length} za pilanje</span></div>
         <div className="production-saw-columns">
           {[1,2].map(machine => {
-            const machineRows = rowsWithRecords.filter(row => workerHasTask(row, ['Pilanje']) && !['Završeno','Nije potrebno'].includes(row.record.stages?.['Pilanje']?.status) && (row.record.stages?.['Pilanje']?.workCenter || ((sawAssignments[row.key] || '1') === '2' ? 'Pila 2' : 'Pila 1')) === 'Pila ' + machine);
+            const machineRows = rowsWithRecords.filter(row => workerHasTask(row, ['Pilanje']) && !['Završeno','Nije potrebno'].includes(row.record.stages?.['Pilanje']?.status) && (row.record.stages?.['Pilanje']?.workCenter || ((sawAssignments[row.key] || (getSavedCuttingPlan(row.order)?.materials?.find(item => item.stockId === row.piece.materialId)?.sawName === 'Pila 2' ? '2' : '1')) === '2' ? 'Pila 2' : 'Pila 1')) === 'Pila ' + machine);
             return <section className="production-saw-lane" key={machine}>
               <h4><Factory size={16}/> Pila {machine}<small>{machineRows.length} poslova</small></h4>
               {machineRows.length ? machineRows.map(row => {
@@ -668,7 +754,7 @@ export default function ProductionModule({ onBack, onCreateProject }) {
                   <span>{row.material} · {row.piece.length} × {row.piece.width} × {row.piece.thickness} cm</span>
                   <div className="production-saw-job-actions">
                     <select aria-label={'Odaberi pilu za ' + row.label} value={stage.workCenter || ((sawAssignments[row.key] || '1') === '2' ? 'Pila 2' : 'Pila 1')} onChange={event => { const value = event.target.value; setSawAssignments(current => ({...current,[row.key]:value === 'Pila 2' ? '2' : '1'})); updateStage(row.key, 'Pilanje', previous => ({...previous,workCenter:value})); }}><option value="Pila 1">Pila 1</option><option value="Pila 2">Pila 2</option></select><input list="production-worker-list" aria-label={'Odgovorni radnik za pilanje ' + row.label} value={stage.assignedTo || ''} onChange={event => setStageWorker(row.key, 'Pilanje', event.target.value)} placeholder="Radnik"/>
-                    {stage.status === 'U tijeku' ? <><button type="button" className="button button-warning" onClick={() => stopStage(row.key, 'Pilanje')}><Pause size={14}/> Zastoj</button><button type="button" className="button button-success" onClick={() => finishStage(row.key, 'Pilanje')}><Check size={14}/> Gotovo</button></> : <button type="button" className="button button-primary" disabled={['Završeno','Nije potrebno'].includes(stage.status)} onClick={() => startStage(row.key, 'Pilanje')}><Play size={14}/> Pokreni</button>}
+                    {stage.status === 'U tijeku' ? <><button type="button" className="button button-warning" onClick={() => stopStage(row.key, 'Pilanje')}><Pause size={14}/> Zastoj</button><button type="button" className="button button-success" onClick={() => openCutConfirmation(row.order, row.piece.materialId)}><Check size={14}/> Potvrdi pilanje</button></> : <button type="button" className="button button-primary" disabled={['Završeno','Nije potrebno'].includes(stage.status)} onClick={() => startStage(row.key, 'Pilanje')}><Play size={14}/> Pokreni</button>}
                   </div>
                   {stage.status === 'U tijeku' && <small>U tijeku · {stage.assignedTo || 'Radnik nije naveden'}</small>}
                   {stage.plannedEnd && new Date(stage.plannedEnd).getTime() < clockNow && !['Završeno','Nije potrebno'].includes(stage.status) && <small className="production-overdue-flag"><AlertTriangle size={13}/> Rok je prošao</small>}
@@ -678,7 +764,7 @@ export default function ProductionModule({ onBack, onCreateProject }) {
                 const savedPlan = getSavedCuttingPlan(order);
                 if (!savedPlan) return null;
                 const orderRows = rowsWithRecords.filter(row => row.order.id === order.id);
-                const allOnThisSaw = orderRows.length > 0 && orderRows.every(row => (sawAssignments[row.key] || '1') === String(machine));
+                const allOnThisSaw = orderRows.length > 0 && orderRows.every(row => (row.record.stages?.['Pilanje']?.workCenter || ((sawAssignments[row.key] || (getSavedCuttingPlan(order)?.materials?.find(item => item.stockId === row.piece.materialId)?.sawName === 'Pila 2' ? '2' : '1')) === '2' ? 'Pila 2' : 'Pila 1')) === 'Pila ' + machine);
                 return <details className="production-saw-cut-plan" key={order.id}>
                   <summary><Scissors size={15}/> Plan pilanja · {order.id}</summary>
                   {!allOnThisSaw ? <p className="cut-plan-warning">Komadi ovog naloga raspoređeni su na obje pile. Cjeloviti plan nije prikazan kako ne bi došlo do dvostrukog ili pogrešnog rezanja. Rasporedi sve komade na jednu pilu prije korištenja plana.</p> : <>
@@ -686,6 +772,31 @@ export default function ProductionModule({ onBack, onCreateProject }) {
                     {savedPlan.materials.map(material => <section className="cut-plan-sheet-group" key={material.stockId}>
                       <strong>{material.stockName} · {material.stockForm}</strong>
                       <small>{material.summary.sheetCount} ploča · {material.summary.placedCount} komada raspoređeno · {Number(material.summary.wasteM2 || 0).toLocaleString('hr-HR', { maximumFractionDigits: 3 })} m² otpada</small>
+                      {(() => {
+                        const confirmation = order.cuttingConfirmations?.find(item => item.materialId === material.stockId);
+                        const isDraft = cutConfirmationDraft?.orderId === order.id && cutConfirmationDraft?.materialId === material.stockId;
+                        return <div className="cut-confirmation-panel">
+                          {confirmation ? <div className="cut-confirmation-success"><strong><CheckCircle2 size={15}/> Pilanje potvrđeno</strong><span>{formatDate(confirmation.confirmedAt)} · {confirmation.usedSheets} ploča · otpad {Number(confirmation.wasteM2 || 0).toLocaleString('hr-HR', { maximumFractionDigits: 3 })} m²</span>
+                            {confirmation.returnedRemnants?.length > 0 && <ul>{confirmation.returnedRemnants.map(item => <li key={item.id}>{item.name}: {item.length} × {item.width} × {item.thickness} cm</li>)}</ul>}
+                          </div> : <button type="button" className="button button-success" disabled={(material.summary.unplaced || []).length > 0} onClick={() => openCutConfirmation(order, material.stockId)}><Check size={14}/> Potvrdi stvarno pilanje i skladište</button>}
+                          {isDraft && <div className="cut-confirmation-form">
+                            <strong>Upiši izmjerene uporabne ostatke</strong>
+                            <p>Unesi samo ostatke koje si fizički izmjerio nakon rezanja. Ako nema uporabnog ostatka, ostavi polja prazna.</p>
+                            {cutConfirmationDraft.remnants.map((item,index) => <div className="cut-remnant-input-row" key={index}>
+                              <label>Duljina ostatka (cm)<input type="number" min="20" step="0.1" value={item.length} onChange={event => updateCutRemnant(index,'length',event.target.value)} placeholder="npr. 145"/></label>
+                              <label>Širina ostatka (cm)<input type="number" min="20" step="0.1" value={item.width} onChange={event => updateCutRemnant(index,'width',event.target.value)} placeholder="npr. 42"/></label>
+                              <label>Napomena<input value={item.note} onChange={event => updateCutRemnant(index,'note',event.target.value)} placeholder="lokacija / oznaka"/></label>
+                              {cutConfirmationDraft.remnants.length > 1 && <button type="button" className="button button-secondary" onClick={() => setCutConfirmationDraft(current => ({...current,remnants:current.remnants.filter((_,i)=>i!==index)}))}>Ukloni</button>}
+                            </div>)}
+                            <div className="cut-confirmation-actions">
+                              <button type="button" className="button button-secondary" onClick={() => setCutConfirmationDraft(current => ({...current,remnants:[...current.remnants,{length:'',width:'',note:''}]}))}>+ Dodaj ostatak</button>
+                              <button type="button" className="button button-secondary" onClick={() => setCutConfirmationDraft(null)}>Odustani</button>
+                              <button type="button" className="button button-primary" onClick={confirmCut}>Potvrdi i proknjiži</button>
+                            </div>
+                            {cutConfirmationError && <p className="cut-plan-warning">{cutConfirmationError}</p>}
+                          </div>}
+                        </div>;
+                      })()}
                       {material.summary.sheets.map((sheet, sheetIndex) => <div className="cut-plan-sheet" key={material.stockId + '-' + sheetIndex}>
                         <div className="cut-plan-sheet-head"><strong>Ploča {sheetIndex + 1} · {sheet.sheet_name}</strong><small>{(sheet.placements || []).length} komada · {sheet.plan?.num_cuts ?? '—'} rezova</small></div>
                         <svg className="cut-plan-drawing" viewBox={`0 0 ${sheet.width} ${sheet.height}`} role="img" aria-label={`Spremljeni raspored rezanja ploče ${sheetIndex + 1}`}>

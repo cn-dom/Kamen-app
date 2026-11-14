@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   Activity, AlertTriangle, ArrowDownRight, ArrowRight, ArrowUpRight,
@@ -21,8 +21,10 @@ import ToolsModule from './components/ToolsModule.jsx';
 import ScheduleModule from './components/ScheduleModule.jsx';
 import DocumentsModule from './components/DocumentsModule.jsx';
 import NotificationsModule from './components/NotificationsModule.jsx';
+import SettingsModule from './components/SettingsModule.jsx';
 import { buildProductionUnits, PRODUCTION_STAGES } from './lib/production.js';
 import { analyzeWorkshopCapacity } from './lib/workshopMonitor.js';
+import { initializeRemoteSync, isRemoteSyncEnabled } from './lib/remoteStorageSync.js';
 
 const initialOrders = [];
 const nav = [
@@ -49,6 +51,17 @@ const nav = [
 const money = n => new Intl.NumberFormat('hr-HR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n);
 
 function App(){
+  useEffect(() => {
+    if (!isRemoteSyncEnabled()) return;
+    const refreshAfterRemoteUpdate = () => window.location.reload();
+    window.addEventListener('kamen-app-remote-data-updated', refreshAfterRemoteUpdate);
+    initializeRemoteSync().then(result => {
+      if (result.downloaded > 0) window.location.reload();
+    }).catch(error => {
+      console.warn('Kamen-app shared storage is not connected:', error?.message || error);
+    });
+    return () => window.removeEventListener('kamen-app-remote-data-updated', refreshAfterRemoteUpdate);
+  }, []);
   const [orders,setOrders] = useState(()=>{try{const saved=window.localStorage.getItem('kamen-app-work-orders-v1');return saved?JSON.parse(saved):initialOrders}catch{return initialOrders}});
   const [activeNav,setActiveNav] = useState('Pregled');
   const [query,setQuery] = useState('');
@@ -142,7 +155,7 @@ function App(){
           <article className="panel quick-panel"><div className="panel-heading"><div><h2>Brze radnje</h2><p>Najčešći zadaci na jednom mjestu.</p></div><Command size={18} className="muted-icon"/></div><div className="quick-actions"><button onClick={openDetailedWorkOrder}><span className="quick-icon blue-icon"><Plus size={18}/></span><span><strong>Novi radni nalog</strong><small>Dodaj projekt u evidenciju</small></span><ChevronRight size={17}/></button><button onClick={()=>setActiveNav('Skladište')}><span className="quick-icon green-icon"><Package size={18}/></span><span><strong>Zaprimanje materijala</strong><small>Otvori skladište i dodaj novu zalihu</small></span><ChevronRight size={17}/></button><button onClick={()=>setActiveNav('Terenski rad')}><span className="quick-icon violet-icon"><Truck size={18}/></span><span><strong>Terenski nalog</strong><small>Pripremi montažu</small></span><ChevronRight size={17}/></button></div></article>
         </section>
         <footer className="footer"><span>© 2026 Kamen-app</span><span><ShieldCheck size={14}/> Poslovni podaci moraju ostati privatni</span><span>Verzija 0.2 · Evidencija poslovanja</span></footer>
-      </div> : activeNav === 'Pametni nadzor' ? <OperationsMonitorModule onBack={()=>setActiveNav('Pregled')} /> : activeNav === 'Terenski rad' ? <FieldWorkModule onBack={()=>setActiveNav('Pregled')} /> : activeNav === 'Proizvodnja' ? <ProductionModule onBack={()=>setActiveNav('Pregled')} onCreateProject={()=>{setOpenWorkOrderOnEnter(true);setActiveNav('Radni nalozi')}} /> : activeNav === 'Korisnici i ovlasti' ? <AccessControlModule onBack={()=>setActiveNav('Pregled')} /> : activeNav === 'Alati i oprema' ? <ToolsModule onBack={()=>setActiveNav('Pregled')} /> : activeNav === 'Raspored' ? <ScheduleModule onBack={()=>setActiveNav('Pregled')} /> : activeNav === 'Dokumenti' ? <DocumentsModule onBack={()=>setActiveNav('Pregled')} /> : activeNav === 'Obavijesti' ? <NotificationsModule onBack={()=>setActiveNav('Pregled')} onNavigate={(destination)=>{setActiveNav(destination);setMobileNav(false)}} /> : <ModulePlaceholder name={activeNav} openCreate={openWorkOrderOnEnter} onCreateOpened={()=>setOpenWorkOrderOnEnter(false)} initialTab={openLowStockOnEnter?'Niske zalihe':undefined} onBack={()=>{setOpenLowStockOnEnter(false);try{setOrders(JSON.parse(window.localStorage.getItem('kamen-app-work-orders-v1')||'[]'));setInventory(JSON.parse(window.localStorage.getItem('kamen-app-materials-v1')||'[]'));setMachines(JSON.parse(window.localStorage.getItem('kamen-app-equipment-register-v1')||'[]'));}catch{}setActiveNav('Pregled')}} />}
+      </div> : activeNav === 'Pametni nadzor' ? <OperationsMonitorModule onBack={()=>setActiveNav('Pregled')} /> : activeNav === 'Terenski rad' ? <FieldWorkModule onBack={()=>setActiveNav('Pregled')} /> : activeNav === 'Proizvodnja' ? <ProductionModule onBack={()=>setActiveNav('Pregled')} onCreateProject={()=>{setOpenWorkOrderOnEnter(true);setActiveNav('Radni nalozi')}} /> : activeNav === 'Korisnici i ovlasti' ? <SettingsModule onBack={()=>setActiveNav('Pregled')} initialTab="sync" /> : activeNav === 'Alati i oprema' ? <ToolsModule onBack={()=>setActiveNav('Pregled')} /> : activeNav === 'Raspored' ? <ScheduleModule onBack={()=>setActiveNav('Pregled')} /> : activeNav === 'Dokumenti' ? <DocumentsModule onBack={()=>setActiveNav('Pregled')} /> : activeNav === 'Obavijesti' ? <NotificationsModule onBack={()=>setActiveNav('Pregled')} onNavigate={(destination)=>{setActiveNav(destination);setMobileNav(false)}} /> : activeNav === 'Postavke' ? <SettingsModule onBack={()=>setActiveNav('Pregled')} /> : <ModulePlaceholder name={activeNav} openCreate={openWorkOrderOnEnter} onCreateOpened={()=>setOpenWorkOrderOnEnter(false)} initialTab={openLowStockOnEnter?'Niske zalihe':undefined} onBack={()=>{setOpenLowStockOnEnter(false);try{setOrders(JSON.parse(window.localStorage.getItem('kamen-app-work-orders-v1')||'[]'));setInventory(JSON.parse(window.localStorage.getItem('kamen-app-materials-v1')||'[]'));setMachines(JSON.parse(window.localStorage.getItem('kamen-app-equipment-register-v1')||'[]'));}catch{}setActiveNav('Pregled')}} />}
     </main>
     {toast&&<div className="toast"><CheckCircle2 size={18}/>{toast}<button onClick={()=>setToast('')} aria-label="Zatvori poruku"><X size={15}/></button></div>}
   </div>
