@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ClipboardList, Plus, Search, X, CalendarDays, UserRound, Ruler, ChevronDown, CheckCircle2, Clock3, Hammer, Trash2, Wallet, Scissors, Boxes } from 'lucide-react';
+import { ClipboardList, Plus, Search, X, CalendarDays, UserRound, Ruler, ChevronDown, CheckCircle2, Clock3, Hammer, Trash2, Wallet, Scissors, Boxes, Upload } from 'lucide-react';
 import { isProductionOrderComplete } from '../lib/production.js';
 import { calculateMaterialReservation } from '../lib/materialStock.js';
 import { releaseOrderReservations } from '../lib/workOrderStock.js';
@@ -51,6 +51,9 @@ export default function WorkOrdersModule({ onBack, openCreate = false, onCreateO
   const [cutPlanError, setCutPlanError] = useState('');
   const [selectedSaw, setSelectedSaw] = useState('Pila 1');
   const [sawSettings] = useState(readSawSettings);
+  const [aiFile, setAiFile] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiMessage, setAiMessage] = useState('');
   const [createOperationId, setCreateOperationId] = useState(() => 'RN-CREATE-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8));
   useEffect(() => { try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(orders)); } catch { /* Browser storage may be disabled or full. */ } }, [orders]);
   useEffect(() => {
@@ -75,6 +78,51 @@ export default function WorkOrdersModule({ onBack, openCreate = false, onCreateO
       if (['materialId', 'length', 'width', 'thickness', 'quantity'].includes(key)) delete next.remnantBoardKeys;
       return next;
     }));
+  };
+  const extractDrawingDimensions = async () => {
+    if (!aiFile) { setAiMessage('Najprije odaberi sliku nacrta.'); return; }
+    if (!/^image\/(png|jpeg|webp)$/.test(aiFile.type)) { setAiMessage('Podržani su PNG, JPG i WEBP nacrti. PDF podrška zahtijeva zasebnu obradu stranica.'); return; }
+    setAiLoading(true);
+    setAiMessage('AI čita nacrt i predlaže dimenzije. Sve vrijednosti treba provjeriti prije izrade naloga.');
+    try {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(new Error('Datoteku nije moguće pročitati.'));
+        reader.readAsDataURL(aiFile);
+      });
+      const imageBase64 = dataUrl.split(',')[1] || '';
+      const apiBase = import.meta.env.VITE_KAMEN_API_URL || 'https://kamen-app-api-staging.patriasoul.workers.dev';
+      const response = await fetch(apiBase + '/api/ai/extract-dimensions', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ imageBase64, fileName: aiFile.name, contentType: aiFile.type })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || 'AI obrada nije uspjela (HTTP ' + response.status + ').');
+      const defaultMaterialId = pieces.find(piece => piece.materialId)?.materialId || '';
+      const defaultStock = plateMaterials.find(item => item.id === defaultMaterialId);
+      const recognized = (payload.pieces || []).filter(item => Number(item.lengthMm) > 0 && Number(item.widthMm) > 0).map(item => ({
+        name: item.name || 'Prepoznati komad',
+        materialId: defaultMaterialId,
+        length: String(Math.round(Number(item.lengthMm) / 10 * 10) / 10),
+        width: String(Math.round(Number(item.widthMm) / 10 * 10) / 10),
+        thickness: item.thicknessMm > 0 ? String(Math.round(Number(item.thicknessMm) / 10 * 10) / 10) : (defaultStock?.thickness ? String(defaultStock.thickness) : ''),
+        quantity: String(Number.isInteger(Number(item.quantity)) && Number(item.quantity) > 0 ? Number(item.quantity) : 1),
+        aiConfidence: item.confidence,
+        aiSourceText: item.sourceText
+      }));
+      if (!recognized.length) throw new Error('Nije pronađena nijedna dimenzija koju se može sigurno unijeti. Provjeri oštrinu i oznake na nacrtu.');
+      setPieces(recognized);
+      setCutPlanPreview([]);
+      setCutPlanError('');
+      setAiMessage('Prepoznato ' + recognized.length + ' stavki. Provjeri sve mjere, debljinu i materijal prije spremanja naloga.' + ((payload.notes || []).length ? ' Napomene: ' + payload.notes.join(' · ') : ''));
+    } catch (error) {
+      setAiMessage(error?.message || 'AI prepoznavanje nije uspjelo.');
+    } finally {
+      setAiLoading(false);
+    }
   };
   const generateCutPlan = () => {
     setCutPlanError('');
@@ -322,6 +370,11 @@ export default function WorkOrdersModule({ onBack, openCreate = false, onCreateO
     {showForm && <div className="workorders-modal-backdrop" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget) setShowForm(false); }}><section className="workorders-modal" role="dialog" aria-modal="true" aria-labelledby="workorders-form-title">
       <div className="workorders-modal-head"><div><span className="eyebrow">NOVI PROJEKT</span><h2 id="workorders-form-title">Izradi radni nalog</h2><p>Unesi osnovne podatke i popis komada za pilanje.</p></div><button className="icon-button" onClick={() => setShowForm(false)} aria-label="Zatvori"><X size={20}/></button></div>
       <form onSubmit={createOrder}>
+        <div className="drawing-ai-panel">
+          <div><strong><Upload size={15}/> Učitaj nacrt i prepoznaj dimenzije</strong><p>Odaberi jasnu fotografiju ili sken nacrta. AI će predložiti komade i mjere u centimetrima; prije spremanja ih obavezno provjeri.</p></div>
+          <div className="drawing-ai-controls"><input type="file" accept="image/png,image/jpeg,image/webp" onChange={event => setAiFile(event.target.files?.[0] || null)} aria-label="Odaberi sliku nacrta"/><button type="button" className="button button-secondary" disabled={!aiFile || aiLoading} onClick={extractDrawingDimensions}>{aiLoading ? 'AI obrađuje…' : 'Prepoznaj dimenzije'}</button></div>
+          {aiMessage && <p className="drawing-ai-message">{aiMessage}</p>}
+        </div>
         <div className="workorders-form-grid"><label>Kupac *<input value={form.customer} onChange={e => updateForm('customer',e.target.value)} placeholder="Naziv kupca ili tvrtke"/></label><label>Naziv projekta *<input value={form.project} onChange={e => updateForm('project',e.target.value)} placeholder="Npr. kuhinjska ploča"/></label><label>Rok izrade<input type="date" value={form.due} onChange={e => updateForm('due',e.target.value)}/></label><div className="modal-note"><Ruler size={16}/><span>Sustav može rasporediti količinu iste stavke preko više ostataka. Komadi koji ne stanu ostaju na izvornoj ploči. Ostatci se rezerviraju kao cijeli fizički komadi; plan pilanja provjerava stvarni raspored. Površina svih komada: {calculatedAreaM2.toLocaleString('hr-HR', { maximumFractionDigits: 4 })} m².</span></div><div className="modal-note"><Wallet size={16}/><span>{materialGroups.length ? `Procijenjeni nabavni trošak materijala: ${money(calculatedMaterialCost)} (bez procjene za stavke bez unesene nabavne cijene).` : 'Odaberi materijal uz svaku stavku kako bi se izračunala rezervacija i trošak.'}</span></div></div>
         <div className="workorders-piece-head"><div><h3>Popis komada</h3><p>Unesi mjere koje je kupac naručio. Svaka stavka može biti od drugog materijala.</p></div><div className="workorders-actions"><button type="button" className="button button-secondary" onClick={applyRemnantSuggestions} disabled={!pieces.some(piece => piece.materialId && Number(piece.length) > 0 && Number(piece.width) > 0)}><Scissors size={15}/> Automatski rasporedi ostatke</button><button type="button" className="button button-secondary" onClick={() => { setPieces(prev => [...prev, blankPiece()]); setRemnantSuggestion(''); setCutPlanPreview([]); setCutPlanError(''); }}><Plus size={15}/> Dodaj komad</button></div></div>{remnantSuggestion && <div className="modal-note"><Boxes size={16}/><span>{remnantSuggestion} Plan koristi 1 cm rubnog obrezivanja i 0,4 cm širine reza.</span></div>}
         <div className="cut-plan-actions"><label>Pila za planiranje<select value={selectedSaw} onChange={event => { setSelectedSaw(event.target.value); setCutPlanPreview([]); setCutPlanError(''); }}><option>Pila 1</option><option>Pila 2</option></select></label><button type="button" className="button button-primary" onClick={generateCutPlan} disabled={!pieces.some(piece => piece.materialId && Number(piece.length) > 0 && Number(piece.width) > 0 && Number(piece.quantity) > 0)}><Scissors size={16}/> Izradi automatski plan pilanja</button><span>{selectedSaw} · širina reza {Number(sawSettings[selectedSaw]?.kerfMm ?? 4)} mm · rubno obrezivanje {Number(sawSettings[selectedSaw]?.trimMm ?? 10)} mm po strani</span></div>
