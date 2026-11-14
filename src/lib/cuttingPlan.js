@@ -22,7 +22,10 @@ export function buildCuttingPlanGroups(pieces = [], materials = []) {
           height: stockWidth - 20,
           kerf: 4,
           cost: 0,
-          ...(stock.form === 'Ostatak' ? { quantity: Math.max(0, Math.floor(Number(stock.quantity) || 0)) } : {})
+          // The optimizer needs a count of physical boards, not just one
+          // representative board. Fractional stock remains represented by
+          // separately registered remnants; it must not become a whole slab.
+          quantity: Math.max(0, Math.floor(Number(stock.quantity) || 0))
         },
         demands: []
       });
