@@ -918,7 +918,7 @@ export default function ProductionModule({ onBack, onCreateProject }) {
           {[
             { id:'Kanterica · obline', title:'Kanterica · obline', stage:'Kanterica / obrada rubova' },
             { id:'Polirka za šmuse i okapnice', title:'Polirka · šmuse i okapnice', stage:'Poliranje šmusa i okapnica' },
-            { id:'Vanjska polirka za ravne spomenike i obloge', title:'Vanjska polirka · ravne površine', stage:'Poliranje šmusa i okapnica' },
+            { id:'Vanjska polirka za ravne spomenike i obloge', title:'Vanjska polirka · ravne površine', stage:'Ravno poliranje' },
             { id:'Ručna obrada', title:'Ručna obrada', stage:'Ručna obrada' },
             { id:'Terenski rad / montaža grobnica', title:'Teren · montaža grobnica', stage:'Terenski rad / montaža' },
             { id:'Nije raspoređeno', title:'Čeka raspored', stage:null }
