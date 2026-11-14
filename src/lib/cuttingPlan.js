@@ -71,6 +71,9 @@ export function createSavedCuttingPlan(materials, createdAt = new Date().toISOSt
       stockId: item.stockId,
       stockName: item.stockName,
       stockForm: item.stockForm || 'Ploča',
+      sawName: item.sawName || null,
+      kerfMm: Number.isFinite(Number(item.kerfMm)) ? Number(item.kerfMm) : null,
+      trimMm: Number.isFinite(Number(item.trimMm)) ? Number(item.trimMm) : null,
       summary: item.summary
     }))
   };
