@@ -976,7 +976,6 @@ export default function ProductionModule({ onBack, onCreateProject }) {
       </section>
       <div className="warehouse-toolbar production-toolbar">
         <label className="warehouse-search"><Search size={16}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Traži nalog, kupca, projekt ili komad..."/></label>
-        <label className="warehouse-filter"><span>Radnik</span><select value={selectedWorker} onChange={event => setSelectedWorker(event.target.value)}><option value="">Svi radnici</option>{(records.workers || []).map(worker => <option key={worker} value={worker}>{worker}</option>)}</select></label>
         <label className="warehouse-filter"><span>Prikaz</span><select value={filter} onChange={event => setFilter(event.target.value)}><option>Aktivni</option><option>U tijeku</option><option>Zastoj</option><option>Kontrola</option><option>Završeni</option><option>Svi</option></select></label>
       </div>
       <div className="production-groups">
