@@ -1,5 +1,7 @@
 const JSON_HEADERS = { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' };
 const ALLOWED_TYPES = new Set(['work-orders','materials','production','equipment','settings','schedule','workers','documents','quotes','invoices','field-work','finished-products','tools','purchases','costs']);
+const WORKER_READ_KEYS = new Set(['kamen-app-work-orders-v1','kamen-app-materials-v1','kamen-app-production-stages-v1','kamen-app-schedule-v1','kamen-app-saw-assignments-v1','kamen-app-equipment-register-v1']);
+const WORKER_WRITE_KEYS = new Set(['kamen-app-production-stages-v1','kamen-app-schedule-v1','kamen-app-saw-assignments-v1']);
 const OWNER_ONLY_TYPES = new Set(['materials','settings','equipment','quotes','invoices','purchases','costs','finished-products']);
 const MAX_BODY_BYTES = 8 * 1024 * 1024;
 
@@ -135,6 +137,55 @@ async function handleApi(request, env, ctx) {
     return response({ id, version: nextVersion, updatedAt: now });
   }
 
+  if (path === '/api/memberships' && request.method === 'GET') {
+    if (!['owner','manager'].includes(member.role)) return response({ error: 'Samo vlasnik ili voditelj mogu pregledavati članove tvrtke.' }, 403);
+    const rows = await env.DB.prepare('SELECT email,display_name,role,active,created_at,updated_at FROM company_memberships WHERE company_id=? ORDER BY CASE role WHEN \'owner\' THEN 0 WHEN \'manager\' THEN 1 ELSE 2 END, lower(email)')
+      .bind(member.company_id).all();
+    return response({ members: rows.results || [] });
+  }
+
+  if (path === '/api/memberships' && request.method === 'POST') {
+    if (!['owner','manager'].includes(member.role)) return response({ error: 'Nemaš ovlasti za dodavanje članova.' }, 403);
+    const body = await readBody(request, 16 * 1024);
+    const email = String(body.email || '').trim().toLowerCase();
+    const displayName = String(body.displayName || '').trim().slice(0,120);
+    const role = String(body.role || 'worker');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !['worker','manager'].includes(role)) return response({ error: 'Unesi valjanu e-mail adresu i ulogu radnika ili voditelja.' }, 400);
+    if (member.role === 'manager' && role !== 'worker') return response({ error: 'Voditelj može dodavati samo radnike.' }, 403);
+    const existing = await env.DB.prepare('SELECT identity_subject,role FROM company_memberships WHERE company_id=? AND lower(email)=lower(?) LIMIT 1')
+      .bind(member.company_id,email).first();
+    if (existing?.role === 'owner') return response({ error: 'Vlasnički račun ne može se promijeniti kroz pozivnicu.' }, 409);
+    const subject = existing?.identity_subject || email;
+    const now = new Date().toISOString();
+    await env.DB.batch([
+      env.DB.prepare('INSERT INTO company_memberships (company_id,identity_subject,email,display_name,role,active,created_at,updated_at) VALUES (?,?,?,?,?,1,?,?) ON CONFLICT(company_id,identity_subject) DO UPDATE SET email=excluded.email,display_name=excluded.display_name,role=excluded.role,active=1,updated_at=excluded.updated_at')
+        .bind(member.company_id,subject,email,displayName,role,now,now),
+      env.DB.prepare('INSERT INTO audit_log (id,company_id,actor_subject,action,record_type,record_id,after_payload,created_at) VALUES (?,?,?,?,?,?,?,?)')
+        .bind(crypto.randomUUID(),member.company_id,claims.sub,'membership_invite','company_memberships',email,JSON.stringify({email,displayName,role}),now)
+    ]);
+    return response({ member: { email, displayName, role, active: 1 }, signIn: 'Član se prijavljuje istom e-mail adresom putem Cloudflare jednokratnog koda.' }, 201);
+  }
+
+  if (path.startsWith('/api/memberships/') && request.method === 'DELETE') {
+    if (!['owner','manager'].includes(member.role)) return response({ error: 'Nemaš ovlasti za uklanjanje članova.' }, 403);
+    const email = decodeURIComponent(path.slice('/api/memberships/'.length)).trim().toLowerCase();
+    const target = await env.DB.prepare('SELECT identity_subject,role FROM company_memberships WHERE company_id=? AND lower(email)=lower(?) AND active=1 LIMIT 1')
+      .bind(member.company_id,email).first();
+    if (!target) return response({ error: 'Aktivni član nije pronađen.' }, 404);
+    if (member.role === 'manager' && target.role !== 'worker') return response({ error: 'Voditelj može deaktivirati samo radnike.' }, 403);
+    if (target.role === 'owner') {
+      const owners = await env.DB.prepare('SELECT COUNT(*) AS count FROM company_memberships WHERE company_id=? AND role=\'owner\' AND active=1').bind(member.company_id).first();
+      if (Number(owners?.count || 0) <= 1) return response({ error: 'Tvrtka mora imati barem jednog aktivnog vlasnika.' }, 409);
+    }
+    const now = new Date().toISOString();
+    await env.DB.batch([
+      env.DB.prepare('UPDATE company_memberships SET active=0,updated_at=? WHERE company_id=? AND identity_subject=?').bind(now,member.company_id,target.identity_subject),
+      env.DB.prepare('INSERT INTO audit_log (id,company_id,actor_subject,action,record_type,record_id,after_payload,created_at) VALUES (?,?,?,?,?,?,?,?)')
+        .bind(crypto.randomUUID(),member.company_id,claims.sub,'membership_deactivated','company_memberships',email,JSON.stringify({email,active:false}),now)
+    ]);
+    return response({ email, active: false });
+  }
+
   if (path === '/api/state/status' && request.method === 'GET') {
     const result = await env.DB.prepare('SELECT record_id,version,updated_at FROM app_records WHERE company_id=? AND record_type=\'browser_state\' ORDER BY record_id')
       .bind(member.company_id).all();
@@ -144,7 +195,7 @@ async function handleApi(request, env, ctx) {
   if (path === '/api/state' && request.method === 'GET') {
     const rows = await env.DB.prepare('SELECT record_id,payload,version,updated_at FROM app_records WHERE company_id=? AND record_type=\'browser_state\' ORDER BY record_id')
       .bind(member.company_id).all();
-    const records = (rows.results || []).filter(row => member.role !== 'worker' || ['kamen-app-production-stages-v1','kamen-app-schedule-v1','kamen-app-saw-assignments-v1'].includes(row.record_id))
+    const records = (rows.results || []).filter(row => member.role !== 'worker' || WORKER_READ_KEYS.has(row.record_id))
       .map(row => ({ key: row.record_id, value: JSON.parse(row.payload), version: row.version, updatedAt: row.updated_at }));
     return response({ records });
   }
@@ -175,7 +226,7 @@ async function handleApi(request, env, ctx) {
 
   if (path.startsWith('/api/state/') && request.method === 'PUT') {
     const key = decodeURIComponent(path.slice('/api/state/'.length));
-    const workerAllowed = ['kamen-app-production-stages-v1','kamen-app-schedule-v1','kamen-app-saw-assignments-v1'].includes(key);
+    const workerAllowed = WORKER_WRITE_KEYS.has(key);
     if (!key.startsWith('kamen-app-') || /(token|secret|password|auth-session)/i.test(key) || (member.role === 'worker' && !workerAllowed) || !['owner','manager','worker'].includes(member.role)) {
       return response({ error: 'Nije dopuštena izmjena ovog zapisa.' }, 403);
     }
