@@ -202,6 +202,7 @@ export async function initializeRemoteSync() {
   const reconciled = await reconcileRemoteState();
   return { initialized: true, ...reconciled };
 }
+export async function syncRemoteNow() { return reconcileRemoteState(); }
 export function enableRemoteSyncFlag() {
   window.localStorage.setItem(ENABLED_KEY, 'true');
 }
