@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { DEFAULT_COMPANY_SETTINGS, normalizeCompanySettings, validateCompanyProfile, validateCompanyWorkRules, calculateNetShiftMinutes } from '../lib/companySettings.js';
-import { ArrowLeft, Building2, CheckCircle2, Clock3, MapPin, Plus, Settings2, Upload, X, Scissors, Cloud, RefreshCw, ShieldCheck } from 'lucide-react';
-import { getSharedApiBase, getLocalBusinessData, getSharedStorageStatus, bootstrapSharedCompany, importLocalBusinessData, downloadSharedBusinessData, syncRemoteNow } from '../lib/remoteStorageSync.js';
+import { ArrowLeft, Building2, CheckCircle2, Clock3, MapPin, Plus, Settings2, Upload, X, Scissors, Cloud, RefreshCw, ShieldCheck, UserPlus, UserMinus } from 'lucide-react';
+import { getSharedApiBase, getLocalBusinessData, getSharedStorageStatus, getSharedMembers, inviteSharedMember, deactivateSharedMember, bootstrapSharedCompany, importLocalBusinessData, downloadSharedBusinessData, syncRemoteNow } from '../lib/remoteStorageSync.js';
 
 const PROFILE_KEY = 'kamen-app-company-profile-v1';
 const SETTINGS_KEY = 'kamen-app-company-settings-v1';
@@ -23,6 +23,10 @@ export default function SettingsModule({ onBack }) {
   const [sharedMessage, setSharedMessage] = useState('');
   const [sharedError, setSharedError] = useState('');
   const [sharedSyncStatus, setSharedSyncStatus] = useState('');
+  const [sharedMembers, setSharedMembers] = useState([]);
+  const [memberEmail, setMemberEmail] = useState('');
+  const [memberName, setMemberName] = useState('');
+  const [memberRole, setMemberRole] = useState('worker');
   const [tab, setTab] = useState('company');
   const [newLocation, setNewLocation] = useState('');
   const [newType, setNewType] = useState('');
@@ -77,6 +81,7 @@ export default function SettingsModule({ onBack }) {
     try {
       const status = await getSharedStorageStatus();
       setSharedStatus(status); setSharedAccessReady(true);
+      if (['owner','manager'].includes(status.user.role)) { const result = await getSharedMembers(); setSharedMembers(result.members || []); }
       setSharedMessage('Povezano s tvrtkom „' + status.company.name + '” kao ' + status.user.role + '.');
     } catch (error) {
       if (error.status === 403 && /nije povezan s tvrtkom|nije povezan/i.test(error.message)) {
@@ -94,6 +99,7 @@ export default function SettingsModule({ onBack }) {
       await bootstrapSharedCompany(sharedCompanyName.trim());
       const status = await getSharedStorageStatus();
       setSharedStatus(status); setSharedAccessReady(true);
+      const members = await getSharedMembers(); setSharedMembers(members.members || []);
       setSharedMessage('Tvrtka je otvorena u zajedničkoj pohrani. Sljedeći korak je siguran prijenos postojećih podataka.');
     } catch (error) { setSharedError(error.message); }
     finally { setSharedBusy(false); }
@@ -116,6 +122,31 @@ export default function SettingsModule({ onBack }) {
       const result = await downloadSharedBusinessData();
       setSharedMessage('Preuzeto ' + result.downloaded + ' zapisa. Osvježavam aplikaciju da svi moduli učitaju zajedničke podatke.');
       window.setTimeout(() => window.location.reload(), 500);
+    } catch (error) { setSharedError(error.message); }
+    finally { setSharedBusy(false); }
+  };
+  const refreshSharedMembers = async () => {
+    try { const result = await getSharedMembers(); setSharedMembers(result.members || []); }
+    catch (error) { setSharedError(error.message); }
+  };
+  const addSharedMember = async () => {
+    if (!memberEmail.trim()) { setSharedError('Unesi e-mail adresu novog člana.'); return; }
+    setSharedBusy(true); setSharedError(''); setSharedMessage('');
+    try {
+      await inviteSharedMember({ email: memberEmail.trim(), displayName: memberName.trim(), role: memberRole });
+      setMemberEmail(''); setMemberName(''); setMemberRole('worker');
+      await refreshSharedMembers();
+      setSharedMessage('Član je dodan. Može se prijaviti svojom e-mail adresom i jednokratnim kodom.');
+    } catch (error) { setSharedError(error.message); }
+    finally { setSharedBusy(false); }
+  };
+  const removeSharedMember = async email => {
+    if (!window.confirm('Deaktivirati pristup za ' + email + '? Povijest njegovih radnji ostaje sačuvana.')) return;
+    setSharedBusy(true); setSharedError(''); setSharedMessage('');
+    try {
+      await deactivateSharedMember(email);
+      await refreshSharedMembers();
+      setSharedMessage('Članu je deaktiviran pristup zajedničkoj pohrani.');
     } catch (error) { setSharedError(error.message); }
     finally { setSharedBusy(false); }
   };
@@ -223,6 +254,23 @@ export default function SettingsModule({ onBack }) {
           </div>
         </div>}
       </>}
+      {sharedStatus && ['owner','manager'].includes(sharedStatus.user.role) && <div className="shared-members-panel">
+        <div><strong>Članovi tvrtke i pristup</strong><p>Svaki pozvani član prijavljuje se svojom e-mail adresom. API provjerava članstvo i ulogu; radnici ne dobivaju pristup cijenama i troškovima.</p></div>
+        <div className="shared-member-invite">
+          <label>E-mail člana<input type="email" value={memberEmail} onChange={event => setMemberEmail(event.target.value)} placeholder="radnik@tvrtka.hr"/></label>
+          <label>Ime i prezime<input value={memberName} onChange={event => setMemberName(event.target.value)} placeholder="Ime radnika"/></label>
+          <label>Uloga<select value={memberRole} onChange={event => setMemberRole(event.target.value)} disabled={sharedStatus.user.role === 'manager'}><option value="worker">Radnik</option>{sharedStatus.user.role === 'owner' && <option value="manager">Voditelj</option>}</select></label>
+          <button type="button" className="button button-primary" onClick={addSharedMember} disabled={sharedBusy || !memberEmail.trim()}><UserPlus size={15}/> Dodaj člana</button>
+        </div>
+        <div className="shared-members-list">
+          {sharedMembers.map(item => <div className="shared-member-row" key={item.email}>
+            <div><strong>{item.display_name || item.email}</strong><small>{item.email} · {item.role === 'owner' ? 'Vlasnik' : item.role === 'manager' ? 'Voditelj' : 'Radnik'}</small></div>
+            <span className={item.active ? 'shared-member-active' : 'shared-member-inactive'}>{item.active ? 'Aktivan' : 'Deaktiviran'}</span>
+            {item.active && item.email.toLowerCase() !== sharedStatus.user.email.toLowerCase() && <button type="button" className="button button-secondary" onClick={() => removeSharedMember(item.email)} disabled={sharedBusy}><UserMinus size={14}/> Ukloni</button>}
+          </div>)}
+          {!sharedMembers.length && <small>Još nema dodanih članova.</small>}
+        </div>
+      </div>}
       {sharedSyncStatus && <p className="shared-sync-state">Status sinkronizacije: {sharedSyncStatus}</p>}
       {sharedMessage && <div className="module-notice backup-message"><CheckCircle2 size={16}/>{sharedMessage}</div>}
       {sharedError && <div className="module-notice backup-error">{sharedError}</div>}
