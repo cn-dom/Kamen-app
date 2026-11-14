@@ -95,13 +95,15 @@ export default function WorkOrdersModule({ onBack, openCreate = false, onCreateO
         const pageCount = Math.min(documentPdf.numPages, 3);
         for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
           const page = await documentPdf.getPage(pageNumber);
-          const viewport = page.getViewport({ scale: 1.6 });
+          const baseViewport = page.getViewport({ scale: 1 });
+          const scale = Math.min(1.6, 2200 / Math.max(baseViewport.width, baseViewport.height));
+          const viewport = page.getViewport({ scale });
           const canvas = document.createElement('canvas');
           canvas.width = Math.ceil(viewport.width);
           canvas.height = Math.ceil(viewport.height);
           const context = canvas.getContext('2d');
           await page.render({ canvasContext: context, viewport }).promise;
-          pageImages.push(canvas.toDataURL('image/png').split(',')[1]);
+          pageImages.push(canvas.toDataURL('image/jpeg', 0.9).split(',')[1]);
         }
         if (documentPdf.numPages > 3) setAiMessage('PDF ima ' + documentPdf.numPages + ' stranica. AI obrađuje prve tri; provjeri ima li važnih mjera na ostalim stranicama.');
       } else {
@@ -111,7 +113,14 @@ export default function WorkOrdersModule({ onBack, openCreate = false, onCreateO
           reader.onerror = () => reject(new Error('Datoteku nije moguće pročitati.'));
           reader.readAsDataURL(aiFile);
         });
-        pageImages = [dataUrl.split(',')[1] || ''];
+        const bitmap = await createImageBitmap(aiFile);
+        const scale = Math.min(1, 2200 / Math.max(bitmap.width, bitmap.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+        canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+        canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        bitmap.close();
+        pageImages = [canvas.toDataURL('image/jpeg', 0.88).split(',')[1] || ''];
       }
       const apiBase = import.meta.env.VITE_KAMEN_API_URL || 'https://kamen-app-api-staging.patriasoul.workers.dev';
       const extracted = [];
@@ -122,7 +131,7 @@ export default function WorkOrdersModule({ onBack, openCreate = false, onCreateO
           method: 'POST',
           credentials: 'include',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ imageBase64: pageImages[index], fileName: aiFile.name + (isPdf ? ' · stranica ' + (index + 1) : ''), contentType: 'image/png' })
+          body: JSON.stringify({ imageBase64: pageImages[index], fileName: aiFile.name + (isPdf ? ' · stranica ' + (index + 1) : ''), contentType: 'image/jpeg' })
         });
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(payload.error || 'AI obrada nije uspjela (HTTP ' + response.status + ').');
