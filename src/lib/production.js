@@ -69,6 +69,9 @@ export function normalizeProductionRecords(raw, orders) {
       }}];
     }));
     const workerSkills = Object.fromEntries(Object.entries(raw.workerSkills || {}).map(([worker, skills]) => [worker, (Array.isArray(skills) ? skills : []).flatMap(skill => skill === 'Poliranje' ? ['Poliranje šmusa i okapnica', 'Ravno poliranje'] : [skill])]));
+    buildProductionUnits(orders).forEach(row => {
+      if (pieces[row.key]) pieces[row.key] = applyPieceProductionRouting(pieces[row.key], row.piece);
+    });
     return { ...raw, version: 4, pieces, workerSkills, migratedAt: new Date().toISOString() };
   }
   const pieces = {};
