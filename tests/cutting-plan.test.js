@@ -25,6 +25,15 @@ test('u planer šalje broj raspoloživih fizičkih ploča, a ne samo jednu', () 
   assert.equal(fractionalGroups[0].sheet.quantity, 0);
 });
 
+test('koristi stvarnu širinu reza i rubno obrezivanje odabrane pile', () => {
+  const groups = buildCuttingPlanGroups([
+    { name: 'Komad', materialId: slab.id, length: 120, width: 30, thickness: 3, quantity: 1 }
+  ], [slab], { kerfMm: 5.5, trimMm: 12 });
+  assert.equal(groups[0].sheet.kerf, 5.5);
+  assert.equal(groups[0].sheet.width, 2976);
+  assert.equal(groups[0].sheet.height, 2176);
+});
+
 test('grupira komade prema odabranoj ploči i ne miješa materijale', () => {
   const second = { ...slab, id: 'slab-2', name: 'Mramor', type: 'Mramor' };
   const groups = buildCuttingPlanGroups([
