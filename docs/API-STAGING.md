@@ -6,6 +6,9 @@ This Worker is separate from the currently published static app. It binds only t
 - GET /api/health — non-sensitive health check.
 - POST /api/bootstrap — one-time first-company setup, allowed only to BOOTSTRAP_EMAIL and only while companies is empty.
 - GET /api/me — verified identity, company and role.
+- GET /api/memberships — owner/manager member list.
+- POST /api/memberships — owner/manager invitation by email; managers may invite workers only.
+- DELETE /api/memberships/:email — deactivate member; managers may deactivate workers only.
 - GET /api/records?type=... — tenant-scoped record retrieval.
 - PUT /api/records/:type/:id — tenant-scoped, optimistic-version update and audit entry.
 - POST /api/movements — idempotent inventory movement log.
@@ -15,7 +18,7 @@ This Worker is separate from the currently published static app. It binds only t
 ## Required Cloudflare Access setup
 The Worker validates `Cf-Access-Jwt-Assertion` against Cloudflare Access JWKS. Staging is configured with the Access team domain `mute-frog-153f.cloudflareaccess.com`, application audience, and an email one-time-PIN identity provider. The Access policy currently allows the owner email only. The Worker intentionally fails closed if a valid JWT is missing. Do not replace this with a client-side role or a public API key.
 
-Access protects `kamen-app-api-staging.patriasoul.workers.dev`; its allow policy currently permits `patriasoul@protonmail.com` for initial setup. The API Worker is deployed with the matching team domain, application audience, bootstrap email, and allowed origin `https://kamen-app.patriasoul.workers.dev`. The first authenticated owner creates the company from Settings → Zajednička pohrana. Other user invitations and expansion of the Access allow policy remain a separate onboarding step.
+Access protects `kamen-app-api-staging.patriasoul.workers.dev` and uses email one-time PIN. The Access policy permits authentication, but this does not grant business data access: every API route checks an active company membership in D1. The first authenticated owner is restricted by `BOOTSTRAP_EMAIL` and creates the company from Settings → Zajednička pohrana. Owners/managers can invite workers and managers; workers can read operational work-order/material data with price and cost fields redacted, and can write only production/schedule state.
 
 ## Storage
 D1 holds tenant-scoped JSON business records, memberships, inventory movements and audit entries. The first browser import and conflict-aware localStorage synchronization are implemented in the app. Uploaded drawings are intended for a private R2 bucket. R2 is currently disabled on the Cloudflare account (Cloudflare API returns `Please enable R2 through the Cloudflare Dashboard`), so persistent document upload is intentionally unavailable until the owner enables R2 and a private bucket is created. AI image/PDF extraction processes the selected file in memory and does not persist the original drawing.
