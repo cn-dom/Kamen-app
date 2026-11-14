@@ -1,6 +1,7 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { DEFAULT_COMPANY_SETTINGS, normalizeCompanySettings, validateCompanyProfile, validateCompanyWorkRules, calculateNetShiftMinutes } from '../lib/companySettings.js';
-import { ArrowLeft, Building2, CheckCircle2, Clock3, MapPin, Plus, Settings2, Upload, X, Scissors } from 'lucide-react';
+import { ArrowLeft, Building2, CheckCircle2, Clock3, MapPin, Plus, Settings2, Upload, X, Scissors, Cloud, RefreshCw, ShieldCheck } from 'lucide-react';
+import { getSharedApiBase, getLocalBusinessData, getSharedStorageStatus, bootstrapSharedCompany, importLocalBusinessData, downloadSharedBusinessData, syncRemoteNow } from '../lib/remoteStorageSync.js';
 
 const PROFILE_KEY = 'kamen-app-company-profile-v1';
 const SETTINGS_KEY = 'kamen-app-company-settings-v1';
@@ -15,6 +16,13 @@ export default function SettingsModule({ onBack }) {
   const [settings, setSettings] = useState(() => normalizeCompanySettings(read(SETTINGS_KEY, DEFAULT_COMPANY_SETTINGS)));
   const [audit, setAudit] = useState(() => read(AUDIT_KEY, []));
   const [sawSettings, setSawSettings] = useState(() => ({ ...DEFAULT_SAW_SETTINGS, ...read(SAW_SETTINGS_KEY, {}) }));
+  const [sharedCompanyName, setSharedCompanyName] = useState('');
+  const [sharedStatus, setSharedStatus] = useState(null);
+  const [sharedAccessReady, setSharedAccessReady] = useState(false);
+  const [sharedBusy, setSharedBusy] = useState(false);
+  const [sharedMessage, setSharedMessage] = useState('');
+  const [sharedError, setSharedError] = useState('');
+  const [sharedSyncStatus, setSharedSyncStatus] = useState('');
   const [tab, setTab] = useState('company');
   const [newLocation, setNewLocation] = useState('');
   const [newType, setNewType] = useState('');
@@ -22,7 +30,7 @@ export default function SettingsModule({ onBack }) {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const logoRef = useRef(null);
-  const tabs = [{ id: 'company', label: 'Profil tvrtke', icon: Building2 }, { id: 'warehouse', label: 'Skladište', icon: MapPin }, { id: 'rules', label: 'Pravila rada', icon: Clock3 }, { id: 'saws', label: 'Postavke pila', icon: Scissors }];
+  const tabs = [{ id: 'company', label: 'Profil tvrtke', icon: Building2 }, { id: 'warehouse', label: 'Skladište', icon: MapPin }, { id: 'rules', label: 'Pravila rada', icon: Clock3 }, { id: 'saws', label: 'Postavke pila', icon: Scissors }, { id: 'sync', label: 'Zajednička pohrana', icon: Cloud }];
   const recordChange = (action, details) => ({ id: 'SET-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7), action, details, createdAt: new Date().toISOString() });
   const save = (nextProfile = profile, nextSettings = settings, action = 'Spremanje postavki', nextSawSettings = sawSettings) => {
     setMessage(''); setError('');
@@ -46,6 +54,80 @@ export default function SettingsModule({ onBack }) {
   const updateProfile = (key, value) => setProfile(current => ({ ...current, [key]: value }));
   const updateRule = (key, value) => setSettings(current => ({ ...current, workRules: { ...current.workRules, [key]: value } }));
   const updateSaw = (saw, key, value) => setSawSettings(current => ({ ...current, [saw]: { ...(current[saw] || DEFAULT_SAW_SETTINGS[saw]), [key]: value } }));
+  useEffect(() => {
+    const onSyncStatus = event => {
+      const detail = event.detail || {};
+      setSharedSyncStatus(detail.status || '');
+      if (detail.status === 'conflict') setSharedError(detail.message || ('Potrebno je uskladiti zapise: ' + (detail.conflicts || []).join(', ')));
+      if (detail.status === 'ready' || detail.status === 'synced') setSharedMessage('Sinkronizacija je aktivna. Promjene se šalju u zajedničku pohranu.');
+      if (detail.status === 'error') setSharedError(detail.message || 'Sinkronizacija nije uspjela.');
+    };
+    window.addEventListener('kamen-app-sync-status', onSyncStatus);
+    return () => window.removeEventListener('kamen-app-sync-status', onSyncStatus);
+  }, []);
+  const openSharedLogin = () => {
+    const destination = getSharedApiBase() + '/api/me';
+    const login = 'https://mute-frog-153f.cloudflareaccess.com/cdn-cgi/access/login/kamen-app-api-staging.patriasoul.workers.dev?redirect_url=' + encodeURIComponent(destination);
+    window.open(login, '_blank', 'noopener,noreferrer');
+    setSharedMessage('U novoj kartici dovrši prijavu jednokratnim kodom poslanim na dopuštenu e-mail adresu. Zatim se vrati ovamo i provjeri vezu.');
+    setSharedError('');
+  };
+  const checkSharedConnection = async () => {
+    setSharedBusy(true); setSharedError(''); setSharedMessage('');
+    try {
+      const status = await getSharedStorageStatus();
+      setSharedStatus(status); setSharedAccessReady(true);
+      setSharedMessage('Povezano s tvrtkom „' + status.company.name + '” kao ' + status.user.role + '.');
+    } catch (error) {
+      if (error.status === 403 && /nije povezan s tvrtkom|nije povezan/i.test(error.message)) {
+        setSharedAccessReady(true);
+        setSharedMessage('Prijava je valjana. Još treba napraviti početno postavljanje tvrtke.');
+      } else {
+        setSharedError(error.message || 'Prijava nije potvrđena. Otvori sigurnu prijavu pa pokušaj ponovno.');
+      }
+    } finally { setSharedBusy(false); }
+  };
+  const createSharedCompany = async () => {
+    if (!sharedCompanyName.trim()) { setSharedError('Unesi naziv tvrtke.'); return; }
+    setSharedBusy(true); setSharedError(''); setSharedMessage('');
+    try {
+      await bootstrapSharedCompany(sharedCompanyName.trim());
+      const status = await getSharedStorageStatus();
+      setSharedStatus(status); setSharedAccessReady(true);
+      setSharedMessage('Tvrtka je otvorena u zajedničkoj pohrani. Sljedeći korak je siguran prijenos postojećih podataka.');
+    } catch (error) { setSharedError(error.message); }
+    finally { setSharedBusy(false); }
+  };
+  const importLocalToShared = async () => {
+    if (!window.confirm('Prenijeti ' + getLocalBusinessData().length + ' lokalnih zapisa u praznu D1 bazu? Postojeći podaci u ovom pregledniku neće se brisati.')) return;
+    setSharedBusy(true); setSharedError(''); setSharedMessage('');
+    try {
+      const result = await importLocalBusinessData();
+      const status = await getSharedStorageStatus();
+      setSharedStatus(status);
+      setSharedMessage('Preneseno ' + result.imported + ' zapisa. Zajednička sinkronizacija je uključena na ovom uređaju.');
+    } catch (error) { setSharedError(error.message); }
+    finally { setSharedBusy(false); }
+  };
+  const downloadSharedToDevice = async () => {
+    if (!window.confirm('Preuzeti zajedničke podatke i njima zamijeniti lokalne zapise istih ključeva? Prije nastavka preporučujem sigurnosnu kopiju ovog preglednika.')) return;
+    setSharedBusy(true); setSharedError(''); setSharedMessage('');
+    try {
+      const result = await downloadSharedBusinessData();
+      setSharedMessage('Preuzeto ' + result.downloaded + ' zapisa. Osvježavam aplikaciju da svi moduli učitaju zajedničke podatke.');
+      window.setTimeout(() => window.location.reload(), 500);
+    } catch (error) { setSharedError(error.message); }
+    finally { setSharedBusy(false); }
+  };
+  const reconcileSharedNow = async () => {
+    setSharedBusy(true); setSharedError(''); setSharedMessage('');
+    try {
+      const result = await syncRemoteNow();
+      setSharedMessage(result.conflicts?.length ? 'Pronađeni su zapisi za ručno usklađivanje: ' + result.conflicts.join(', ') : 'Podaci su usklađeni. Preuzeto novih zapisa: ' + (result.downloaded || 0) + '.');
+    } catch (error) { setSharedError(error.message); }
+    finally { setSharedBusy(false); }
+  };
+
   const updateList = (key, next) => setSettings(current => ({ ...current, [key]: next }));
   const addToList = (key, value, clear) => {
     const clean = value.trim();
@@ -106,6 +188,45 @@ export default function SettingsModule({ onBack }) {
         <p className="backup-footnote">Početne vrijednosti 4 mm i 10 mm služe samo kao zadane postavke. Izmjeri stvarni rez na svakoj pili i unesi točne vrijednosti prije korištenja plana u proizvodnji.</p>
         <div className="settings-actions"><button className="button button-primary" onClick={() => save(profile, settings, 'Promjena postavki pila', sawSettings)}><CheckCircle2 size={15}/> Spremi postavke pila</button></div>
       </div>
+    </section>}
+    {tab === 'sync' && <section className="panel settings-panel shared-storage-panel">
+      <div className="panel-heading"><div><h2>Zajednička pohrana Kamen-app</h2><p>Sigurno spremanje poslovnih podataka na Cloudflare D1 za rad s računala i mobitela.</p></div><Cloud size={21}/></div>
+      <div className="shared-storage-status">
+        <span className={sharedStatus ? 'shared-status-dot connected' : 'shared-status-dot'} />
+        <div><strong>{sharedStatus ? 'Povezano s D1 bazom' : 'Veza još nije potvrđena'}</strong><small>API: kamen-app-api-staging · D1: kamen-app-staging · odvojeno od produkcijske aplikacije</small></div>
+      </div>
+      <div className="shared-storage-actions">
+        <button type="button" className="button button-secondary" onClick={openSharedLogin}><ShieldCheck size={15}/> Sigurna prijava</button>
+        <button type="button" className="button button-secondary" onClick={checkSharedConnection} disabled={sharedBusy}><RefreshCw size={15}/> Provjeri vezu</button>
+      </div>
+      {sharedAccessReady && !sharedStatus && <div className="shared-company-bootstrap">
+        <strong>Početno postavljanje tvrtke</strong>
+        <p>Prijavljeni vlasnik može otvoriti prvu tvrtku. Naziv upiši točno kako želiš da se prikazuje u aplikaciji.</p>
+        <label>Naziv tvrtke<input value={sharedCompanyName} onChange={event => setSharedCompanyName(event.target.value)} placeholder="Naziv kamenoklesarske tvrtke / obrta"/></label>
+        <button type="button" className="button button-primary" onClick={createSharedCompany} disabled={sharedBusy || !sharedCompanyName.trim()}>Otvori tvrtku u D1</button>
+      </div>}
+      {sharedStatus && <>
+        <div className="shared-storage-metrics">
+          <div><small>Tvrtka</small><strong>{sharedStatus.company.name}</strong></div>
+          <div><small>Uloga</small><strong>{sharedStatus.user.role}</strong></div>
+          <div><small>Zapisi u D1</small><strong>{sharedStatus.count}</strong></div>
+          <div><small>Lokalni zapisi</small><strong>{getLocalBusinessData().length}</strong></div>
+        </div>
+        {sharedStatus.count === 0 ? <div className="shared-storage-choice">
+          <p>Zajednička baza je prazna. Postojeći podaci iz ovog preglednika mogu se prenijeti kao početna kopija. Ništa se ne briše iz preglednika.</p>
+          <button type="button" className="button button-primary" onClick={importLocalToShared} disabled={sharedBusy || !getLocalBusinessData().length}><Cloud size={15}/> Prenesi lokalne podatke u D1</button>
+        </div> : <div className="shared-storage-choice">
+          <p>Zajednička baza sadrži {sharedStatus.count} zapisa. Možeš preuzeti zajedničko stanje na ovaj uređaj ili provjeriti promjene od zadnje sinkronizacije.</p>
+          <div className="shared-storage-actions">
+            <button type="button" className="button button-primary" onClick={downloadSharedToDevice} disabled={sharedBusy}><Cloud size={15}/> Preuzmi podatke iz D1</button>
+            <button type="button" className="button button-secondary" onClick={reconcileSharedNow} disabled={sharedBusy}><RefreshCw size={15}/> Uskladi promjene</button>
+          </div>
+        </div>}
+      </>}
+      {sharedSyncStatus && <p className="shared-sync-state">Status sinkronizacije: {sharedSyncStatus}</p>}
+      {sharedMessage && <div className="module-notice backup-message"><CheckCircle2 size={16}/>{sharedMessage}</div>}
+      {sharedError && <div className="module-notice backup-error">{sharedError}</div>}
+      <div className="backup-footnote"><ShieldCheck size={15}/> Zaštićeno Cloudflare Access prijavom i provjerom članstva tvrtke. Ako se zapisi promijene na dva uređaja istodobno, sustav označava sukob umjesto da tiho prepiše podatke.</div>
     </section>}
     {message && <div className="module-notice backup-message"><CheckCircle2 size={16}/>{message}</div>}
     {error && <div className="module-notice backup-error">{error}</div>}
