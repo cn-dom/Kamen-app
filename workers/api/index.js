@@ -135,6 +135,70 @@ async function handleApi(request, env, ctx) {
     return response({ id, version: nextVersion, updatedAt: now });
   }
 
+  if (path === '/api/state/status' && request.method === 'GET') {
+    const result = await env.DB.prepare('SELECT record_id,version,updated_at FROM app_records WHERE company_id=? AND record_type=\'browser_state\' ORDER BY record_id')
+      .bind(member.company_id).all();
+    return response({ count: result.results?.length || 0, keys: (result.results || []).map(row => row.record_id), updatedAt: result.results?.[0]?.updated_at || null });
+  }
+
+  if (path === '/api/state' && request.method === 'GET') {
+    const rows = await env.DB.prepare('SELECT record_id,payload,version,updated_at FROM app_records WHERE company_id=? AND record_type=\'browser_state\' ORDER BY record_id')
+      .bind(member.company_id).all();
+    const records = (rows.results || []).filter(row => member.role !== 'worker' || ['kamen-app-production-stages-v1','kamen-app-schedule-v1','kamen-app-saw-assignments-v1'].includes(row.record_id))
+      .map(row => ({ key: row.record_id, value: JSON.parse(row.payload), version: row.version, updatedAt: row.updated_at }));
+    return response({ records });
+  }
+
+  if (path === '/api/state/import' && request.method === 'POST') {
+    if (!['owner','manager'].includes(member.role)) return response({ error: 'Samo vlasnik ili voditelj mogu prenijeti početne podatke.' }, 403);
+    const body = await readBody(request, 8 * 1024 * 1024);
+    const records = Array.isArray(body.records) ? body.records : [];
+    if (!records.length || records.length > 100) return response({ error: 'Prenos mora sadržavati 1–100 zapisa.' }, 400);
+    const current = await env.DB.prepare('SELECT COUNT(*) AS count FROM app_records WHERE company_id=? AND record_type=\'browser_state\'').bind(member.company_id).first();
+    if (Number(current?.count || 0) !== 0) return response({ error: 'Zajednička pohrana već sadrži podatke. Početni uvoz nije ponovljen.' }, 409);
+    const clean = records.filter(item => typeof item.key === 'string' && item.key.startsWith('kamen-app-') && !/(token|secret|password|auth-session)/i.test(item.key));
+    if (!clean.length || clean.length !== records.length) return response({ error: 'Uvoz sadrži nedopuštene ili osjetljive ključeve.' }, 400);
+    const now = new Date().toISOString();
+    const statements = clean.flatMap(item => {
+      const payload = JSON.stringify(item.value);
+      if (payload === undefined) throw new Error('INVALID_STATE_VALUE');
+      return [
+        env.DB.prepare('INSERT INTO app_records (company_id,record_type,record_id,payload,version,updated_by,created_at,updated_at) VALUES (?,?,?,?,1,?,?,?)')
+          .bind(member.company_id,'browser_state',item.key,payload,claims.sub,now,now),
+        env.DB.prepare('INSERT INTO audit_log (id,company_id,actor_subject,action,record_type,record_id,after_payload,created_at) VALUES (?,?,?,?,?,?,?,?)')
+          .bind(crypto.randomUUID(),member.company_id,claims.sub,'initial_import','browser_state',item.key,payload,now)
+      ];
+    });
+    await env.DB.batch(statements);
+    return response({ imported: clean.length, updatedAt: now }, 201);
+  }
+
+  if (path.startsWith('/api/state/') && request.method === 'PUT') {
+    const key = decodeURIComponent(path.slice('/api/state/'.length));
+    const workerAllowed = ['kamen-app-production-stages-v1','kamen-app-schedule-v1','kamen-app-saw-assignments-v1'].includes(key);
+    if (!key.startsWith('kamen-app-') || /(token|secret|password|auth-session)/i.test(key) || (member.role === 'worker' && !workerAllowed) || !['owner','manager','worker'].includes(member.role)) {
+      return response({ error: 'Nije dopuštena izmjena ovog zapisa.' }, 403);
+    }
+    const body = await readBody(request);
+    const current = await env.DB.prepare('SELECT version FROM app_records WHERE company_id=? AND record_type=\'browser_state\' AND record_id=?')
+      .bind(member.company_id,key).first();
+    const expected = Number(body.version || 0);
+    const actual = Number(current?.version || 0);
+    if (expected !== actual) return response({ error: 'CONFLICT', expected, actual }, 409);
+    const payload = JSON.stringify(body.value);
+    const now = new Date().toISOString();
+    const nextVersion = actual + 1;
+    const batch = [
+      env.DB.prepare('INSERT INTO app_records (company_id,record_type,record_id,payload,version,updated_by,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(company_id,record_type,record_id) DO UPDATE SET payload=excluded.payload,version=excluded.version,updated_by=excluded.updated_by,updated_at=excluded.updated_at WHERE app_records.version=?')
+        .bind(member.company_id,'browser_state',key,payload,nextVersion,claims.sub,now,now,expected),
+      env.DB.prepare('INSERT INTO audit_log (id,company_id,actor_subject,action,record_type,record_id,after_payload,created_at) VALUES (?,?,?,?,?,?,?,?)')
+        .bind(crypto.randomUUID(),member.company_id,claims.sub,'sync_update','browser_state',key,payload,now)
+    ];
+    const results = await env.DB.batch(batch);
+    if (Number(results?.[0]?.meta?.changes || 0) !== 1) return response({ error: 'CONFLICT', expected, actual }, 409);
+    return response({ key, version: nextVersion, updatedAt: now });
+  }
+
   if (path === '/api/movements' && request.method === 'POST') {
     if (!['owner','manager'].includes(member.role)) return response({ error: 'Samo vlasnik ili voditelj mogu knjižiti skladište.' }, 403);
     const body = await readBody(request, 1024 * 1024);
