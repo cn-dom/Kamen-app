@@ -1,3 +1,4 @@
+import { applyPieceProductionRouting } from './operationsRouting.js';
 export const PRODUCTION_STAGES = [
   'Pilanje',
   'Kanterica / obrada rubova',
@@ -11,12 +12,13 @@ export const PRODUCTION_STAGE_STATUSES = ['Nije započeto', 'U tijeku', 'Zastoj'
 export function blankStageRecord() {
   return { status: 'Nije započeto', assignedTo: '', startedAt: null, completedAt: null, sessions: [], downtime: [], blockedReason: '', note: '', history: [] };
 }
-export function blankPieceProductionRecord() {
-  return {
+export function blankPieceProductionRecord(piece = null) {
+  const record = {
     stages: Object.fromEntries(PRODUCTION_STAGES.map(stage => [stage, blankStageRecord()])),
     quality: { status: 'Čeka kontrolu', checkedBy: '', checkedAt: null, note: '', history: [] },
     updatedAt: null
   };
+  return piece ? applyPieceProductionRouting(record, piece) : record;
 }
 export function buildProductionUnits(orders, materials = []) {
   return (Array.isArray(orders) ? orders : []).flatMap(order =>
@@ -43,7 +45,14 @@ const legacyOtherStage = (oldStage, isField = false) => {
   };
 };
 export function normalizeProductionRecords(raw, orders) {
-  if (raw && raw.version === 4 && raw.pieces && typeof raw.pieces === 'object') return raw;
+  if (raw && raw.version === 4 && raw.pieces && typeof raw.pieces === 'object') {
+    const pieces = { ...raw.pieces };
+    buildProductionUnits(orders).forEach(row => {
+      const existing = pieces[row.key] || blankPieceProductionRecord(row.piece);
+      pieces[row.key] = applyPieceProductionRouting(existing, row.piece);
+    });
+    return { ...raw, pieces };
+  }
   if (raw && raw.version === 3 && raw.pieces && typeof raw.pieces === 'object') {
     const pieces = Object.fromEntries(Object.entries(raw.pieces).map(([key, oldRecord]) => {
       const oldStages = oldRecord?.stages || {};
@@ -63,7 +72,7 @@ export function normalizeProductionRecords(raw, orders) {
   }
   const pieces = {};
   buildProductionUnits(orders).forEach(row => {
-    const record = blankPieceProductionRecord();
+    const record = blankPieceProductionRecord(row.piece);
     const oldRecord = raw?.pieces?.[row.key] || null;
     if (oldRecord?.stages) {
       const oldOther = oldRecord.stages['Ostala obrada'];
