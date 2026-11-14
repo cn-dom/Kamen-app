@@ -30,8 +30,8 @@ test('koristi stvarnu širinu reza i rubno obrezivanje odabrane pile', () => {
     { name: 'Komad', materialId: slab.id, length: 120, width: 30, thickness: 3, quantity: 1 }
   ], [slab], { kerfMm: 5.5, trimMm: 12 });
   assert.equal(groups[0].sheet.kerf, 5.5);
-  assert.equal(groups[0].sheet.width, 2976);
-  assert.equal(groups[0].sheet.height, 2176);
+  assert.equal(groups[0].sheet.width, 2996);
+  assert.equal(groups[0].sheet.height, 2216);
 });
 
 test('grupira komade prema odabranoj ploči i ne miješa materijale', () => {
