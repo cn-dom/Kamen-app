@@ -45,7 +45,7 @@ const legacyOtherStage = (oldStage, isField = false) => {
   };
 };
 export function normalizeProductionRecords(raw, orders) {
-  if (raw && raw.version === 4 && raw.pieces && typeof raw.pieces === 'object' && Object.values(raw.pieces).every(record => record?.routing)) return raw;
+  if (raw && raw.version === 4 && raw.pieces && typeof raw.pieces === 'object' && buildProductionUnits(orders).every(row => raw.pieces[row.key]?.routing)) return raw;
   if (raw && raw.version === 4 && raw.pieces && typeof raw.pieces === 'object') {
     const pieces = { ...raw.pieces };
     buildProductionUnits(orders).forEach(row => {
