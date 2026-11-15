@@ -7,7 +7,13 @@ import { releaseOrderReservations } from '../lib/workOrderStock.js';
 import { commitInventoryTransaction } from '../lib/inventoryLedger.js';
 import { suggestRemnantAssignments } from '../lib/remnantPlanner.js';
 import { buildCuttingPlanGroups, summarizeCuttingPlan, createSavedCuttingPlan } from '../lib/cuttingPlan.js';
-import { solve2d, plan2dCuts } from '@0xdoublesharp/bin-packing-wasm';
+async function load2DSawPlanner() {
+  const planner = await import('@0xdoublesharp/bin-packing-wasm/two-d');
+  if (typeof planner.solve2d !== 'function' || typeof planner.plan2dCuts !== 'function') {
+    throw new Error('2D planer pilanja nije ispravno učitan. Radni nalog možeš spremiti bez plana pilanja.');
+  }
+  return planner;
+}
 
 const seedOrders = [];
 const STORAGE_KEY = 'kamen-app-work-orders-v1';
@@ -127,7 +133,7 @@ export default function WorkOrdersModule({ onBack, openCreate = false, onCreateO
       setAiLoading(false);
     }
   };
-  const generateCutPlan = () => {
+  const generateCutPlan = async () => {
     setCutPlanError('');
     setCutPlanPreview([]);
     const machine = sawSettings[selectedSaw] || DEFAULT_SAW_SETTINGS[selectedSaw];
@@ -137,6 +143,7 @@ export default function WorkOrdersModule({ onBack, openCreate = false, onCreateO
       return;
     }
     try {
+      const { solve2d, plan2dCuts } = await load2DSawPlanner();
       const results = groups.map(group => {
         const layout = solve2d(
           { sheets: [group.sheet], demands: group.demands },
@@ -150,13 +157,14 @@ export default function WorkOrdersModule({ onBack, openCreate = false, onCreateO
       setCutPlanError('Plan nije moguće izračunati: ' + (error?.message || 'provjeri dimenzije i odabrani materijal.'));
     }
   };
-  const generateExistingOrderPlan = order => {
+  const generateExistingOrderPlan = async order => {
     const machine = sawSettings[selectedSaw] || DEFAULT_SAW_SETTINGS[selectedSaw];
     const reserved = new Map((order.reservedMaterials || []).map(item => [item.materialId, Number(item.quantity || 0)]));
     const planningStock = materials.map(item => reserved.has(item.id) ? { ...item, quantity: Number(item.quantity || 0) + reserved.get(item.id) } : item);
     const groups = buildCuttingPlanGroups(order.pieces || [], planningStock.filter(item => ['Ploča','Ostatak'].includes(item.form) && !item.archived && Number(item.quantity || 0) > 0), machine);
     if (!groups.length) { window.alert('Nije moguće izraditi plan. Provjeri jesu li u nalogu spremljene dimenzije, materijali i debljine.'); return; }
     try {
+      const { solve2d, plan2dCuts } = await load2DSawPlanner();
       const results = groups.map(group => {
         const layout = solve2d({ sheets: [group.sheet], demands: group.demands }, { algorithm: 'auto', guillotine_required: true, seed: 42, min_usable_side: 100 });
         const plan = plan2dCuts(layout, { preset: 'panel_saw' });
