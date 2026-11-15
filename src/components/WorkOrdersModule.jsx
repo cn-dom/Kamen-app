@@ -7,13 +7,7 @@ import { releaseOrderReservations } from '../lib/workOrderStock.js';
 import { commitInventoryTransaction } from '../lib/inventoryLedger.js';
 import { suggestRemnantAssignments } from '../lib/remnantPlanner.js';
 import { buildCuttingPlanGroups, summarizeCuttingPlan, createSavedCuttingPlan } from '../lib/cuttingPlan.js';
-async function load2DSawPlanner() {
-  const planner = await import('@0xdoublesharp/bin-packing-wasm/two-d');
-  if (typeof planner.solve2d !== 'function' || typeof planner.plan2dCuts !== 'function') {
-    throw new Error('2D planer pilanja nije ispravno učitan. Radni nalog možeš spremiti bez plana pilanja.');
-  }
-  return planner;
-}
+import { solve2d, plan2dCuts } from '@0xdoublesharp/bin-packing-wasm/two-d';
 
 const seedOrders = [];
 const STORAGE_KEY = 'kamen-app-work-orders-v1';
@@ -133,7 +127,7 @@ export default function WorkOrdersModule({ onBack, openCreate = false, onCreateO
       setAiLoading(false);
     }
   };
-  const generateCutPlan = async () => {
+  const generateCutPlan = () => {
     setCutPlanError('');
     setCutPlanPreview([]);
     const machine = sawSettings[selectedSaw] || DEFAULT_SAW_SETTINGS[selectedSaw];
@@ -143,7 +137,6 @@ export default function WorkOrdersModule({ onBack, openCreate = false, onCreateO
       return;
     }
     try {
-      const { solve2d, plan2dCuts } = await load2DSawPlanner();
       const results = groups.map(group => {
         const layout = solve2d(
           { sheets: [group.sheet], demands: group.demands },
@@ -157,7 +150,7 @@ export default function WorkOrdersModule({ onBack, openCreate = false, onCreateO
       setCutPlanError('Plan nije moguće izračunati: ' + (error?.message || 'provjeri dimenzije i odabrani materijal.'));
     }
   };
-  const generateExistingOrderPlan = async order => {
+  const generateExistingOrderPlan = order => {
     const machine = sawSettings[selectedSaw] || DEFAULT_SAW_SETTINGS[selectedSaw];
     const reserved = new Map((order.reservedMaterials || []).map(item => [item.materialId, Number(item.quantity || 0)]));
     const planningStock = materials.map(item => reserved.has(item.id) ? { ...item, quantity: Number(item.quantity || 0) + reserved.get(item.id) } : item);
