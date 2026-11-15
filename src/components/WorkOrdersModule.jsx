@@ -157,7 +157,6 @@ export default function WorkOrdersModule({ onBack, openCreate = false, onCreateO
     const groups = buildCuttingPlanGroups(order.pieces || [], planningStock.filter(item => ['Ploča','Ostatak'].includes(item.form) && !item.archived && Number(item.quantity || 0) > 0), machine);
     if (!groups.length) { window.alert('Nije moguće izraditi plan. Provjeri jesu li u nalogu spremljene dimenzije, materijali i debljine.'); return; }
     try {
-      const { solve2d, plan2dCuts } = await load2DSawPlanner();
       const results = groups.map(group => {
         const layout = solve2d({ sheets: [group.sheet], demands: group.demands }, { algorithm: 'auto', guillotine_required: true, seed: 42, min_usable_side: 100 });
         const plan = plan2dCuts(layout, { preset: 'panel_saw' });
