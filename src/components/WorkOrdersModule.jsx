@@ -7,7 +7,7 @@ import { releaseOrderReservations } from '../lib/workOrderStock.js';
 import { commitInventoryTransaction } from '../lib/inventoryLedger.js';
 import { suggestRemnantAssignments } from '../lib/remnantPlanner.js';
 import { buildCuttingPlanGroups, summarizeCuttingPlan, createSavedCuttingPlan } from '../lib/cuttingPlan.js';
-import { solve2d, plan2dCuts } from '@0xdoublesharp/bin-packing-wasm';
+import { solve2d, plan2dCuts } from '@0xdoublesharp/bin-packing-wasm/two-d';
 
 const seedOrders = [];
 const STORAGE_KEY = 'kamen-app-work-orders-v1';
